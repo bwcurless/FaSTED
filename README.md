@@ -2,7 +2,7 @@
 
 ## How to use
 - Open the `makefile` and make necessary changes to the existing `ampere`, `turing`, or `monsoon` rules according to where you wish to use this algorithm. Otherwise, add your own rule.
-  - In particular, make sure that you have the NVIDIA Samples downloaded somewhere, as it is needed for the NVIDIA code that is included in this code. An other solution is to not use this specific code, i.e., to remove the files from the list of files to compile, and from the code (comment the code that call the functions, remove the includes, etc.).
+  - In particular, make sure that you have the NVIDIA Samples downloaded from github somewhere, as it is needed for the NVIDIA code that is included in this code. Change the LIBS variable to point to where you have stored the 'Common' folder from the 'cuda-samples' repo. Another solution is to not use this specific code, i.e., to remove the files from the list of files to compile, and from the code (comment the code that call the functions, remove the includes, etc.).
 - Open `params.h` and change the `#define` values according to the dataset/experiments you wish to run:
   - `INPUT_DATA_DIM` corresponds to the dimensionality of the dataset.
   - `COMPUTE_DIM` corresponds to the next multiple of 16 of `INPUT_DATA_DIM` in FP16, or the next multiple of 4 of `INPUT_DATA_DIM` in FP64.
