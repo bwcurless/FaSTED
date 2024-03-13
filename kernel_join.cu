@@ -390,7 +390,8 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
     __shared__ half sharedArrayQueryPoints[WARP_PER_BLOCK * 16 * COMPUTE_DIM];
     //    __shared__ half sharedArrayTmp[WARP_PER_BLOCK * 16 * 16];
     //    __shared__ half sharedArrayCHalf[WARP_PER_BLOCK * 16 * 16];
-    // Squared coordinates of the query points
+    // Squared coordinates of the query points, there is one sum of squared entries per 16 dims
+    // iteration
     __shared__ ACCUM_TYPE sharedArraySquaredQueries[WARP_PER_BLOCK * 16 * (COMPUTE_DIM / 16)];
     // Squared coordinates for the candidate points being computed (up to 16 at a time)
     __shared__ ACCUM_TYPE sharedArraySquaredCandidates[WARP_PER_BLOCK * 16];
@@ -402,13 +403,15 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
 
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int warpIdInGrid = tid / WARP_SIZE;
-    unsigned int queryPoint = warpIdInGrid * 16;
+    // The first query point for this warp, out of 16 total
+    unsigned int baseQueryPoint = warpIdInGrid * 16;
     unsigned int warpIdInBlock = threadIdx.x / WARP_SIZE;
 
-    if ((*nbQueryPoints) <= queryPoint) {
+    if ((*nbQueryPoints) <= baseQueryPoint) {
         return;
     }
 
+    // Offsets for getting to this warp's parts of the shared memory arrays
     unsigned int sharedArrayQueryOffset = warpIdInBlock * 16 * COMPUTE_DIM;
     unsigned int sharedArrayOffset = warpIdInBlock * 16 * 16;
     unsigned int sharedArraySquaredOffset = warpIdInBlock * 16 * (COMPUTE_DIM / 16);
@@ -417,18 +420,21 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
     thread_block_tile<16> tile16 = tiled_partition<16>(warp);
 
     unsigned int nbStepsToPage = ceil((1.0 * COMPUTE_DIM) / (1.0 * WARP_SIZE));
+    // We normally batch 16 query points per warp, but we may have fewer than 16 in the last warp
     unsigned int nbQueriesBatch =
-        (queryPoint + 16 > (*nbQueryPoints)) ? (*nbQueryPoints) - queryPoint : 16;
+        (baseQueryPoint + 16 > (*nbQueryPoints)) ? (*nbQueryPoints) - baseQueryPoint : 16;
 
     // Page the query points in shared memory
-    // Uses all 32 threads ot the warp
+    // Uses all 32 threads of the warp, if COMPUTE_DIM is greater than 31
+    // i is the query point
     for (unsigned int i = 0; i < nbQueriesBatch; ++i) {
+        // j + warp.thread_rank() is a single dimension of i'th the query point
         for (unsigned int j = 0; j < COMPUTE_DIM; j += 32) {
             if ((j + warp.thread_rank()) < COMPUTE_DIM) {
                 sharedArrayQueryPoints[sharedArrayQueryOffset + i * COMPUTE_DIM + j +
                                        warp.thread_rank()] =
                     (COMPUTE_TYPE)(-2.0) *
-                    dataset[(queryPoint + i) * COMPUTE_DIM + j + warp.thread_rank()];
+                    dataset[(baseQueryPoint + i) * COMPUTE_DIM + j + warp.thread_rank()];
             }
         }
     }
@@ -449,7 +455,10 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
         for (unsigned int i = 0; i < (COMPUTE_DIM / 16); ++i) {
             if (warp.thread_rank() < nbQueriesBatch) {
                 sharedArraySquaredQueries[sharedArraySquaredOffset + i * 16 + warp.thread_rank()] =
-                    preComputedSquaredCoordinates[(queryPoint + warp.thread_rank()) *
+                    // Each thread is copying each query points sum of squares, they are broken up
+                    // into COMPUTE_DIM / 16 individual sums though, so larger compute dimensions
+                    // would result in more space required.
+                    preComputedSquaredCoordinates[(baseQueryPoint + warp.thread_rank()) *
                                                       (COMPUTE_DIM / 16) +
                                                   i];
             } else {
@@ -475,6 +484,7 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
             // Page the squared coordinates of the candidate points
             if (warp.thread_rank() < 16) {
                 if ((i + warp.thread_rank()) < (*nbQueryPoints)) {
+                    // Each thread page one candidate squared coordinate in, up to 16
                     unsigned int candidateId = i + warp.thread_rank();
                     sharedArraySquaredCandidates[warpIdInBlock * 16 + warp.thread_rank()] =
                         preComputedSquaredCoordinates[candidateId * (COMPUTE_DIM / 16) + (n / 16)];
@@ -507,7 +517,7 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
             wmma::store_matrix_sync(sharedArrayResultTmp + sharedArrayOffset, matrixQCC2, 16,
                                     wmma::mem_row_major);
 
-            // Finish computing the Euclidean distance using CUDA cores
+            // Finish computing the Euclidean distance using CUDA cores, add Q^2, and accumulate
             for (unsigned int j = 0; j < 16; j += 2) {
                 // Accumulate the previous result (from tensor cores), the Euclidean distance from
                 // previous dimensions, and the squared coordinates of the query points (stored in
