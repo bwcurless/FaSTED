@@ -78,6 +78,16 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
         ACCUM_TYPE* preComputedSquaredCoordinates);
 
 
+template <int Md, int Nd, int Kd>
+__device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
+                                            ACCUM_TYPE* epsilon, unsigned long long* cnt,
+                                            ACCUM_TYPE* preComputedSquaredCoordinates);
+
+__global__ void euclidianDistanceTensorCore_16_16_16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
+
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 
 

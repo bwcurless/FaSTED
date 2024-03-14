@@ -346,7 +346,10 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             const unsigned int nbBlock =
                 ceil(((1.0 * (*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
 #if INPUT_DATA_PREC != COMPUTE_PREC
-            distanceCalculationBruteForceTensorHalfOpti<<<nbBlock, tensorBlockSize>>>(
+            //    distanceCalculationBruteForceTensorHalfOpti<<<nbBlock, tensorBlockSize>>>(
+            //        dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+            //        dev_preComputedSquaredCoordinates);
+            euclidianDistanceTensorCore_16_16_16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinates);
 #else
