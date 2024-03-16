@@ -83,11 +83,20 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
                                             ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                             ACCUM_TYPE* preComputedSquaredCoordinates);
 
-__global__ void euclidianDistanceTensorCore_16_16_16(unsigned int* nbQueryPoints,
+__global__ void euclidianDistanceTensorCore_16x16x16(unsigned int* nbQueryPoints,
                                                      COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
                                                      unsigned long long* cnt,
                                                      ACCUM_TYPE* preComputedSquaredCoordinates);
 
+__global__ void euclidianDistanceTensorCore_32x8x16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
+
+__global__ void euclidianDistanceTensorCore_8x32x16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 
 

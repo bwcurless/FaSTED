@@ -346,10 +346,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             const unsigned int nbBlock =
                 ceil(((1.0 * (*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
 #if INPUT_DATA_PREC != COMPUTE_PREC
-            //    distanceCalculationBruteForceTensorHalfOpti<<<nbBlock, tensorBlockSize>>>(
-            //        dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-            //        dev_preComputedSquaredCoordinates);
-            euclidianDistanceTensorCore_16_16_16<<<nbBlock, tensorBlockSize>>>(
+            distanceCalculationBruteForceTensorHalfOpti<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinates);
 #else
@@ -364,6 +361,30 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
                 dev_nbQueryPoints, dev_dataset, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinates);
 #endif
+            break;
+        }
+        case SM_TENSOR_BR_16x16x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
+            printf("Running 16x16x16\n");
+            euclidianDistanceTensorCore_16x16x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
+            break;
+        }
+        case SM_TENSOR_BR_32x8x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 1.0) / (1.0 * tensorBlockSize)));
+            printf("Running 32x8x16\n");
+            euclidianDistanceTensorCore_32x8x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
+            break;
+        }
+        case SM_TENSOR_BR_8x32x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 4.0) / (1.0 * tensorBlockSize)));
+            printf("Running 8x32x16\n");
+            euclidianDistanceTensorCore_8x32x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
             break;
         }
         default: {

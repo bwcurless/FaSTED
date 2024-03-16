@@ -74,7 +74,10 @@ int main(int argc, char* argv[]) {
         case SM_GPU:
         case SM_CUDA_ALT:
         case SM_TENSOR:
-        case SM_TENSOR_OPTI: {
+        case SM_TENSOR_OPTI:
+        case SM_TENSOR_BR_16x16x16:
+        case SM_TENSOR_BR_32x8x16:
+        case SM_TENSOR_BR_8x32x16: {
             GPUJoinMainBruteForce(searchMode, device, database, &nbQueryPoints, &epsilon,
                                   &totalResult);
             break;

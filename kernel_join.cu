@@ -552,12 +552,28 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
     }  // for nbQueryPoints
 }
 
-__global__ void euclidianDistanceTensorCore_16_16_16(unsigned int* nbQueryPoints,
+__global__ void euclidianDistanceTensorCore_16x16x16(unsigned int* nbQueryPoints,
                                                      COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
                                                      unsigned long long* cnt,
                                                      ACCUM_TYPE* preComputedSquaredCoordinates) {
     euclidianDistanceTensorCore<16, 16, 16>(nbQueryPoints, dataset, epsilon, cnt,
                                             preComputedSquaredCoordinates);
+}
+
+__global__ void euclidianDistanceTensorCore_8x32x16(unsigned int* nbQueryPoints,
+                                                    COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                    unsigned long long* cnt,
+                                                    ACCUM_TYPE* preComputedSquaredCoordinates) {
+    euclidianDistanceTensorCore<8, 32, 16>(nbQueryPoints, dataset, epsilon, cnt,
+                                           preComputedSquaredCoordinates);
+}
+
+__global__ void euclidianDistanceTensorCore_32x8x16(unsigned int* nbQueryPoints,
+                                                    COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                    unsigned long long* cnt,
+                                                    ACCUM_TYPE* preComputedSquaredCoordinates) {
+    euclidianDistanceTensorCore<32, 8, 16>(nbQueryPoints, dataset, epsilon, cnt,
+                                           preComputedSquaredCoordinates);
 }
 // Variable Matrix Size Tensor cores kernel
 // Uses 1 warp to compute the distance between M query points and N candidate points at a time

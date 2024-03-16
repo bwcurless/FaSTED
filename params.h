@@ -179,6 +179,9 @@
 #define SM_CUDA_ALT 2           // CUDA cores alt
 #define SM_TENSOR 3             // Tensor cores 1Q
 #define SM_TENSOR_OPTI 4        // Tensor cores 16Q fixed
+#define SM_TENSOR_BR_16x16x16 42 // Tensor cores templated
+#define SM_TENSOR_BR_32x8x16 43 // Tensor cores templated
+#define SM_TENSOR_BR_8x32x16 44 // Tensor cores templated
 #define SM_NVIDIA 5             // Nvidia Tensor cores sample solution
 #define SM_CPU 6                // CPU algorithm
 
