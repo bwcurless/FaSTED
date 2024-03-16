@@ -644,8 +644,8 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
     }
 
     // Page the squared coordinates of the query points
-    // Only uses Md threads for simplicity
-    // Each thread copies over all of one query point's squared coordinates
+    // Only uses Md threads for simplicity (This works for M <= 32)
+    // Each thread copies over all of one query point's squared coordinates (iterate on i)
     // There are COMPUTE_DIM / K total squared coordinates
     if (warp.thread_rank() < Md) {
         for (unsigned int i = 0; i < (COMPUTE_DIM / Kd); ++i) {

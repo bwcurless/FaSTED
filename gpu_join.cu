@@ -257,7 +257,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 #endif
 
     ACCUM_TYPE* dev_preComputedSquaredCoordinates;
-    if (SM_TENSOR_OPTI == searchMode) {
+    if (SM_TENSOR_OPTI == searchMode || searchMode == SM_TENSOR_BR_16x16x16) {
 // Compute the squared and accumulated coordinates for the whole dataset
 #if COMPUTE_PREC == 16
         cudaErrCheck(cudaMalloc(
