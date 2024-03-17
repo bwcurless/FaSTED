@@ -2,8 +2,6 @@ SOURCEDIR = .
 BUILDDIR = build
 EXECUTABLE = main
 
-#SOURCES = utils.cu dataset.cu kernel_join.cu dmmaTensorCoresGemm.cu wmmaTensorCoresGemm.cu gpu_join.cu main.cu
-#OBJECTS = utils.o d/ataset.o kernel_join.o dmmaTensorCoresGemm.o wmmaTensorCoresGemm.o gpu_join.o main.o
 SOURCES = $(wildcard $(SOURCEDIR)/*.cu)
 OBJECTS = $(patsubst $(SOURCEDIR)/%.cu,./$(BUILDDIR)/%.o,$(SOURCES))
 
@@ -11,7 +9,7 @@ CC = nvcc
 
 FLAGS = -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
 # rdynamic and lineinfo for running memcheck
-DEBUGFLAGS = -std=c++14 -Xcompiler -fopenmp -lcuda -Xcompiler -rdynamic -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
+DEBUGFLAGS = -Xcompiler -rdynamic -lineinfo
 
 ampere:
 	echo "Compiling for Ampere generation (CC=86)"
@@ -25,10 +23,11 @@ monsoon:
 	echo "Compiling for Monsoon cluster with A100 (CC=80)"
 	$(MAKE) all ARCH=compute_80 CODE=sm_80 LIBS="$(HOME)/Documents/cuda-samples/Common"
 
-all: build $(BUILDDIR)/$(EXECUTABLE)
+all: prep $(BUILDDIR)/$(EXECUTABLE)
 
-build:
-	mkdir $(BUILDDIR)
+.PHONY: prep
+prep:
+	@mkdir -p $(BUILDDIR)
 
 $(BUILDDIR)/$(EXECUTABLE): $(OBJECTS)
 	echo $(LIBS)
