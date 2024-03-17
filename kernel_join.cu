@@ -744,6 +744,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
             // The last candidate warp, or last query warp might have fewer than the max # of points
             if (j < nbQueriesBatch * Nd && j % Nd < nbCandidatesCurrent) {
                 ACCUM_TYPE tmpDistance = abs(sharedArrayResult[sharedArrayResultOffset + j]);
+
 #if ACCUM_PREC == 16
                 if (hsqrt(tmpDistance) <= (*epsilon))
 #else
