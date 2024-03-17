@@ -1,3 +1,6 @@
+# Ignore virtual environment
+/python/venv
+
 # Prerequisites
 *.d
 
