@@ -740,7 +740,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
 
         // The Euclidean distance between the query points and the candidate points is now computed
         // Check for each pair if the distance is within epsilon or not
-        for (unsigned int j = 0; j < Md * Nd; j += WARP_SIZE) {
+        for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
             // The last candidate warp, or last query warp might have fewer than the max # of points
             if (j < nbQueriesBatch * Nd && j % Nd < nbCandidatesCurrent) {
                 ACCUM_TYPE tmpDistance = abs(sharedArrayResult[sharedArrayResultOffset + j]);
