@@ -1,16 +1,12 @@
 SOURCEDIR = .
-BUILDDIR = build
-EXECUTABLE = main
+EXE = main
 
 SOURCES = $(wildcard $(SOURCEDIR)/*.cu)
-OBJECTS = $(patsubst $(SOURCEDIR)/%.cu,./$(BUILDDIR)/%.o,$(SOURCES))
+OBJECTS = $(SOURCES:.cu=.o)
 
 CC = nvcc
 
-FLAGS = -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
-# rdynamic and lineinfo for running memcheck
-DEBUGFLAGS = -Xcompiler -rdynamic -lineinfo
-
+# Builds SASS for all architectures into one executable
 ARCHS = -arch=sm_75 \
 	-gencode=arch=compute_75,code=sm_75 \
 	-gencode=arch=compute_80,code=sm_80 \
@@ -19,19 +15,55 @@ ARCHS = -arch=sm_75 \
 # Need to download cuda samples to here from github
 LIBS="$(HOME)/Documents/cuda-samples/Common"
 
+#
+## Debug build settings
+#
+DBGDIR = debug
+DBGEXE = $(DBGDIR)/$(EXE)
+DBGOBJS = $(addprefix $(DBGDIR)/, $(OBJECTS))
+# rdynamic and lineinfo for running memcheck
+DBGFLAGS = -std=c++14 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic
 
-all: prep $(BUILDDIR)/$(EXECUTABLE)
+#
+## Release build settings
+#
+RELDIR = release
+RELEXE = $(RELDIR)/$(EXE)
+RELOBJS = $(addprefix $(RELDIR)/, $(OBJECTS))
+RELFLAGS = -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
 
-.PHONY: prep
+.PHONY: all clean debug prep release remake
+
+# General rules
+
+all: prep release
+
+remake: clean all
+
 prep:
-	@mkdir -p $(BUILDDIR)
-
-$(BUILDDIR)/$(EXECUTABLE): $(OBJECTS)
-	echo $(LIBS)
-	$(CC) $(FLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
-
-$(OBJECTS): $(BUILDDIR)/%.o: %.cu
-	$(CC) $(FLAGS) $(ARCHS) -I$(LIBS) $< -c -o $@
+	@mkdir -p $(DBGDIR) $(RELDIR)
 
 clean:
-	rm -rf $(BUILDDIR)
+	rm -f $(RELEXE) $(RELOBJS) $(DBGEXE) $(DBGOBJS)
+
+# Debug rules
+
+debug: $(DBGEXE)
+
+$(DBGEXE): $(DBGOBJS)
+	echo $(LIBS)
+	$(CC) $(DBGFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
+
+$(DBGDIR)/%.o: %.cu
+	$(CC) $(DBGFLAGS) $(ARCHS) -I$(LIBS) $< -c -o $@
+
+# Release rules
+
+release: $(RELEXE)
+
+$(RELEXE): $(RELOBJS)
+	echo $(LIBS)
+	$(CC) $(RELFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
+
+$(RELDIR)/%.o: %.cu
+	$(CC) $(RELFLAGS) $(ARCHS) -I$(LIBS) $< -c -o $@
