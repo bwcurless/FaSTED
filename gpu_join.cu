@@ -257,7 +257,8 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 #endif
 
     ACCUM_TYPE* dev_preComputedSquaredCoordinates;
-    if (SM_TENSOR_OPTI == searchMode || searchMode == SM_TENSOR_BR_16x16x16) {
+    ACCUM_TYPE* dev_preComputedSquaredCoordinatesFullySummed;
+    if (SM_TENSOR_OPTI == searchMode) {
 // Compute the squared and accumulated coordinates for the whole dataset
 #if COMPUTE_PREC == 16
         cudaErrCheck(cudaMalloc(
@@ -277,8 +278,18 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
         preComputedSquaredCoordinates<<<nbBlockTmp, BLOCKSIZE>>>(
             dev_dataset, dev_preComputedSquaredCoordinates, ((*nbQueryPoints) + ADDITIONAL_POINTS));
 #endif
+        // For the variable size tensor calculations, do the complete sum for every input vector
+    } else if (searchMode == SM_TENSOR_BR_16x16x16 || searchMode == SM_TENSOR_BR_32x8x16 ||
+               searchMode == SM_TENSOR_BR_8x32x16) {
+        // One point for every vector
+        cudaErrCheck(cudaMalloc((void**)&dev_preComputedSquaredCoordinatesFullySummed,
+                                sizeof(ACCUM_TYPE) * ((*nbQueryPoints) + ADDITIONAL_POINTS)));
+        // Each thread sums up all the squared elements of one vector
+        unsigned int blocks =
+            ceil((1.0 * ((*nbQueryPoints) + ADDITIONAL_POINTS)) / (1.0 * BLOCKSIZE));
+        preComputedSquaredCoordinatesComplete<<<blocks, BLOCKSIZE>>>(
+            dev_datasetAlt, dev_preComputedSquaredCoordinatesFullySummed, (*nbQueryPoints));
     }
-
     unsigned int* dev_nbQueryPoints;
     cudaErrCheck(cudaMalloc((void**)&dev_nbQueryPoints, sizeof(unsigned int)));
     cudaErrCheck(
@@ -294,7 +305,8 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 
     const unsigned int tensorBlockSize = WARP_PER_BLOCK * WARP_SIZE;
 
-    // TODO Add your new tensor core kernels here. It should look like the code for SM_TENSOR_OPTI
+    // TODO Add your new tensor core kernels here. It should look like the code for
+    // SM_TENSOR_OPTI
     switch (searchMode) {
         case SM_GPU: {
             // CUDA cores
@@ -368,7 +380,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             printf("Running 16x16x16\n");
             euclidianDistanceTensorCore_16x16x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-                dev_preComputedSquaredCoordinates);
+                dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
         case SM_TENSOR_BR_32x8x16: {
@@ -376,7 +388,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             printf("Running 32x8x16\n");
             euclidianDistanceTensorCore_32x8x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-                dev_preComputedSquaredCoordinates);
+                dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
         case SM_TENSOR_BR_8x32x16: {
@@ -384,7 +396,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             printf("Running 8x32x16\n");
             euclidianDistanceTensorCore_8x32x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-                dev_preComputedSquaredCoordinates);
+                dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
         default: {
