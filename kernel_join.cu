@@ -586,8 +586,6 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
     __shared__ ACCUM_TYPE sharedArraySquaredQueries[WARP_PER_BLOCK * Md];
     // Squared coordinates for the candidate points being computed (N at a time)
     __shared__ ACCUM_TYPE sharedArraySquaredCandidates[WARP_PER_BLOCK * Nd];
-    // Temporary array to store the result of the tensor cores
-    __shared__ ACCUM_TYPE sharedArrayResultTmp[WARP_PER_BLOCK * Md * Nd];
     // Final result array to accumulate/store the Euclidean distance between the query points and
     // candidate points
     __shared__ ACCUM_TYPE sharedArrayResult[WARP_PER_BLOCK * Md * Nd];
@@ -673,14 +671,18 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
             }
         }
 
+        // Matrix fragment setups...
+        // Fragments (i.e., matrices) for the MMA operations using the tensor cores
+        wmma::fragment<wmma::matrix_a, Md, Nd, Kd, half, wmma::row_major> matrixQ;
+        wmma::fragment<wmma::matrix_b, Md, Nd, Kd, half, wmma::col_major> matrixC;
+        // Declare this once as we repeatedly accumulate into it and need it at the end to extrac
+        // the results
+        wmma::fragment<wmma::accumulator, Md, Nd, Kd, ACCUM_TYPE> matrixQC;
+        // Fill initial result matrix with zeros
+        wmma::fill_fragment(matrixQC, 0.0);
+
         // Iterate over the dimensions of the candidate, one matrix worth at a time
         for (unsigned int baseDim = 0; baseDim < COMPUTE_DIM; baseDim += Kd) {
-            // Fragments (i.e., matrices) for the MMA operations using the tensor cores
-            wmma::fragment<wmma::matrix_a, Md, Nd, Kd, half, wmma::row_major> matrixQ;
-            wmma::fragment<wmma::matrix_b, Md, Nd, Kd, half, wmma::col_major> matrixC;
-            wmma::fragment<wmma::accumulator, Md, Nd, Kd, ACCUM_TYPE> matrixC2;
-            wmma::fragment<wmma::accumulator, Md, Nd, Kd, ACCUM_TYPE> matrixQCC2;
-
             // Load the query points and candidate points into the fragments
             // Query points are loaded from shared memory
             // Candidate points can be loaded from global memory since the accesses are coalesced
@@ -689,34 +691,20 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
                 matrixQ, sharedArrayQueryPoints + sharedArrayQueryOffset + baseDim, COMPUTE_DIM);
             wmma::load_matrix_sync(matrixC, dataset + baseCandidate * COMPUTE_DIM + baseDim,
                                    COMPUTE_DIM);
-            // 0 here for stride because we repeat the squared value across each row
-            // wmma::load_matrix_sync(
-            //     matrixC2, sharedArraySquaredCandidates + sharedArraySquaredCandidatesOffset, 0,
-            //     wmma::mem_row_major);
-            // Null fill this up with 0 for now since we will just add in the squared term at the
-            // end
-            wmma::fill_fragment(matrixC2, 0.0);
-            wmma::fill_fragment(matrixQCC2, 0.0);
 
-            // Perform the MMA operation (Q x C + C2, where Q is the query points, C the candidate
-            // points, and C2 is empty for now
-            wmma::mma_sync(matrixQCC2, matrixQ, matrixC, matrixC2);
-            // store that intermediary result into the temporary array
-            wmma::store_matrix_sync(sharedArrayResultTmp + sharedArrayResultOffset, matrixQCC2, Nd,
-                                    wmma::mem_row_major);
+            // Perform the MMA operation QC_Accum = Q_partial x C_partial + QC_Accum, where Q is the
+            // query points, C the candidate points, and QC_Accum is the previous results from lower
+            // dimensions being accumulated into.
+            wmma::mma_sync(matrixQC, matrixQ, matrixC, matrixQC);
 
-            // TODO make this addition happen using the tensor cores
-            // Finish computing the Euclidean distance using CUDA cores, add Q^2, and accumulate
-            for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
-                // Accumulate the previous result (from tensor cores), and the Euclidean distance
-                // from previous dimensions
-                unsigned int localId = sharedArrayResultOffset + j;
-                sharedArrayResult[localId] += sharedArrayResultTmp[localId];
-            }
         }  // for COMPUTE_DIM
+           // Extract the final accumulated results
+        wmma::store_matrix_sync(sharedArrayResult + sharedArrayResultOffset, matrixQC, Nd,
+                                wmma::mem_row_major);
 
         // The Euclidean distance between the query points and the candidate points is almost
-        // computed. Check for each pair if the distance is within epsilon or not
+        // computed. Finish computation and check for each pair if the distance is within epsilon or
+        // not
         // TODO once this is working, get rid of modulos as they are slow
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
             // The last candidate warp, or last query warp might have fewer than the max # of points
