@@ -1,6 +1,7 @@
 #!/bin/bash
-# Copy over relevant files to slurm
-
-scp debug/main wind:euclid/debug/
-scp release/main wind:euclid/release/
-scp ./Slurm_Debug_A100.sh wind:euclid/debug
+# Syncs tensor program to cmp computer
+dirname="$(basename "$(pwd)")"
+destname="wind:~/$dirname"
+echo "Copying all files in directory $dirname to $destname"
+# Copy actual file instead of symlinks
+rsync -a --copy-links --exclude='.*.swp' --exclude='/python/' ./ "$destname"

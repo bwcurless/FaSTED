@@ -12,7 +12,7 @@
 
 module load cuda
 #compute-sanitizer --tool memcheck main expo_16D_262144.txt 0.001 42
-./debug/main ~/datasets/expo_16D_200000.txt 0.1 4
-./debug/main ~/datasets/expo_16D_200000.txt 0.1 42
-./debug/main ~/datasets/expo_16D_200000.txt 0.1 43
-./debug/main ~/datasets/expo_16D_200000.txt 0.1 44
+./release/main ~/datasets/expo_16D_200000.txt 0.1 4
+./release/main ~/datasets/expo_16D_200000.txt 0.1 42
+./release/main ~/datasets/expo_16D_200000.txt 0.1 43
+./release/main ~/datasets/expo_16D_200000.txt 0.1 44

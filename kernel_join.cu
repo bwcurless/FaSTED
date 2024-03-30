@@ -415,7 +415,6 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
     thread_block_tile<16> tile16 = tiled_partition<16>(warp);
 
-    unsigned int nbStepsToPage = ceil((1.0 * COMPUTE_DIM) / (1.0 * WARP_SIZE));
     // We normally batch 16 query points per warp, but we may have fewer than 16 in the last warp
     unsigned int nbQueriesBatch =
         (baseQueryPoint + 16 > (*nbQueryPoints)) ? (*nbQueryPoints) - baseQueryPoint : 16;
@@ -577,18 +576,18 @@ __global__ void euclidianDistanceTensorCore_32x8x16(unsigned int* nbQueryPoints,
 // Uses the extended Euclidean distance formula
 template <int Md, int Nd, int Kd>
 __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
-                                            ACCUM_TYPE* epsilon, unsigned long long* cnt,
-                                            ACCUM_TYPE* preComputedSquaredCoordinates) {
+                                            float* epsilon, unsigned long long* cnt,
+                                            float* preComputedSquaredCoordinates) {
     // Shared memory arrays
     // Query points
     __shared__ half sharedArrayQueryPoints[WARP_PER_BLOCK * Md * COMPUTE_DIM];
     // Squared coordinates of the query points, there is one sum of squared entries per query point
-    __shared__ ACCUM_TYPE sharedArraySquaredQueries[WARP_PER_BLOCK * Md];
+    __shared__ float sharedArraySquaredQueries[WARP_PER_BLOCK * Md];
     // Squared coordinates for the candidate points being computed (N at a time)
-    __shared__ ACCUM_TYPE sharedArraySquaredCandidates[WARP_PER_BLOCK * Nd];
+    __shared__ float sharedArraySquaredCandidates[WARP_PER_BLOCK * Nd];
     // Final result array to accumulate/store the Euclidean distance between the query points and
     // candidate points
-    __shared__ ACCUM_TYPE sharedArrayResult[WARP_PER_BLOCK * Md * Nd];
+    __shared__ float sharedArrayResult[WARP_PER_BLOCK * Md * Nd];
 
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int warpIdInGrid = tid / WARP_SIZE;
@@ -643,7 +642,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
                 preComputedSquaredCoordinates[firstQueryPoint + warp.thread_rank()];
         } else {
             sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + warp.thread_rank()] =
-                (ACCUM_TYPE)0.0;
+                (float)0.0;
         }
     }
 
@@ -655,7 +654,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
         // Set the result array to 0 for the current candidate points, for this warp
         // Need all 32 threads in this warp to fill up M x N elements
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
-            sharedArrayResult[sharedArrayResultOffset + j] = (ACCUM_TYPE)0.0;
+            sharedArrayResult[sharedArrayResultOffset + j] = (float)0.0;
         }
 
         // This warp needs to page the squared coordinates of it's candidate points, 1 value for
@@ -666,8 +665,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
                 sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] =
                     preComputedSquaredCoordinates[candidateId];
             } else {
-                sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] =
-                    (ACCUM_TYPE)0.0;
+                sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] = (float)0.0;
             }
         }
 
@@ -677,7 +675,7 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
         wmma::fragment<wmma::matrix_b, Md, Nd, Kd, half, wmma::col_major> matrixC;
         // Declare this once as we repeatedly accumulate into it and need it at the end to extrac
         // the results
-        wmma::fragment<wmma::accumulator, Md, Nd, Kd, ACCUM_TYPE> matrixQC;
+        wmma::fragment<wmma::accumulator, Md, Nd, Kd, float> matrixQC;
         // Fill initial result matrix with zeros
         wmma::fill_fragment(matrixQC, 0.0);
 
@@ -710,17 +708,12 @@ __device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE
             // The last candidate warp, or last query warp might have fewer than the max # of points
             if (j < nbQueriesBatch * Nd && j % Nd < nbCandidatesCurrent) {
                 // Need to add in C^2 and Q^2 for each value to finalize distance calculation
-                ACCUM_TYPE tmpDistance = abs(
-                    sharedArrayResult[sharedArrayResultOffset + j] +
-                    sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + (j / Nd)] +
-                    sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]);
+                float tmpDistance =
+                    (sharedArrayResult[sharedArrayResultOffset + j] +
+                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + (j / Nd)] +
+                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]);
 
-#if ACCUM_PREC == 16
-                if (hsqrt(tmpDistance) <= (*epsilon))
-#else
-                if (sqrt(tmpDistance) <= (*epsilon))
-#endif
-                {
+                if (sqrt(tmpDistance) <= (*epsilon)) {
                     unsigned int tmpIdx = atomicAdd(cnt, int(1));
                 }
             }
