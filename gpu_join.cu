@@ -7,6 +7,8 @@
 #include <iostream>
 #include <utility>
 
+#include "omp.h"
+
 //#include "cutlass/cutlass.h"
 //#include "cutlass/gemm/device/gemm.h"
 
@@ -305,6 +307,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 
     const unsigned int tensorBlockSize = WARP_PER_BLOCK * WARP_SIZE;
 
+    double tStartDist = omp_get_wtime();
     // TODO Add your new tensor core kernels here. It should look like the code for
     // SM_TENSOR_OPTI
     switch (searchMode) {
@@ -406,6 +409,10 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
     }
 
     cudaDeviceSynchronize();
+
+    double tEndDist = omp_get_wtime();
+    double timeDist = tEndDist - tStartDist;
+    std::cout << "[Main | Result] ~ Time to calculate distance: " << timeDist << '\n';
 
     cudaErrCheck(cudaMemcpy(cnt, dev_cnt, sizeof(unsigned long long), cudaMemcpyDeviceToHost));
     (*totalNeighbors) = (*cnt);
