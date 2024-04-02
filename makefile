@@ -22,7 +22,7 @@ DBGDIR = debug
 DBGEXE = $(DBGDIR)/$(EXE)
 DBGOBJS = $(addprefix $(DBGDIR)/, $(OBJECTS))
 # rdynamic and lineinfo for running memcheck
-DBGFLAGS = -std=c++14 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
+DBGFLAGS = -std=c++14 -g -G -Xcompiler -fopenmp -lcuda -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
 
 #
 ## Release build settings
@@ -51,7 +51,6 @@ clean:
 debug: $(DBGEXE)
 
 $(DBGEXE): $(DBGOBJS)
-	echo $(LIBS)
 	$(CC) $(DBGFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
 
 $(DBGDIR)/%.o: %.cu
@@ -62,7 +61,6 @@ $(DBGDIR)/%.o: %.cu
 release: $(RELEXE)
 
 $(RELEXE): $(RELOBJS)
-	echo $(LIBS)
 	$(CC) $(RELFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
 
 $(RELDIR)/%.o: %.cu
