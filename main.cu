@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -15,14 +16,41 @@
 
 int main(int argc, char* argv[]) {
     char filename[256];
-    strcpy(filename, argv[FILENAME_ARG]);
-    ACCUM_TYPE epsilon = atof(argv[EPSILON_ARG]);
-    unsigned int searchMode = atoi(argv[SEARCHMODE_ARG]);
-    unsigned int device = 0;
-    if (5 <= argc) {
-        device = atoi(argv[DEVICE_ARG]);
+    char* endptr;
+    if (argc < 4) {
+        fprintf(stderr,
+                "Too few command line arguments. <pathToDataset> <epsilon> <searchMode> are "
+                "required\n");
+        return EXIT_FAILURE;
     }
 
+    // Filepath is checked later when dataset is loaded
+    strcpy(filename, argv[FILENAME_ARG]);
+
+    // Validate that a valid double was passed in
+    ACCUM_TYPE epsilon = strtod(argv[EPSILON_ARG], &endptr);
+    std::cout << "[Main | Input] ~ Epsilon: " << epsilon << '\n';
+    if (*endptr != '\0') {
+        fprintf(stderr, "Invalid argument, `%s' is not a valid epsilon\n", argv[EPSILON_ARG]);
+        return EXIT_FAILURE;
+    }
+
+    // We should get an error when we go to use the search mode if it's invalid, no point in
+    // checking if it's valid here
+    unsigned int searchMode = atoi(argv[SEARCHMODE_ARG]);
+    std::cout << "[Main | Input] ~ SearchMode: " << searchMode << '\n';
+
+    unsigned int device = 0;
+    if (argc == DEVICE_ARG + 1) {
+        device = strtol(argv[DEVICE_ARG], &endptr, 10);
+        if (*endptr != '\0') {
+            fprintf(stderr, "Invalid argument, `%s' is not a valid GPU device index\n",
+                    argv[DEVICE_ARG]);
+            return EXIT_FAILURE;
+        }
+    }
+
+    std::cout << "[Main | Input] ~ Running on device: " << device << '\n';
     cudaSetDevice(device);
 
     /***** Import dataset *****/
@@ -91,8 +119,8 @@ int main(int argc, char* argv[]) {
             break;
         }
         default: {
-            std::cerr << "[Main] ~ Error: Unknown search mode\n";
-            return 1;
+            std::cerr << "[Main] ~ Error: Unknown search mode: " << searchMode << "\n";
+            return EXIT_FAILURE;
         }
     }
 
@@ -105,9 +133,9 @@ int main(int argc, char* argv[]) {
     std::ifstream inputResultFile("tensor_brute-force.txt");
     outputResultFile.open("tensor_brute-force.txt", std::ios::out | std::ios::app);
     if (inputResultFile.peek() == std::ifstream::traits_type::eof()) {
-        outputResultFile
-            << "Dataset, epsilon, searchMode, executionTime, totalNeighbors, inputDim, computeDim, "
-               "blockSize, warpPerBlock, computePrec, accumPrec\n";
+        outputResultFile << "Dataset, epsilon, searchMode, executionTime, totalNeighbors, "
+                            "inputDim, computeDim, "
+                            "blockSize, warpPerBlock, computePrec, accumPrec\n";
     }
     outputResultFile << filename << ", " << epsilon << ", " << searchMode << ", " << timeJoin
                      << ", " << totalResult << ", " << INPUT_DATA_DIM << ", " << COMPUTE_DIM << ", "
