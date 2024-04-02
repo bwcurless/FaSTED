@@ -260,7 +260,8 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 
     ACCUM_TYPE* dev_preComputedSquaredCoordinates;
     ACCUM_TYPE* dev_preComputedSquaredCoordinatesFullySummed;
-    if (SM_TENSOR_OPTI == searchMode) {
+    if (searchMode == SM_TENSOR_OPTI || searchMode == SM_TENSOR_SC_16x16x16 ||
+        searchMode == SM_TENSOR_SC_32x8x16 || searchMode == SM_TENSOR_SC_8x32x16) {
 // Compute the squared and accumulated coordinates for the whole dataset
 #if COMPUTE_PREC == 16
         cudaErrCheck(cudaMalloc(
@@ -281,8 +282,8 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             dev_dataset, dev_preComputedSquaredCoordinates, ((*nbQueryPoints) + ADDITIONAL_POINTS));
 #endif
         // For the variable size tensor calculations, do the complete sum for every input vector
-    } else if (searchMode == SM_TENSOR_BR_16x16x16 || searchMode == SM_TENSOR_BR_32x8x16 ||
-               searchMode == SM_TENSOR_BR_8x32x16) {
+    } else if (searchMode == SM_TENSOR_FS_16x16x16 || searchMode == SM_TENSOR_FS_32x8x16 ||
+               searchMode == SM_TENSOR_FS_8x32x16) {
         // One point for every vector
         cudaErrCheck(cudaMalloc((void**)&dev_preComputedSquaredCoordinatesFullySummed,
                                 sizeof(ACCUM_TYPE) * ((*nbQueryPoints) + ADDITIONAL_POINTS)));
@@ -378,28 +379,52 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
 #endif
             break;
         }
-        case SM_TENSOR_BR_16x16x16: {
+        case SM_TENSOR_FS_16x16x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
             printf("Running 16x16x16\n");
-            euclidianDistanceTensorCore_16x16x16<<<nbBlock, tensorBlockSize>>>(
+            distanceTCFullySummed_32x8x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
-        case SM_TENSOR_BR_32x8x16: {
+        case SM_TENSOR_FS_32x8x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 1.0) / (1.0 * tensorBlockSize)));
             printf("Running 32x8x16\n");
-            euclidianDistanceTensorCore_32x8x16<<<nbBlock, tensorBlockSize>>>(
+            distanceTCFullySummed_32x8x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
-        case SM_TENSOR_BR_8x32x16: {
+        case SM_TENSOR_FS_8x32x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 4.0) / (1.0 * tensorBlockSize)));
             printf("Running 8x32x16\n");
-            euclidianDistanceTensorCore_8x32x16<<<nbBlock, tensorBlockSize>>>(
+            distanceTCFullySummed_8x32x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinatesFullySummed);
+            break;
+        }
+        case SM_TENSOR_SC_16x16x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
+            printf("Running 16x16x16\n");
+            distanceTCShortCircuitable_32x8x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
+            break;
+        }
+        case SM_TENSOR_SC_32x8x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 1.0) / (1.0 * tensorBlockSize)));
+            printf("Running 32x8x16\n");
+            distanceTCShortCircuitable_32x8x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
+            break;
+        }
+        case SM_TENSOR_SC_8x32x16: {
+            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 4.0) / (1.0 * tensorBlockSize)));
+            printf("Running 8x32x16\n");
+            distanceTCShortCircuitable_8x32x16<<<nbBlock, tensorBlockSize>>>(
+                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+                dev_preComputedSquaredCoordinates);
             break;
         }
         default: {

@@ -174,14 +174,16 @@
 #define SEARCHMODE_ARG 3
 #define DEVICE_ARG 4
 
-// TODO: Add the search modes for the new tensor core kernels
 #define SM_GPU 1                // CUDA cores normal
 #define SM_CUDA_ALT 2           // CUDA cores alt
 #define SM_TENSOR 3             // Tensor cores 1Q
 #define SM_TENSOR_OPTI 4        // Tensor cores 16Q fixed
-#define SM_TENSOR_BR_16x16x16 42 // Tensor cores templated
-#define SM_TENSOR_BR_32x8x16 43 // Tensor cores templated
-#define SM_TENSOR_BR_8x32x16 44 // Tensor cores templated
+#define SM_TENSOR_FS_16x16x16 41 // Tensor cores, fully summed squared coordinates, mixed precision FP16-FP32
+#define SM_TENSOR_FS_32x8x16 42 // Tensor cores, fully summed squared coordinates, mixed precision FP16-FP32
+#define SM_TENSOR_FS_8x32x16 43 // Tensor cores, fully summed squared coordinates, mixed precision FP16-FP32
+#define SM_TENSOR_SC_16x16x16 44 // Tensor cores, short circuitable squared coordinates, mixed precision FP16-FP32
+#define SM_TENSOR_SC_32x8x16 45 // Tensor cores, short circuitable squared coordinates, mixed precision FP16-FP32
+#define SM_TENSOR_SC_8x32x16 46 // Tensor cores, short circuitable squared coordinates, mixed precision FP16-FP32
 #define SM_NVIDIA 5             // Nvidia Tensor cores sample solution
 #define SM_CPU 6                // CPU algorithm
 

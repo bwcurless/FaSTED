@@ -77,23 +77,44 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
         unsigned long long* cnt,
         ACCUM_TYPE* preComputedSquaredCoordinates);
 
-
+// Full summed version of mixed precision kernel
 template <int Md, int Nd, int Kd>
-__device__ void euclidianDistanceTensorCore(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
+__device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                             ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                             ACCUM_TYPE* preComputedSquaredCoordinates);
 
-__global__ void euclidianDistanceTensorCore_16x16x16(unsigned int* nbQueryPoints,
+__global__ void distanceTCFullySummed_16x16x16(unsigned int* nbQueryPoints,
                                                      COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
                                                      unsigned long long* cnt,
                                                      ACCUM_TYPE* preComputedSquaredCoordinates);
 
-__global__ void euclidianDistanceTensorCore_32x8x16(unsigned int* nbQueryPoints,
+__global__ void distanceTCFullySummed_32x8x16(unsigned int* nbQueryPoints,
                                                      COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
                                                      unsigned long long* cnt,
                                                      ACCUM_TYPE* preComputedSquaredCoordinates);
 
-__global__ void euclidianDistanceTensorCore_8x32x16(unsigned int* nbQueryPoints,
+__global__ void distanceTCFullySummed_8x32x16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
+
+// Short circuitable version of mixed precision kernel
+template <int Md, int Nd, int Kd>
+__device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
+                                            ACCUM_TYPE* epsilon, unsigned long long* cnt,
+                                            ACCUM_TYPE* preComputedSquaredCoordinates);
+
+__global__ void distanceTCShortCircuitable_16x16x16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
+
+__global__ void distanceTCShortCircuitable_32x8x16(unsigned int* nbQueryPoints,
+                                                     COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
+                                                     unsigned long long* cnt,
+                                                     ACCUM_TYPE* preComputedSquaredCoordinates);
+
+__global__ void distanceTCShortCircuitable_8x32x16(unsigned int* nbQueryPoints,
                                                      COMPUTE_TYPE* dataset, ACCUM_TYPE* epsilon,
                                                      unsigned long long* cnt,
                                                      ACCUM_TYPE* preComputedSquaredCoordinates);

@@ -17,9 +17,12 @@
       - 2: CUDA cores, extended Euclidean distance formula
       - 3: Tensor cores (1 query point per warp at a time)
       - 4: Tensor cores (16 query points per warp at a time in FP16, 8 in FP64)
-      - 42: Tensor cores 16x16x16
-      - 43: Tensor cores 32x8x16
-      - 44: Tensor cores 8x32x16
+      - 41: Tensor cores fully summed squared coordinates 16x16x16
+      - 42: Tensor cores fully summed squared coordinates 32x8x16
+      - 43: Tensor cores fully summed squared coordinates 8x32x16
+      - 44: Tensor cores short circuitable 16x16x16
+      - 45: Tensor cores short circuitable 32x8x16
+      - 46: Tensor cores short circuitable 8x32x16
       - 5: NVIDIA algorithm (from GitHub)
       - 6: CPU algorithm *(WIP)*
     - `gpu_id`: Optional, ID of the GPU to use. If not specified, the first GPU will be used.
