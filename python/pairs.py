@@ -4,26 +4,27 @@ import os
 import argparse
 
 def main(dataset, epsilon):
-    data = np.genfromtxt(dataset, delimiter=',', dtype='double', usemask=True)
+    data = np.genfromtxt(dataset, delimiter=',', dtype=np.float64, usemask=True)
     print(f"data.shape: {data.shape}")
     print(f"epsilon: {epsilon}")
     
 
     # Compute euclidean distance pairs in double precision
     # We don't have enough memory to do it on one go, so break it down
-    pointsPerIter = 100
+    pointsPerIter = 1000
     # Calculate sum of squares once
     sums = np.sum(data ** 2, axis=1)
     numPairs = 0;
     indices = np.ndarray((0, 2))
     for firstIndex in range(0, data.shape[0], pointsPerIter):
+    #for firstIndex in range(0, 1000, pointsPerIter):
         endIndex = min(data.shape[0], firstIndex + pointsPerIter)
         print(f"endIndex: {endIndex}")
         
         dataSubset = data[firstIndex:endIndex]
 
         dists = sums.T + np.dot(-2 * dataSubset, data.T) + sums[firstIndex:endIndex].reshape(-1, 1)
-        dists = np.sqrt(dists)
+        dists = np.sqrt(abs(dists))
         
         pairs = dists < epsilon
         subsetNumPairs = np.sum(pairs)
@@ -36,7 +37,7 @@ def main(dataset, epsilon):
         localIndices[:, 0] += firstIndex
         indices = np.vstack((indices, localIndices))
 
-    pairsFileName = f'{os.path.basename(dataset.name)}_pairs_eps_{epsilon}.out'
+    pairsFileName = f'pairs/{os.path.basename(dataset.name)}_pairs_eps_{epsilon}.out'
     print(f"pairsFileName: {pairsFileName}")
     
     np.savetxt(pairsFileName, indices, delimiter=',', fmt='%u')
