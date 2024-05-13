@@ -705,12 +705,14 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
         // TODO once this is working, get rid of modulos as they are slow
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
             // The last candidate warp, or last query warp might have fewer than the max # of points
-            if (j < nbQueriesBatch * Nd && j % Nd < nbCandidatesCurrent) {
+            if ((j / Nd) < nbQueriesBatch && j % Nd < nbCandidatesCurrent) {
                 // Need to add in C^2 and Q^2 for each value to finalize distance calculation
-                float tmpDistance =
+                // Take the absolute value in case we end up with a tiny negative number, this
+                // distance should still be 0
+                float tmpDistance = fabs(
                     (sharedArrayResult[sharedArrayResultOffset + j] +
                      sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + (j / Nd)] +
-                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]);
+                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]));
 
                 if (sqrt(tmpDistance) <= (*epsilon)) {
                     unsigned int tmpIdx = atomicAdd(cnt, int(1));
@@ -762,8 +764,8 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
     __shared__ float sharedArraySquaredCandidates[WARP_PER_BLOCK * Nd];
     // Temporary array to store the result of the tensor cores
     __shared__ float sharedArrayResultTmp[WARP_PER_BLOCK * Md * Nd];
-    // Final result array to accumulate/store the Euclidean distance between the query points and
-    // candidate points
+    // Final result array to accumulate/store the Euclidean distance between the query points
+    // and candidate points
     __shared__ float sharedArrayResult[WARP_PER_BLOCK * Md * Nd];
 
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -821,9 +823,9 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
             if (warp.thread_rank() < nbQueriesBatch) {
                 sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + i * Md +
                                           warp.thread_rank()] =
-                    // Each thread is copying each query point's sum of squares, they are broken up
-                    // into COMPUTE_DIM / Kd individual sums though, so larger compute dimensions
-                    // would result in more space required.
+                    // Each thread is copying each query point's sum of squares, they are broken
+                    // up into COMPUTE_DIM / Kd individual sums though, so larger compute
+                    // dimensions would result in more space required.
                     preComputedSquaredCoordinates[(firstQueryPoint + warp.thread_rank()) *
                                                       (COMPUTE_DIM / Kd) +
                                                   i];
@@ -847,15 +849,15 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
 
         // Iterate over the dimensions of the candidate, one matrix worth at a time
         for (unsigned int baseDim = 0; baseDim < COMPUTE_DIM; baseDim += Kd) {
-            // This warp needs to page the squared coordinates of it's candidate points, 1 value for
-            // every candidate
+            // This warp needs to page the squared coordinates of it's candidate points, 1 value
+            // for every candidate
             if (warp.thread_rank() < Nd) {
                 unsigned int candidateId = baseCandidate + warp.thread_rank();
                 if (candidateId < (*nbQueryPoints)) {
                     // Each thread page one candidate squared coordinate in
                     sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] =
-                        // There are COMPUTE_DIM / Kd squared points per candidate, and we are at
-                        // the baseDim / Kd th point
+                        // There are COMPUTE_DIM / Kd squared points per candidate, and we are
+                        // at the baseDim / Kd th point
                         preComputedSquaredCoordinates[candidateId * (COMPUTE_DIM / Kd) +
                                                       (baseDim / Kd)];
                 } else {
@@ -872,8 +874,9 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
 
             // Load the query points and candidate points into the fragments
             // Query points are loaded from shared memory
-            // Candidate points can be loaded from global memory since the accesses are coalesced
-            // Stride by entire dimension of vector since we paged all the query points in
+            // Candidate points can be loaded from global memory since the accesses are
+            // coalesced Stride by entire dimension of vector since we paged all the query
+            // points in
             wmma::load_matrix_sync(
                 matrixQ, sharedArrayQueryPoints + sharedArrayQueryOffset + baseDim, COMPUTE_DIM);
             wmma::load_matrix_sync(matrixC, dataset + baseCandidate * COMPUTE_DIM + baseDim,
@@ -884,8 +887,8 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
                 wmma::mem_row_major);
             wmma::fill_fragment(matrixQCC2, 0.0);
 
-            // Perform the MMA operation (Q x C + C2, where Q is the query points, C the candidate
-            // points, and C2 the squared candidate points
+            // Perform the MMA operation (Q x C + C2, where Q is the query points, C the
+            // candidate points, and C2 the squared candidate points
             wmma::mma_sync(matrixQCC2, matrixQ, matrixC, matrixC2);
             // store that intermediary result into the temporary array
             wmma::store_matrix_sync(sharedArrayResultTmp + sharedArrayResultOffset, matrixQCC2, Nd,
@@ -893,24 +896,26 @@ __device__ void distanceTCShortCircuitable(unsigned int* nbQueryPoints, COMPUTE_
 
             // Finish computing the Euclidean distance using CUDA cores, add Q^2, and accumulate
             for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
-                // Accumulate the previous result (from tensor cores), the Euclidean distance from
-                // previous dimensions, and the squared coordinates of the query points (stored in
-                // shared memory)
+                // Accumulate the previous result (from tensor cores), the Euclidean distance
+                // from previous dimensions, and the squared coordinates of the query points
+                // (stored in shared memory)
                 unsigned int localId = sharedArrayResultOffset + j;
                 sharedArrayResult[localId] +=
                     sharedArrayResultTmp[localId] +
                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset +
                                               // Which iteration we are on in the dimensions, *
-                                              // Md for the number of query points per mma, + the
-                                              // query point we are on (The row of the matrix)
+                                              // Md for the number of query points per mma, +
+                                              // the query point we are on (The row of the
+                                              // matrix)
                                               (baseDim / Kd) * Md + (j / Nd)];
             }
         }  // for COMPUTE_DIM
 
-        // The Euclidean distance between the query points and the candidate points is now computed
-        // Check for each pair if the distance is within epsilon or not
+        // The Euclidean distance between the query points and the candidate points is now
+        // computed Check for each pair if the distance is within epsilon or not
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
-            // The last candidate warp, or last query warp might have fewer than the max # of points
+            // The last candidate warp, or last query warp might have fewer than the max # of
+            // points
             if (j < nbQueriesBatch * Nd && j % Nd < nbCandidatesCurrent) {
                 float tmpDistance = abs(sharedArrayResult[sharedArrayResultOffset + j]);
 
@@ -1012,8 +1017,8 @@ __global__ void distanceCalculationBruteForceTensorDoubleOpti(
     //         printf("Query %d: ", i);
     //         for (unsigned int j = 0; j < COMPUTE_DIM; ++j)
     //         {
-    //             printf("%f, ", sharedArrayQueryPoints[sharedArrayQueryOffset + i * COMPUTE_DIM +
-    //             j]);
+    //             printf("%f, ", sharedArrayQueryPoints[sharedArrayQueryOffset + i *
+    //             COMPUTE_DIM + j]);
     //         }
     //         printf("\n");
     //     }
@@ -1040,7 +1045,8 @@ __global__ void distanceCalculationBruteForceTensorDoubleOpti(
     //     {
     //         for (unsigned int j = 0; j < 8; ++j)
     //         {
-    //             printf("%f, ", sharedArraySquaredQueries[sharedArraySquaredOffset + i * 8 + j]);
+    //             printf("%f, ", sharedArraySquaredQueries[sharedArraySquaredOffset + i * 8 +
+    //             j]);
     //         }
     //         printf("\n");
     //     }
@@ -1062,7 +1068,8 @@ __global__ void distanceCalculationBruteForceTensorDoubleOpti(
             //             tile4.thread_rank()];
             //     if (0 == tile4.thread_rank())
             //     {
-            //         sharedArraySquaredCandidates[warpIdInBlock * 8 + tile4.meta_group_rank()] =
+            //         sharedArraySquaredCandidates[warpIdInBlock * 8 + tile4.meta_group_rank()]
+            //         =
             //                 preComputedSquaredCoordinates[(i + tile4.meta_group_rank()) *
             //                 (COMPUTE_DIM / 4) + (n / 4)];
             //     }
@@ -1070,8 +1077,8 @@ __global__ void distanceCalculationBruteForceTensorDoubleOpti(
             //     sharedArrayTmp8x4[sharedArray8x4Offset + tile4.meta_group_rank() * 4 +
             //     tile4.thread_rank()] = 0.0; if (0 == tile4.thread_rank())
             //     {
-            //         sharedArraySquaredCandidates[warpIdInBlock * 8 + tile4.meta_group_rank()] =
-            //         0.0;
+            //         sharedArraySquaredCandidates[warpIdInBlock * 8 + tile4.meta_group_rank()]
+            //         = 0.0;
             //     }
             // }
 
