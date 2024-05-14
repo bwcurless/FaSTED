@@ -9,16 +9,16 @@
 
 #include "omp.h"
 
-//#include "cutlass/cutlass.h"
-//#include "cutlass/gemm/device/gemm.h"
+// #include "cutlass/cutlass.h"
+// #include "cutlass/gemm/device/gemm.h"
 
-//#include "cutlass/util/command_line.h"
-//#include "cutlass/util/host_tensor.h"
-//#include "cutlass/util/reference/device/gemm.h"
-//#include "cutlass/util/reference/host/tensor_compare.h"
-//#include "cutlass/util/reference/host/tensor_copy.h"
-//#include "cutlass/util/reference/host/tensor_fill.h"
-//#include "cutlass/util/tensor_view_io.h"
+// #include "cutlass/util/command_line.h"
+// #include "cutlass/util/host_tensor.h"
+// #include "cutlass/util/reference/device/gemm.h"
+// #include "cutlass/util/reference/host/tensor_compare.h"
+// #include "cutlass/util/reference/host/tensor_copy.h"
+// #include "cutlass/util/reference/host/tensor_fill.h"
+// #include "cutlass/util/tensor_view_io.h"
 
 #include "dmmaTensorCoresGemm.cuh"
 #include "gpu_join.h"
@@ -382,7 +382,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
         case SM_TENSOR_FS_16x16x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
             printf("Running 16x16x16\n");
-            distanceTCFullySummed_32x8x16<<<nbBlock, tensorBlockSize>>>(
+            distanceTCFullySummed_16x16x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinatesFullySummed);
             break;
@@ -406,7 +406,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
         case SM_TENSOR_SC_16x16x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
             printf("Running 16x16x16\n");
-            distanceTCShortCircuitable_32x8x16<<<nbBlock, tensorBlockSize>>>(
+            distanceTCShortCircuitable_16x16x16<<<nbBlock, tensorBlockSize>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinates);
             break;
