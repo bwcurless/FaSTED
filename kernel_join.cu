@@ -577,6 +577,7 @@ template <int Md, int Nd, int Kd>
 __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                       float* epsilon, unsigned long long* cnt,
                                       float* preComputedSquaredCoordinates) {
+    unsigned long count = 0;
     // Shared memory arrays
     // Query points
     __shared__ half sharedArrayQueryPoints[WARP_PER_BLOCK * Md * COMPUTE_DIM];
@@ -715,11 +716,14 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                      sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]));
 
                 if (sqrt(tmpDistance) <= (*epsilon)) {
-                    unsigned int tmpIdx = atomicAdd(cnt, int(1));
+                    count++;
                 }
             }
         }
     }  // for nbQueryPoints
+
+    // Sum these up once for every thread
+    atomicAdd(cnt, count);
 }
 
 __global__ void distanceTCShortCircuitable_16x16x16(unsigned int* nbQueryPoints,
