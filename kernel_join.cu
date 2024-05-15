@@ -602,7 +602,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // Offsets for getting to this warp's parts of the shared memory arrays
     unsigned int sharedArrayQueryOffset = warpIdInBlock * Md * COMPUTE_DIM;
     unsigned int sharedArraySquaredQueriesOffset = warpIdInBlock * Md;
-    unsigned int sharedArraySquaredCandidatesOffset = warpIdInBlock * Nd;
     unsigned int sharedArrayResultOffset = warpIdInBlock * Md * Nd;
 
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
@@ -657,17 +656,21 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             sharedArrayResult[sharedArrayResultOffset + j] = (float)0.0;
         }
 
+        __syncthreads();
         // This warp needs to page the squared coordinates of it's candidate points, 1 value for
         // every candidate. This only has to happen once for every set of candidate points
-        if (warp.thread_rank() < Nd) {
+        // Only do this on one warp in the block, no need to repeat it. All warps in the block can
+        // reuse it
+        if (threadIdx.x < Nd) {
             unsigned int candidateId = baseCandidate + warp.thread_rank();
             if (candidateId < (*nbQueryPoints)) {
-                sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] =
+                sharedArraySquaredCandidates[warp.thread_rank()] =
                     preComputedSquaredCoordinates[candidateId];
             } else {
-                sharedArraySquaredCandidates[warpIdInBlock * Nd + warp.thread_rank()] = (float)0.0;
+                sharedArraySquaredCandidates[warp.thread_rank()] = (float)0.0;
             }
         }
+        __syncthreads();
 
         // Matrix fragment setups...
         // Fragments (i.e., matrices) for the MMA operations using the tensor cores
@@ -703,7 +706,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
         // The Euclidean distance between the query points and the candidate points is almost
         // computed. Finish computation and check for each pair if the distance is within epsilon or
         // not
-        // TODO once this is working, get rid of modulos as they are slow
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
             unsigned int queryIndex = j / Nd;
             unsigned int candIndex = j % Nd;
@@ -712,16 +714,17 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                 // Need to add in C^2 and Q^2 for each value to finalize distance calculation
                 // Take the absolute value in case we end up with a tiny negative number, this
                 // distance should still be 0
-                float tmpDistance = fabs(
-                    (sharedArrayResult[sharedArrayResultOffset + j] +
-                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + queryIndex] +
-                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + candIndex]));
+                float tmpDistance =
+                    fabs((sharedArrayResult[sharedArrayResultOffset + j] +
+                          sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + queryIndex] +
+                          sharedArraySquaredCandidates[candIndex]));
 
                 if (sqrt(tmpDistance) <= (*epsilon)) {
                     count++;
                 }
             }
         }
+
     }  // for nbQueryPoints
 
     // Sum these up once for every thread
