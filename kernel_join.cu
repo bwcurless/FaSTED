@@ -577,6 +577,7 @@ template <int Md, int Nd, int Kd>
 __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                       float* epsilon, unsigned long long* cnt,
                                       float* preComputedSquaredCoordinates) {
+    float epsCached = *epsilon;
     unsigned long count = 0;
     // Shared memory arrays
     // Query points
@@ -699,7 +700,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                                 wmma::mem_row_major);
 
         __syncthreads();
-
         // The Euclidean distance between the query points and the candidate points is almost
         // computed. Finish computation and check for each pair if the distance is within epsilon or
         // not
@@ -716,7 +716,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                           sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + queryIndex] +
                           sharedArraySquaredCandidates[candIndex]));
 
-                if (sqrt(tmpDistance) <= (*epsilon)) {
+                if (sqrt(tmpDistance) <= epsCached) {
                     count++;
                 }
             }
