@@ -705,15 +705,17 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
         // not
         // TODO once this is working, get rid of modulos as they are slow
         for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
+            unsigned int queryIndex = j / Nd;
+            unsigned int candIndex = j % Nd;
             // The last candidate warp, or last query warp might have fewer than the max # of points
-            if ((j / Nd) < nbQueriesBatch && j % Nd < nbCandidatesCurrent) {
+            if (queryIndex < nbQueriesBatch && candIndex < nbCandidatesCurrent) {
                 // Need to add in C^2 and Q^2 for each value to finalize distance calculation
                 // Take the absolute value in case we end up with a tiny negative number, this
                 // distance should still be 0
                 float tmpDistance = fabs(
                     (sharedArrayResult[sharedArrayResultOffset + j] +
-                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + (j / Nd)] +
-                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + (j % Nd)]));
+                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + queryIndex] +
+                     sharedArraySquaredCandidates[sharedArraySquaredCandidatesOffset + candIndex]));
 
                 if (sqrt(tmpDistance) <= (*epsilon)) {
                     count++;
