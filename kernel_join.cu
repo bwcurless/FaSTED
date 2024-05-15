@@ -583,8 +583,9 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     __shared__ half sharedArrayQueryPoints[WARP_PER_BLOCK * Md * COMPUTE_DIM];
     // Squared coordinates of the query points, there is one sum of squared entries per query point
     __shared__ float sharedArraySquaredQueries[WARP_PER_BLOCK * Md];
-    // Squared coordinates for the candidate points being computed (N at a time)
-    __shared__ float sharedArraySquaredCandidates[WARP_PER_BLOCK * Nd];
+    // Squared coordinates for the candidate points being computed (N at a time). These are shared
+    // by all warps in the same block
+    __shared__ float sharedArraySquaredCandidates[Nd];
     // Final result array to accumulate/store the Euclidean distance between the query points and
     // candidate points
     __shared__ float sharedArrayResult[WARP_PER_BLOCK * Md * Nd];
@@ -650,21 +651,19 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
         unsigned int nbCandidatesLeft = (*nbQueryPoints) - baseCandidate;
         unsigned int nbCandidatesCurrent = min(Nd, nbCandidatesLeft);
 
-        __syncthreads();
         // This warp needs to page the squared coordinates of it's candidate points, 1 value for
         // every candidate. This only has to happen once for every set of candidate points
         // Only do this on one warp in the block, no need to repeat it. All warps in the block can
         // reuse it
         if (threadIdx.x < Nd) {
-            unsigned int candidateId = baseCandidate + warp.thread_rank();
+            unsigned int candidateId = baseCandidate + threadIdx.x;
             if (candidateId < (*nbQueryPoints)) {
-                sharedArraySquaredCandidates[warp.thread_rank()] =
+                sharedArraySquaredCandidates[threadIdx.x] =
                     preComputedSquaredCoordinates[candidateId];
             } else {
-                sharedArraySquaredCandidates[warp.thread_rank()] = (float)0.0;
+                sharedArraySquaredCandidates[threadIdx.x] = (float)0.0;
             }
         }
-        __syncthreads();
 
         // Matrix fragment setups...
         // Fragments (i.e., matrices) for the MMA operations using the tensor cores
@@ -684,6 +683,8 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             // Stride by entire dimension of vector since we paged all the query points in
             wmma::load_matrix_sync(
                 matrixQ, sharedArrayQueryPoints + sharedArrayQueryOffset + baseDim, COMPUTE_DIM);
+
+            // Sync up becauase we need the shared memory values to be stored
             wmma::load_matrix_sync(matrixC, dataset + baseCandidate * COMPUTE_DIM + baseDim,
                                    COMPUTE_DIM);
 
@@ -696,6 +697,8 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
            // Extract the final accumulated results
         wmma::store_matrix_sync(sharedArrayResult + sharedArrayResultOffset, matrixQC, Nd,
                                 wmma::mem_row_major);
+
+        __syncthreads();
 
         // The Euclidean distance between the query points and the candidate points is almost
         // computed. Finish computation and check for each pair if the distance is within epsilon or
@@ -718,6 +721,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                 }
             }
         }
+        __syncthreads();
 
     }  // for nbQueryPoints
 
