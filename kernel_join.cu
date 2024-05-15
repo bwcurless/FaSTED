@@ -650,12 +650,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
         unsigned int nbCandidatesLeft = (*nbQueryPoints) - baseCandidate;
         unsigned int nbCandidatesCurrent = min(Nd, nbCandidatesLeft);
 
-        // Set the result array to 0 for the current candidate points, for this warp
-        // Need all 32 threads in this warp to fill up M x N elements
-        for (unsigned int j = warp.thread_rank(); j < Md * Nd; j += WARP_SIZE) {
-            sharedArrayResult[sharedArrayResultOffset + j] = (float)0.0;
-        }
-
         __syncthreads();
         // This warp needs to page the squared coordinates of it's candidate points, 1 value for
         // every candidate. This only has to happen once for every set of candidate points
