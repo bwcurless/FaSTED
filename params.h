@@ -12,7 +12,7 @@
 #define BLOCKSIZE 256
 
 // Number of warps per block when using the tensor cores
-#define WARP_PER_BLOCK 4
+#define WARP_PER_BLOCK 8
 
 // Precision of the input data (should be set to 64)
 #define INPUT_DATA_PREC 64
