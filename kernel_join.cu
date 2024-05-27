@@ -550,10 +550,10 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
 __global__ void distanceTCFullySummed_16x16x16(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                                ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                                ACCUM_TYPE* preComputedSquaredCoordinates) {
-    distanceTCFullySummed<16, 16, 16>(nbQueryPoints, dataset, epsilon, cnt,
-                                      preComputedSquaredCoordinates);
+    distanceTCFullySummed<128, 128, COMPUTE_DIM, 128, 16, 16, 16>(
+        nbQueryPoints, dataset, epsilon, cnt, preComputedSquaredCoordinates);
 }
-
+/**
 __global__ void distanceTCFullySummed_8x32x16(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                               ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                               ACCUM_TYPE* preComputedSquaredCoordinates) {
@@ -567,6 +567,7 @@ __global__ void distanceTCFullySummed_32x8x16(unsigned int* nbQueryPoints, COMPU
     distanceTCFullySummed<32, 8, 16>(nbQueryPoints, dataset, epsilon, cnt,
                                      preComputedSquaredCoordinates);
 }
+**/
 
 // Variable Matrix Size Tensor cores kernel
 // Uses tensor cores to compute the distance between M query points and N candidate points at a time
@@ -586,6 +587,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // Compute the square once for all comparisons
     float epsCached = *epsilon;
     float epsSquared = epsCached * epsCached;
+    unsigned int nbPoints = *nbQueryPoints;
     unsigned long count = 0;
 
     // In the end these are all the values that need to be copied from global memory for each block
@@ -607,10 +609,9 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // candidate points
     __shared__ float sharedArrayResult[IterTileSize * IterTileSize];
 
-    const int tidx = threadIdx.x + blockIdx.x * blockDim.x;
-    const int tidy = threadIdx.y + blockIdx.y * blockDim.y;
-    const unsigned int warpId = threadIdx.x / WARP_SIZE;
-    const unsigned int laneId = threadIdx.x % WARP_SIZE;
+    const unsigned int threadId = (threadIdx.x + threadIdx.y * blockDim.x);
+    const unsigned int warpId = threadId / WARP_SIZE;
+    const unsigned int laneId = threadId % WARP_SIZE;
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
 
     // Each block is responsible for a tile of the output matrix with this upper left coordinate, of
@@ -627,18 +628,52 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     for (int iyBlockTile = 0; iyBlockTile < BlockItemsY; iyBlockTile += IterTileSize) {
 #pragma unroll
         for (int ixBlockTile = 0; ixBlockTile < BlockItemsX; ixBlockTile += IterTileSize) {
-            // Make sure calculations are done before proceeding to destroy shared memory
-            __syncthreads();
+            // Compute which elements this block tile iteration is responsible for computing
+            const unsigned int blockTileStartX = blockStartX + ixBlockTile;
+            const unsigned int blockTileStartY = blockStartY + iyBlockTile;
 
             // Page a 128x128 tile of candidate and query points into shared memory, along with
             // their relevant squared values
             // Have half the warps handle query points and squared points
             // Have the second half of warps handle candidate points
+            // Group should be 0 or 1 in this configuration
+            const int warpGroup = (warpId / (WARPS_PER_BLOCK / 2));
+            const int relWarpIndex = warpId % (WARPS_PER_BLOCK / 2);
+            const unsigned int relLaneId = relWarpIndex * WARP_SIZE + laneId;
 
-            // Compute which elements this block tile iteration is responsible for computing
-            const unsigned int blockTileStartX = blockStartX + ixBlockTile;
-            const unsigned int blockTileStartY = blockStartY + iyBlockTile;
+            // Make sure distance calculations from previous iteration are done before proceeding to
+            // destroy shared memory
+            __syncthreads();
 
+            // TODO do this with vectorized loads or async mem copy
+            // Copy the points over, need to copy A and B
+            // slices of size 128xCOMPUTE_DIM and COMPUTE_DIMx128 to compute a 128x128 tile of
+            // output items, since we have 4 warps for A, and 4 for B, we have 128 threads and each
+            // one is responsible for copying COMPUTE_DIM half values over.
+#pragma unroll
+            for (int i = 0; i < COMPUTE_DIM; i++) {
+                if (warpGroup == 0) {
+                    sharedArrayQueryPoints[relLaneId * COMPUTE_DIM + i] =
+                        // Base point for A matrix tile, plus the offset for the particular thread
+                        // TODO This is probably bad because global reads will not coalesce
+                        dataset[(blockTileStartY + relLaneId) * COMPUTE_DIM + i];
+                }
+                if (warpGroup == 1) {
+                    // Base point for B matrix tile...
+                    sharedArrayCandidatePoints[relLaneId * COMPUTE_DIM + i] =
+                        dataset[(blockTileStartX + relLaneId) * COMPUTE_DIM + i];
+                }
+            }
+            // Page squared candidates over. 128 for A tile, 128 for B tile. We happen to have 4
+            // warps for each so it works out perfectly.
+            if (warpGroup == 0) {
+                sharedArraySquaredCandidates[relLaneId] =
+                    preComputedSquaredCoordinates[blockTileStartY + relLaneId];
+            }
+            if (warpGroup == 1) {
+                sharedArraySquaredQueries[relLaneId] =
+                    preComputedSquaredCoordinates[blockTileStartX + relLaneId];
+            }
             // Have warps divide and conquer on the the 128x128 tile since each can only calculate
             // Md x Nd x Kd at a time
 
@@ -658,6 +693,26 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             // into shared memory
             __syncthreads();
 
+            // Warps each take a piece of the overall block's output calculations. They are
+            // organized in a 2 x 4 grid. Or BLOCK_ROW_WARPS x BLOCK_COL_WARPS
+            // The organization is:
+            // Warp 0 | Warp 2 | Warp 4 | Warp 6
+            // Warp 1 | Warp 3 | Warp 5 | Warp 7
+            const unsigned int ItemsPerWarpX = IterTileSize / BLOCK_COL_WARPS;
+            const unsigned int ItemsPerWarpY = IterTileSize / BLOCK_ROW_WARPS;
+            // Each warp doesn't have enough registers to compute the outputs it is responsible for
+            // in one go. It needs to do mulitiple tiled iterations. These are organized in a 4 x 2
+            // grid, or WARP_ROW_TILES x WARP_COL_TILES
+            // The organization is:
+            // a[0]*b[0] | a[0]*b[1]
+            // a[1]*b[0] | a[1]*b[1]
+            // a[2]*b[0] | a[2]*b[1]
+            // a[3]*b[0] | a[3]*b[1]
+            const unsigned int ItemsPerWarpIterX = ItemsPerWarpX / WARP_COL_TILES;
+            const unsigned int ItemsPerWarpIterY = ItemsPerWarpY / WARP_ROW_TILES;
+            // The chunk in the output matrix above organization that this warp is responsible for
+            const unsigned int warpTileStartX = relWarpIndex * ItemsPerWarpX;
+            const unsigned int warpTileStartY = warpGroup * ItemsPerWarpY;
 #pragma unroll
             for (int ikWarpTile = 0; ikWarpTile < COMPUTE_DIM / WmmaKd; ikWarpTile++) {
                 // Each warp has to do 8 iterations to cover it's portion of the 128x128 tile.
@@ -669,32 +724,53 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                 // Each warp will compute the 8 sub matrices
 #pragma unroll
                 for (int ixWarpTile = 0; ixWarpTile < WARP_COL_TILES; ixWarpTile++) {
-                    wmma::load_matrix_sync(a[ixWarpTile], sharedArrayQueryPoints, COMPUTE_DIM);
+                    // TODO Not factoring in K here if K is bigger than one iteration
+                    const unsigned int bWarpBaseOffset = warpTileStartX;
+                    const unsigned int bWarpIterOffset = ItemsPerWarpIterX * ixWarpTile;
+                    wmma::load_matrix_sync(
+                        b[ixWarpTile],
+                        sharedArrayCandidatePoints + bWarpBaseOffset + bWarpIterOffset,
+                        IterTileSize);
 #pragma unroll
                     for (int iyWarpTile = 0; iyWarpTile < WARP_ROW_TILES; iyWarpTile++) {
-                        // Only load the 4 b matrix fragments the first time, because they will be
+                        // Only load the 4 a matrix fragments the first time, because they will be
                         // reused against the other a matrix fragments
                         if (ixWarpTile == 0) {
-                            wmma::load_matrix_sync(b[iyWarpTile], sharedArrayCandidatePoints,
-                                                   COMPUTE_DIM);
+                            // TODO Not factoring in K here if K is bigger than one iteration
+                            const unsigned int aWarpBaseOffset = warpTileStartY * COMPUTE_DIM;
+                            const unsigned int aWarpIterOffset =
+                                ItemsPerWarpIterY * iyWarpTile * COMPUTE_DIM;
+                            wmma::load_matrix_sync(
+                                a[iyWarpTile],
+                                sharedArrayQueryPoints + aWarpBaseOffset + aWarpIterOffset,
+                                BlockItemsK);
                         }
                         // Multiply this permutation
-                        wmma::mma_sync(accum[ixWarpTile][iyWarpTile], a[ixWarpTile], b[iyWarpTile],
+                        wmma::mma_sync(accum[ixWarpTile][iyWarpTile], a[iyWarpTile], b[ixWarpTile],
                                        accum[ixWarpTile][iyWarpTile]);
                     }
                 }
             }
+            // Sync to make sure all mma ops have finished before looking at results.
             __syncthreads();
 
 #pragma unroll
             for (int ixWarpTile = 0; ixWarpTile < WARP_COL_TILES; ixWarpTile++) {
 #pragma unroll
                 for (int iyWarpTile = 0; iyWarpTile < WARP_ROW_TILES; iyWarpTile++) {
-                    // TODO fix the initial offset here, depending on what warp we are and what tile
-                    // this is, it needs to go to a different part of shared memory
-                    wmma::store_matrix_sync(sharedArrayResult, accum[ixWarpTile][iyWarpTile],
-                                            WmmaNd, wmma::mem_row_major);
+                    // Depending on what warp we are in the block,
+                    // and what tile this is within the warp, it needs to go to a different part of
+                    // shared memory
+                    const unsigned int warpTileOutputOffset =
+                        warpTileStartX + warpTileStartY * IterTileSize;
+                    const unsigned int warpTileIterOutputOffset =
+                        ItemsPerWarpIterX * ixWarpTile + (ItemsPerWarpY * IterTileSize);
+                    wmma::store_matrix_sync(
+                        sharedArrayResult + warpTileOutputOffset + warpTileIterOutputOffset,
+                        accum[ixWarpTile][iyWarpTile], IterTileSize, wmma::mem_row_major);
 
+                    // Wait for results to all be copied to shared mem before computing final
+                    // distance
                     __syncthreads();
 
                     // The Euclidean distance between the query points and the candidate points is
@@ -707,18 +783,15 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                         for (int j = threadIdx.x; j < IterTileSize;
                              j += WARPS_PER_BLOCK * WARP_SIZE) {
                             // Bounds check to make sure the tile didn't go over the edge
-                            if (i + blockTileStartY < *nbQueryPoints &&
-                                j + blockTileStartX < *nbQueryPoints) {
+                            if (i + blockTileStartY < nbPoints && j + blockTileStartX < nbPoints) {
                                 // Need to add in C^2 and Q^2 for each value to finalize distance
                                 // calculation Take the absolute value in case we end up with a tiny
                                 // negative number, this distance should still be 0
-                                float tmpDistance = fabs(
-                                    (sharedArrayResult[sharedArrayResultOffset + j] +
-                                     sharedArraySquaredQueries[sharedArraySquaredQueriesOffset +
-                                                               queryRelIndex] +
-                                     sharedArraySquaredCandidates[candRelIndex]));
+                                float tmpDistance = sharedArrayResult[i * IterTileSize + j] +
+                                                    sharedArraySquaredQueries[i] +
+                                                    sharedArraySquaredCandidates[j];
 
-                                if (sqrt(tmpDistance) <= epsCached) {
+                                if (tmpDistance < epsSquared) {
                                     count++;
                                 }
                             }
@@ -728,127 +801,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             }
         }
     }
-
-    // We normally batch M query points per warp, but we may have fewer than M in the last
-    // warp
-    unsigned int nbQueriesBatch = min(WmmaMd, (*nbQueryPoints) - firstQueryPoint);
-
-    // Page the query points into shared memory
-    for (unsigned int i = 0; i < nbQueriesBatch; ++i) {
-        // j + warp.thread_rank() is a single dimension of i'th the query point
-        for (unsigned int j = 0; j < COMPUTE_DIM; j += 32) {
-            if ((j + warp.thread_rank()) < COMPUTE_DIM) {
-                sharedArrayQueryPoints[sharedArrayQueryOffset + i * COMPUTE_DIM + j +
-                                       warp.thread_rank()] =
-                    (COMPUTE_TYPE)(-2.0) *
-                    dataset[(firstQueryPoint + i) * COMPUTE_DIM + j + warp.thread_rank()];
-            }
-        }
-    }
-    // If the warp is assigned fewer than 16 query points (e.g., the very last warp), fill
-    // the remaining slots with 0
-    for (unsigned int i = nbQueriesBatch; i < WmmaMd; ++i) {
-        for (unsigned int j = 0; j < COMPUTE_DIM; j += 32) {
-            if ((j + warp.thread_rank()) < COMPUTE_DIM) {
-                sharedArrayQueryPoints[sharedArrayQueryOffset + i * COMPUTE_DIM + j +
-                                       warp.thread_rank()] = (half)0.0;
-            }
-        }
-    }
-
-    // Page the squared coordinates of the query points
-    // Only uses Md threads for simplicity (This works for M <= 32)
-    // Each thread copies over one query point's fully summed squared coordinates
-    if (warp.thread_rank() < WmmaMd) {
-        if (warp.thread_rank() < nbQueriesBatch) {
-            sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + warp.thread_rank()] =
-                preComputedSquaredCoordinates[firstQueryPoint + warp.thread_rank()];
-        } else {
-            sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + warp.thread_rank()] =
-                (float)0.0;
-        }
-    }
-
-    // Iterate over the dataset points
-    for (unsigned int baseCandidate = 0; baseCandidate < (*nbQueryPoints);
-         baseCandidate += WmmaNd) {
-        unsigned int nbCandidatesLeft = (*nbQueryPoints) - baseCandidate;
-        unsigned int nbCandidatesCurrent = min(WmmaNd, nbCandidatesLeft);
-
-        // This warp needs to page the squared coordinates of it's candidate points, 1 value
-        // for every candidate. This only has to happen once for every set of candidate
-        // points Only do this on one warp in the block, no need to repeat it. All warps in
-        // the block can reuse it
-        if (threadIdx.x < WmmaNd) {
-            unsigned int candidateId = baseCandidate + threadIdx.x;
-            if (candidateId < (*nbQueryPoints)) {
-                sharedArraySquaredCandidates[threadIdx.x] =
-                    preComputedSquaredCoordinates[candidateId];
-            } else {
-                sharedArraySquaredCandidates[threadIdx.x] = (float)0.0;
-            }
-        }
-
-        // Matrix fragment setups...
-        // Fragments (i.e., matrices) for the MMA operations using the tensor cores
-        wmma::fragment<wmma::matrix_a, WmmaMd, WmmaNd, WmmaKd, half, wmma::row_major> matrixQ;
-        wmma::fragment<wmma::matrix_b, WmmaMd, WmmaNd, WmmaKd, half, wmma::col_major> matrixC;
-        // Declare this once as we repeatedly accumulate into it and need it at the end to
-        // extrac the results
-        wmma::fragment<wmma::accumulator, WmmaMd, WmmaNd, WmmaKd, float> matrixQC;
-        // Fill initial result matrix with zeros
-        wmma::fill_fragment(matrixQC, 0.0);
-
-        // Iterate over the dimensions of the candidate, one matrix worth at a time
-        for (unsigned int baseDim = 0; baseDim < COMPUTE_DIM; baseDim += WmmaKd) {
-            // Load the query points and candidate points into the fragments
-            // Query points are loaded from shared memory
-            // Candidate points can be loaded from global memory since the accesses are
-            // coalesced Stride by entire dimension of vector since we paged all the query
-            // points in
-            wmma::load_matrix_sync(
-                matrixQ, sharedArrayQueryPoints + sharedArrayQueryOffset + baseDim, COMPUTE_DIM);
-
-            // Sync up becauase we need the shared memory values to be stored
-            wmma::load_matrix_sync(matrixC, dataset + baseCandidate * COMPUTE_DIM + baseDim,
-                                   COMPUTE_DIM);
-
-            // Perform the MMA operation QC_Accum = Q_partial x C_partial + QC_Accum, where
-            // Q is the query points, C the candidate points, and QC_Accum is the previous
-            // results from lower dimensions being accumulated into.
-            wmma::mma_sync(matrixQC, matrixQ, matrixC, matrixQC);
-
-        }  // for COMPUTE_DIM
-           // Extract the final accumulated results
-        wmma::store_matrix_sync(sharedArrayResult + sharedArrayResultOffset, matrixQC, WmmaNd,
-                                wmma::mem_row_major);
-
-        __syncthreads();
-        // The Euclidean distance between the query points and the candidate points is
-        // almost computed. Finish computation and check for each pair if the distance is
-        // within epsilon or not
-        for (unsigned int j = warp.thread_rank(); j < WmmaMd * WmmaNd; j += WARP_SIZE) {
-            unsigned int queryIndex = j / WmmaNd;
-            unsigned int candIndex = j % WmmaNd;
-            // The last candidate warp, or last query warp might have fewer than the max #
-            // of points
-            if (queryIndex < nbQueriesBatch && candIndex < nbCandidatesCurrent) {
-                // Need to add in C^2 and Q^2 for each value to finalize distance
-                // calculation Take the absolute value in case we end up with a tiny
-                // negative number, this distance should still be 0
-                float tmpDistance =
-                    fabs((sharedArrayResult[sharedArrayResultOffset + j] +
-                          sharedArraySquaredQueries[sharedArraySquaredQueriesOffset + queryIndex] +
-                          sharedArraySquaredCandidates[candIndex]));
-
-                if (sqrt(tmpDistance) <= epsCached) {
-                    count++;
-                }
-            }
-        }
-        __syncthreads();
-
-    }  // for nbQueryPoints
 
     // Sum these up once for every thread
     atomicAdd(cnt, count);

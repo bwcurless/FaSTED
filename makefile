@@ -7,10 +7,7 @@ OBJECTS = $(SOURCES:.cu=.o)
 CC = nvcc
 
 # Builds SASS for all architectures into one executable
-ARCHS = -arch=sm_75 \
-	-gencode=arch=compute_75,code=sm_75 \
-	-gencode=arch=compute_80,code=sm_80 \
-	-gencode=arch=compute_86,code=sm_86 \
+ARCHS = -arch=compute_80 -code=sm_80
 
 # Need to download cuda samples to here from github
 LIBS="$(HOME)/cuda-samples/Common"

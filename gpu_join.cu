@@ -390,17 +390,17 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
         case SM_TENSOR_FS_32x8x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 1.0) / (1.0 * tensorBlockSize)));
             printf("Running 32x8x16\n");
-            distanceTCFullySummed_32x8x16<<<nbBlock, tensorBlockSize>>>(
-                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-                dev_preComputedSquaredCoordinatesFullySummed);
+            // distanceTCFullySummed_32x8x16<<<nbBlock, tensorBlockSize>>>(
+            //    dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+            //    dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
         case SM_TENSOR_FS_8x32x16: {
             const unsigned int nbBlock = ceil((((*nbQueryPoints) * 4.0) / (1.0 * tensorBlockSize)));
             printf("Running 8x32x16\n");
-            distanceTCFullySummed_8x32x16<<<nbBlock, tensorBlockSize>>>(
-                dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
-                dev_preComputedSquaredCoordinatesFullySummed);
+            // distanceTCFullySummed_8x32x16<<<nbBlock, tensorBlockSize>>>(
+            //    dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
+            //    dev_preComputedSquaredCoordinatesFullySummed);
             break;
         }
         case SM_TENSOR_SC_16x16x16: {

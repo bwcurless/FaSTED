@@ -111,6 +111,7 @@
 
 //#define BLOCK_ROW_WARPS 4
 //#define BLOCK_COL_WARPS 2
+// How the block divides up the work into warp responsibilities. Can only have a certain number of warps because of hardware limitations.
 #if COMPUTE_PREC == 64
     #define BLOCK_ROW_WARPS 4
     #define BLOCK_COL_WARPS 2
@@ -121,6 +122,7 @@
 
 //#define WARP_ROW_TILES 2
 //#define WARP_COL_TILES 4
+// How the warps divide the work assigned to them (not enough registers for one go)
 #if COMPUTE_PREC == 64
     #define WARP_ROW_TILES 2
     #define WARP_COL_TILES 4

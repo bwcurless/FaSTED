@@ -78,7 +78,8 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
         ACCUM_TYPE* preComputedSquaredCoordinates);
 
 // Full summed version of mixed precision kernel
-template <int Md, int Nd, int Kd>
+template <int BlockItemsY, int BlockItemsX, int BlockItemsK, int IterTileSize, int WmmaMd,
+          int WmmaNd, int WmmaKd>
 __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                             ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                             ACCUM_TYPE* preComputedSquaredCoordinates);
