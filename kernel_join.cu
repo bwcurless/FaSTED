@@ -550,7 +550,7 @@ __global__ void distanceCalculationBruteForceTensorHalfOpti(
 __global__ void distanceTCFullySummed_16x16x16(unsigned int* nbQueryPoints, COMPUTE_TYPE* dataset,
                                                ACCUM_TYPE* epsilon, unsigned long long* cnt,
                                                ACCUM_TYPE* preComputedSquaredCoordinates) {
-    distanceTCFullySummed<128, 128, COMPUTE_DIM, 128, 16, 16, 16>(
+    distanceTCFullySummed<BLOCKITEMSY, BLOCKITEMSX, COMPUTE_DIM, ITERTILESIZE, 16, 16, 16>(
         nbQueryPoints, dataset, epsilon, cnt, preComputedSquaredCoordinates);
 }
 /**
@@ -597,21 +597,22 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // datasetSize / 108 * 1 * 4 bytes for Candidate squared values
     // (Md x Nd) * WARPS_PER_BLOCK * 4 bytes for the result distances computed by tensor cores
 
+    extern __shared__ int shared_mem[];
     // Break these down into a series of loads since we don't have enough shared memory to pull them
     // all from global memory in one go
-    __shared__ half sharedArrayQueryPoints[IterTileSize * COMPUTE_DIM];
-    __shared__ half sharedArrayCandidatePoints[IterTileSize * COMPUTE_DIM];
+    half* sharedArrayQueryPoints = (half*)shared_mem;
+    half* sharedArrayCandidatePoints = sharedArrayQueryPoints + (IterTileSize * COMPUTE_DIM);
     // Squared coordinates of the points, there is one sum of squared entries per point
-    __shared__ float sharedArraySquaredQueries[IterTileSize];
-    __shared__ float sharedArraySquaredCandidates[IterTileSize];
+    float* sharedArraySquaredQueries =
+        (float*)(sharedArrayCandidatePoints + (IterTileSize * COMPUTE_DIM));
+    float* sharedArraySquaredCandidates = sharedArraySquaredQueries + IterTileSize;
 
     // Final result array to accumulate/store the Euclidean distance between the query points and
     // candidate points
-    __shared__ float sharedArrayResult[IterTileSize * IterTileSize];
+    float* sharedArrayResult = sharedArraySquaredCandidates + IterTileSize;
 
-    const unsigned int threadId = (threadIdx.x + threadIdx.y * blockDim.x);
-    const unsigned int warpId = threadId / WARP_SIZE;
-    const unsigned int laneId = threadId % WARP_SIZE;
+    const unsigned int warpId = threadIdx.x / WARP_SIZE;
+    const unsigned int laneId = threadIdx.x % WARP_SIZE;
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
 
     // Each block is responsible for a tile of the output matrix with this upper left coordinate, of

@@ -380,9 +380,12 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             break;
         }
         case SM_TENSOR_FS_16x16x16: {
-            const unsigned int nbBlock = ceil((((*nbQueryPoints) * 2.0) / (1.0 * tensorBlockSize)));
+            dim3 blockDim(WARP_PER_BLOCK * WARP_SIZE);
             printf("Running 16x16x16\n");
-            distanceTCFullySummed_16x16x16<<<nbBlock, tensorBlockSize>>>(
+            dim3 gridDim(ceil(*nbQueryPoints / BLOCKITEMSX), ceil(*nbQueryPoints / BLOCKITEMSY));
+            cudaFuncSetAttribute(distanceTCFullySummed_16x16x16,
+                                 cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
+            distanceTCFullySummed_16x16x16<<<gridDim, blockDim, 98304>>>(
                 dev_nbQueryPoints, dev_datasetAlt, dev_epsilon, dev_cnt,
                 dev_preComputedSquaredCoordinatesFullySummed);
             break;

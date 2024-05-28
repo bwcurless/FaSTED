@@ -30,6 +30,10 @@
 // Number of additional points to add to the dataset (should not be changed)
 #define ADDITIONAL_POINTS 15
 
+#define ITERTILESIZE 128
+#define BLOCKITEMSX ITERTILESIZE
+#define BLOCKITEMSY ITERTILESIZE
+
 /*********************************************************************/
 /*                  Nvidia DMMA Tensor Cores GEMM                    */
 /*********************************************************************/
