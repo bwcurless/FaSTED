@@ -78,7 +78,7 @@ module load "cuda/$cudaModule"
 make
 
 #srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 4
-srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 41
+srun ./release/main ~/datasets/expo_16D_2000000.txt 0.001 41
 #srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 42
 #srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 43
 #compute-sanitizer --tool=memcheck ././debug/main ~/datasets/expo_16D_200000.txt 0.1 42
