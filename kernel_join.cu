@@ -670,11 +670,11 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             // Page squared candidates over. 128 for A tile, 128 for B tile. We happen to have 4
             // warps for each so it works out perfectly.
             if (warpGroup == 0) {
-                sharedArraySquaredCandidates[relLaneId] =
+                sharedArraySquaredQueries[relLaneId] =
                     preComputedSquaredCoordinates[blockTileStartY + relLaneId];
             }
             if (warpGroup == 1) {
-                sharedArraySquaredQueries[relLaneId] =
+                sharedArraySquaredCandidates[relLaneId] =
                     preComputedSquaredCoordinates[blockTileStartX + relLaneId];
             }
             // Have warps divide and conquer on the the 128x128 tile since each can only calculate
@@ -813,6 +813,8 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                     // }
 
                     if (tmpDistance <= epsSquared) {
+                        // printf("tmpDistance: %.10f \n", tmpDistance);
+                        // printf("Row, Col: %d, %d\n", row, col);
                         count++;
                     }
                 }

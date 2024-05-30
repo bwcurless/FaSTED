@@ -383,7 +383,7 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
             dim3 blockDim(WARP_PER_BLOCK * WARP_SIZE);
             printf("Running 16x16x16\n");
             dim3 gridDim(ceil(*nbQueryPoints / BLOCKITEMSX), ceil(*nbQueryPoints / BLOCKITEMSY));
-            // dim3 gridDim(1, 1);  // for testing
+            // dim3 gridDim(1, 2);  // for testing
             cudaFuncSetAttribute(distanceTCFullySummed_16x16x16,
                                  cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
             distanceTCFullySummed_16x16x16<<<gridDim, blockDim, 98304>>>(
