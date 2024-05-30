@@ -31,8 +31,8 @@
 #define ADDITIONAL_POINTS 15
 
 #define ITERTILESIZE 128
-#define BLOCKITEMSX ITERTILESIZE
-#define BLOCKITEMSY ITERTILESIZE
+#define BLOCKITEMSX (512 * ITERTILESIZE)
+#define BLOCKITEMSY (512 * ITERTILESIZE)
 
 /*********************************************************************/
 /*                  Nvidia DMMA Tensor Cores GEMM                    */

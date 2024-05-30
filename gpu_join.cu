@@ -382,8 +382,10 @@ void GPUJoinMainBruteForce(unsigned int searchMode, unsigned int device, INPUT_D
         case SM_TENSOR_FS_16x16x16: {
             dim3 blockDim(WARP_PER_BLOCK * WARP_SIZE);
             printf("Running 16x16x16\n");
-            dim3 gridDim(ceil(*nbQueryPoints / BLOCKITEMSX), ceil(*nbQueryPoints / BLOCKITEMSY));
-            // dim3 gridDim(1, 2);  // for testing
+            dim3 gridDim(ceil(1.0 * *nbQueryPoints / BLOCKITEMSX),
+                         ceil(1.0 * *nbQueryPoints / BLOCKITEMSY));
+            printf("gridDim %d, %d\n", gridDim.x, gridDim.y);
+            // dim3 gridDim(1, 1);  // for testing
             cudaFuncSetAttribute(distanceTCFullySummed_16x16x16,
                                  cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
             distanceTCFullySummed_16x16x16<<<gridDim, blockDim, 98304>>>(

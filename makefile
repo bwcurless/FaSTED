@@ -19,7 +19,7 @@ DBGDIR = debug
 DBGEXE = $(DBGDIR)/$(EXE)
 DBGOBJS = $(addprefix $(DBGDIR)/, $(OBJECTS))
 # rdynamic and lineinfo for running memcheck
-DBGFLAGS = -std=c++14 -g -G -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
+DBGFLAGS = -std=c++14 -g -G -Xptxas=-v -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
 
 #
 ## Release build settings
@@ -27,7 +27,7 @@ DBGFLAGS = -std=c++14 -g -G -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN
 RELDIR = release
 RELEXE = $(RELDIR)/$(EXE)
 RELOBJS = $(addprefix $(RELDIR)/, $(OBJECTS))
-RELFLAGS = -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
+RELFLAGS = -std=c++14 -O3 -Xptxas=-v -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
 
 .PHONY: all clean debug prep release remake
 

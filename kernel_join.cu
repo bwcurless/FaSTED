@@ -588,7 +588,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     float epsCached = *epsilon;
     float epsSquared = epsCached * epsCached;
     unsigned int nbPoints = *nbQueryPoints;
-    unsigned long count = 0;
+    unsigned long long count = 0;
 
     // In the end these are all the values that need to be copied from global memory for each block
     // BlockItemsY * BlockItemsK * 2 bytes for A matrix tile
@@ -631,9 +631,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // redundant.
 
     // Assume that all of K can be paged into shared memory in one iteration
-#pragma unroll
     for (int iyBlockTile = 0; iyBlockTile < BlockItemsY; iyBlockTile += IterTileSize) {
-#pragma unroll
         for (int ixBlockTile = 0; ixBlockTile < BlockItemsX; ixBlockTile += IterTileSize) {
             // Compute which elements this block tile iteration is responsible for computing
             const unsigned int blockTileStartX = blockStartX + ixBlockTile;

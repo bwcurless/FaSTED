@@ -10,6 +10,15 @@
             "group_id": "{ecf1f588-427e-4942-86da-0002ddcc870b}",
             "is_open": true,
             "path": "a100/Mode41_1.ncu-rep"
+        },
+        {
+            "group_id": "{ecf1f588-427e-4942-86da-0002ddcc870b}",
+            "path": "a100/Mode41_FullExpo_1.ncu-rep"
+        },
+        {
+            "group_id": "{ecf1f588-427e-4942-86da-0002ddcc870b}",
+            "is_open": true,
+            "path": "a100/Mode41_BF16Example_Baseline.ncu-rep"
         }
     ],
     "groups": [
@@ -23,7 +32,7 @@
         }
     ],
     "launcher": {
-        "SSHConnectionNameKey": "CMP RTX 5000",
+        "SSHConnectionNameKey": "",
         "activity/interactiveprofile/cachecontrol": "Flush All",
         "activity/interactiveprofile/clockcontrol": "Base",
         "activity/interactiveprofile/disableprofilingstartstop": false,
@@ -39,7 +48,7 @@
         "activity/profile/appreplaymode": "Strict",
         "activity/profile/cachecontrol": "Flush All",
         "activity/profile/checkexitcode": true,
-        "activity/profile/clockcontrol": "Base",
+        "activity/profile/clockcontrol": "None",
         "activity/profile/devices": "",
         "activity/profile/disableprofilingstartstop": false,
         "activity/profile/enablecpustacksupport": false,
@@ -48,7 +57,7 @@
         "activity/profile/filtermode": "Global",
         "activity/profile/forceoverwrite": true,
         "activity/profile/graphprofiling": "Node",
-        "activity/profile/importsource": false,
+        "activity/profile/importsource": true,
         "activity/profile/kernelid": "",
         "activity/profile/kernelname": "",
         "activity/profile/kernelnamebase": "Function",
@@ -71,7 +80,7 @@
         "activity/profile/sourcefolders": "",
         "activity/profile/targetprocesses": "All",
         "platform/linux (ppc64le)/device": "",
-        "platform/linux (x86_64)/device": "CMP RTX 5000",
+        "platform/linux (x86_64)/device": "bc2497@wind:22 (SSH)",
         "platform/linux/arguments": "",
         "platform/linux/environment": "DISPLAY=:0",
         "platform/linux/executable": "",
@@ -86,12 +95,12 @@
         "platform/win32/workingdir": "",
         "platform/windows/device": "",
         "ssh/linux/authenticationmode": "Private Key",
-        "ssh/linux/deploymentdir": "/tmp/var/",
+        "ssh/linux/deploymentdir": "/scratch/bc2497",
         "ssh/linux/enabletunneling": true,
-        "ssh/linux/host": "cmp3101.computers.nau.edu",
-        "ssh/linux/port": "",
-        "ssh/linux/privatekey": "/Users/briancurless/.ssh/id_rsa",
-        "ssh/linux/user": "bcurless"
+        "ssh/linux/host": "wind",
+        "ssh/linux/port": "22",
+        "ssh/linux/privatekey": "/Users/briancurless/.ssh/monsoon",
+        "ssh/linux/user": "bc2497"
     },
     "uuid": "{a386ea7a-fc62-4716-b305-bb9c7c0e9cf5}",
     "version": "1.0"
