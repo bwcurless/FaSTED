@@ -637,10 +637,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             const unsigned int blockTileStartX = blockStartX + ixBlockTile;
             const unsigned int blockTileStartY = blockStartY + iyBlockTile;
 
-            // Make sure distance calculations from previous iteration are done before proceeding to
-            // destroy shared memory
-            __syncthreads();
-
             // Copy the points over, need to copy A and B
             // slices of size 128xCOMPUTE_DIM and COMPUTE_DIMx128 to compute a 128x128 tile of
             // output items, since we have 4 warps for A, and 4 for B, we have 128 threads and each
@@ -758,8 +754,8 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                     }
                 }
             }
-            // Sync to make sure all mma ops have finished before looking at results.
-            __syncthreads();
+            // Don't need to sync threads here because each warp is only storing it's own results
+            // back to shared memory
 
 #pragma unroll
             for (int ixWarpTile = 0; ixWarpTile < WARP_COL_TILES; ixWarpTile++) {
@@ -780,7 +776,8 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             }
 
             // Wait for results to all be copied to shared mem before computing final
-            // distance
+            // distance. At this point we can blow away shared memory while we compare the results
+            // to epsilon
             __syncthreads();
 
             // The Euclidean distance between the query points and the candidate points is
