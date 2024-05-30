@@ -614,6 +614,13 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     const unsigned int laneId = threadIdx.x % WARP_SIZE;
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
 
+    // Group should be 0 or 1 in this configuration
+    const int warpGroup = (warpId / (WARPS_PER_BLOCK / 2));
+    // 0-1-2-3 and 0-1-2-3
+    const int relWarpIndex = warpId % (WARPS_PER_BLOCK / 2);
+    // 0...127 and 0...127
+    const unsigned int relLaneId = relWarpIndex * WARP_SIZE + laneId;
+
     // Each block is responsible for a tile of the output matrix with this upper left coordinate,
     // and of size BlockItemsY, BlockItemsX
     const unsigned int blockStartX = BlockItemsX * blockIdx.x;
@@ -632,39 +639,29 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             const unsigned int blockTileStartX = blockStartX + ixBlockTile;
             const unsigned int blockTileStartY = blockStartY + iyBlockTile;
 
-            // Page a 128x128 tile of candidate and query points into shared memory, along with
-            // their relevant squared values
-            // Have half the warps handle query points and associated squared points
-            // Have second half of warps handle candidate points and associated squared points
-            // Group should be 0 or 1 in this configuration
-            const int warpGroup = (warpId / (WARPS_PER_BLOCK / 2));
-            // 0-1-2-3 and 0-1-2-3
-            const int relWarpIndex = warpId % (WARPS_PER_BLOCK / 2);
-            // 0...127 and 0...127
-            const unsigned int relLaneId = relWarpIndex * WARP_SIZE + laneId;
-
             // Make sure distance calculations from previous iteration are done before proceeding to
             // destroy shared memory
             __syncthreads();
 
-            // TODO do this with vectorized loads or async mem copy
             // Copy the points over, need to copy A and B
             // slices of size 128xCOMPUTE_DIM and COMPUTE_DIMx128 to compute a 128x128 tile of
             // output items, since we have 4 warps for A, and 4 for B, we have 128 threads and each
-            // one is responsible for copying COMPUTE_DIM half values over. Specifically, each
-            // thread is copying one value over
+            // one is responsible for copying COMPUTE_DIM half values over. Do it with vector loads
+            // of int4 size. So 16 bytes, so each instruction moves 8 values over in a coalesced
+            // fashion.
 #pragma unroll
-            for (int i = 0; i < COMPUTE_DIM; i++) {
+            for (int i = relLaneId; i < IterTileSize * COMPUTE_DIM / 8;
+                 i += WARPS_PER_BLOCK * WARP_SIZE / 2) {
                 if (warpGroup == 0) {
-                    sharedArrayQueryPoints[relLaneId * COMPUTE_DIM + i] =
+                    *((int4*)sharedArrayQueryPoints + i) =
                         // Base point for A matrix tile, plus the offset for the particular thread
-                        // TODO This is probably bad because global reads will not coalesce
-                        dataset[(blockTileStartY + relLaneId) * COMPUTE_DIM + i];
+                        *((int4*)&dataset[blockTileStartY * COMPUTE_DIM] + i);
                 }
                 if (warpGroup == 1) {
                     // Base point for B matrix tile...multiply by -2 for calculating distance
-                    sharedArrayCandidatePoints[relLaneId * COMPUTE_DIM + i] =
-                        (half)-2.0 * dataset[(blockTileStartX + relLaneId) * COMPUTE_DIM + i];
+                    *((int4*)sharedArrayCandidatePoints + i) =
+                        //(half)-2.0 * dataset[blockTileStartX * COMPUTE_DIM + i];
+                        *((int4*)&dataset[blockTileStartX * COMPUTE_DIM] + i);
                 }
             }
             // Page squared candidates over. 128 for A tile, 128 for B tile. We happen to have 4
@@ -706,7 +703,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             // clang-format on
             const unsigned int ItemsPerWarpX = IterTileSize / BLOCK_COL_WARPS;
             const unsigned int ItemsPerWarpY = IterTileSize / BLOCK_ROW_WARPS;
-            // TODO is this correct, I think not.
             // Each warp can't compute everything in one go (limited to 16x16x16 for example). It
             // needs to do mulitiple tiled iterations. These are organized in a 4 x 2 grid, or
             // WARP_ROW_TILES x WARP_COL_TILES
@@ -802,7 +798,7 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                     // Need to add in C^2 and Q^2 for each value to finalize distance
                     // calculation Take the absolute value in case we end up with a tiny
                     // negative number, this distance should still be 0
-                    float tmpDistance = sharedArrayResult[row * IterTileSize + col] +
+                    float tmpDistance = (-2.0 * sharedArrayResult[row * IterTileSize + col]) +
                                         sharedArraySquaredQueries[row] +
                                         sharedArraySquaredCandidates[col];
                     // if (row == col) {

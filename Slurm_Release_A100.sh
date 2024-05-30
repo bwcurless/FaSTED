@@ -81,7 +81,7 @@ make
 srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 41
 #srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 42
 #srun ./release/main ~/datasets/expo_16D_2000000.txt 0.035 43
-#compute-sanitizer --tool=memcheck ././debug/main ~/datasets/expo_16D_200000.txt 0.1 42
+#compute-sanitizer --tool=memcheck ./release/main ~/datasets/expo_16D_2000000.txt 0.1 41
 # -f overwrite profile if it exists
 #srun ncu -f -o "Euclid_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ././release/main ~/datasets/expo_16D_2000000.txt 0.1 41
 
