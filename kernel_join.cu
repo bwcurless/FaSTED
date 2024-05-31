@@ -610,9 +610,9 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
     // candidate points
     float* sharedArrayResult = sharedArraySquaredCandidates + IterTileSize;
 
-    const unsigned int warpId = threadIdx.x / WARP_SIZE;
-    const unsigned int laneId = threadIdx.x % WARP_SIZE;
     thread_block_tile<32> warp = tiled_partition<32>(this_thread_block());
+    const unsigned int warpId = threadIdx.x / WARP_SIZE;
+    const unsigned int laneId = warp.thread_rank();
 
     // Group should be 0 or 1 in this configuration
     const int warpGroup = (warpId / (WARPS_PER_BLOCK / 2));
@@ -684,10 +684,6 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                 }
             }
 
-            // Sync here since this is where we need all the query and candidate points to be paged
-            // into shared memory
-            __syncthreads();
-
             // Warps each handle a piece of the overall block's output calculations. They are
             // organized in a 2 x 4 grid. Or BLOCK_ROW_WARPS x BLOCK_COL_WARPS
             // The organization is:
@@ -715,6 +711,10 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
             // Warps 0, 2, 4, 6 are in first row and are spaced ItemsPerWarpX apart
             const unsigned int warpTileStartX = (warpId / 2) * ItemsPerWarpX;
             const unsigned int warpTileStartY = (warpId % 2) * ItemsPerWarpY;
+
+            // Sync here since this is where we need all the query and candidate points to be paged
+            // into shared memory
+            __syncthreads();
 #pragma unroll
             for (int ikWarpTile = 0; ikWarpTile < COMPUTE_DIM / WmmaKd; ikWarpTile++) {
                 // Each warp has to do 8 iterations to cover it's portion of the 128x128 tile.
@@ -772,41 +772,28 @@ __device__ void distanceTCFullySummed(unsigned int* nbQueryPoints, COMPUTE_TYPE*
                     wmma::store_matrix_sync(
                         sharedArrayResult + warpTileOutputOffset + warpTileIterOutputOffset,
                         accum[ixWarpTile][iyWarpTile], IterTileSize, wmma::mem_row_major);
-                }
-            }
-
-            // Wait for results to all be copied to shared mem before computing final
-            // distance. At this point we can blow away shared memory while we compare the results
-            // to epsilon
-            __syncthreads();
-
-            // The Euclidean distance between the query points and the candidate points is
-            // almost computed. Finish computation and check if the distance
-            // is within epsilon or not
 #pragma unroll
-            for (int thread = threadIdx.x; thread < IterTileSize * IterTileSize;
-                 thread += WARP_PER_BLOCK * WARP_SIZE) {
-                unsigned int col = thread % IterTileSize;
-                unsigned int row = thread / IterTileSize;
-                // Bounds check to make sure the tile didn't go over the edge
-                if (row + blockTileStartY < nbPoints && col + blockTileStartX < nbPoints) {
-                    // Need to add in C^2 and Q^2 for each value to finalize distance
-                    // calculation Take the absolute value in case we end up with a tiny
-                    // negative number, this distance should still be 0
-                    float tmpDistance = (-2.0 * sharedArrayResult[row * IterTileSize + col]) +
-                                        sharedArraySquaredQueries[row] +
-                                        sharedArraySquaredCandidates[col];
-                    // if (row == col) {
-                    //     if (tmpDistance > epsSquared) {
-                    //         printf("epsilon %.10f\n", epsSquared);
-                    //         printf("tmpDistance: %.10f not a match\n", tmpDistance);
-                    //     }
-                    // }
+                    for (int i = warp.thread_rank(); i < WmmaNd * WmmaMd; i += warp.num_threads()) {
+                        // The Euclidean distance between the query points and the candidate
+                        // points is almost computed. Finish computation and check if the
+                        // distance is within epsilon or not
+                        unsigned int n = i % WmmaNd;
+                        unsigned int m = i / WmmaNd;
+                        unsigned int col = n + warpTileStartX + ItemsPerWarpIterX * ixWarpTile;
+                        unsigned int row = m + warpTileStartY + ItemsPerWarpIterY * iyWarpTile;
+                        // Bounds check to make sure the tile didn't go over the edge
+                        if (row + blockTileStartY < nbPoints && col + blockTileStartX < nbPoints) {
+                            // Need to add in C^2 and Q^2 for each value to finalize distance
+                            // calculation Take the absolute value in case we end up with a tiny
+                            // negative number, this distance should still be 0
+                            float tmpDistance =
+                                ((float)-2.0 * sharedArrayResult[row * IterTileSize + col]) +
+                                sharedArraySquaredQueries[row] + sharedArraySquaredCandidates[col];
 
-                    if (tmpDistance <= epsSquared) {
-                        // printf("tmpDistance: %.10f \n", tmpDistance);
-                        // printf("Row, Col: %d, %d\n", row, col);
-                        count++;
+                            if (tmpDistance <= epsSquared) {
+                                count++;
+                            }
+                        }
                     }
                 }
             }
