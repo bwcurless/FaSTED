@@ -6,13 +6,35 @@
 
 __global__ void MmaPtxShared();
 
+#define gpuErrchk(ans) \
+    { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+__device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
+    uint32_t address;
+    asm("{\n\t"
+        "  .reg .u64 u64addr;\n\t"
+        "  cvta.to.shared.u64 u64addr, %1;\n\t"
+        "  cvt.u32.u64 %0, u64addr;\n\t"
+        "}"
+        : "=r"(address)
+        : "l"(pointer));
+    return address;
+}
+
 int main(int argc, char* argv[]) {
     // Launch MMA Kernel
-    dim3 gridDim(1, 1, 0);
-    dim3 blockDim(32, 1, 0);
+    dim3 gridDim(1, 1, 1);
+    dim3 blockDim(32, 1, 1);
+    printf("Running kernel\n");
     MmaPtxShared<<<gridDim, blockDim>>>();
 
-    cudaDeviceSynchronize();
+    gpuErrchk(cudaDeviceSynchronize());
 }
 
 __global__ void MmaPtxShared() {
@@ -27,12 +49,16 @@ __global__ void MmaPtxShared() {
     uint32_t B[2];
 
     // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
+    // Are static shared memory allocations already aligned?
     __shared__ __align__(16) half2 ATile[128];
     __shared__ __align__(16) half2 BTile[64];
 
     // Check to make sure the address it allocated is 16B aligned
     if (tidx == 0) {
+        // I essentially get 0x0 for this value
         printf("ATile Address Alignment Check: %p\n", ATile);
+        // With ATile being 128 half2 (2x2 bytes) I get 512 as the offset so this adds up
+        printf("BTile Address Alignment Check: %p\n", BTile);
     }
 
     // Have each thread copy one row of data into shared memory tile for A
@@ -56,25 +82,36 @@ __global__ void MmaPtxShared() {
     // Pointer to 128 bit row of data in shared memory
     uint32_t smem_ptr;
 
-    smem_ptr = reinterpret_cast<uint32_t>(&ATile[tidx * 4]);
+    smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
+
+    if (tidx == 0) {
+        printf("Loading A Matrix\n");
+    }
+
     asm volatile(
         "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
         "{ %0, %1, %2, %3 }, [%4];"
         : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
         : "r"(smem_ptr));
 
-    // Inspect A
-    /*
-    for (int i = 0; i < 4; i++) {
-        half2 tempVal = reinterpret_cast<half2>(A[i]);
-        printf("Thread %d, %d: A%d=%f, A%d=%f", tidx, tidy, i, __half2float(tempVal.x), i,
-               __half2float(tempVal.y));
+    if (tidx == 0) {
+        printf("Loading A Matrix done\n");
     }
-    */
+
+    // Inspect A
+    for (int i = 0; i < 4; i++) {
+        half2* tempVal = reinterpret_cast<half2*>(&A[i]);
+        printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+               __half2float(tempVal->y));
+    }
+
+    if (tidx == 0) {
+        printf("Loading B Matrix\n");
+    }
 
     // Page into B
     // Need to duplicate addresses here for threads 16-31
-    smem_ptr = reinterpret_cast<uint32_t>(&BTile[(tidx % 16) * 4]);
+    smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
     asm volatile(
         "ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 "
         "{ %0, %1 }, [%2];"
@@ -100,5 +137,5 @@ __global__ void MmaPtxShared() {
           "f"(D[2]), "f"(D[3]));
 
     // Inspect Results of D
-    printf("Thread %d, %d: D0=%f, D1=%f", tidx, tidy, D[0], D[1]);
+    printf("Thread %d, %d: D0=%f, D1=%f\n", tidx, tidy, D[0], D[1]);
 }

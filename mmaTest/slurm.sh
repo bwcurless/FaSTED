@@ -77,8 +77,8 @@ module load "cuda/$cudaModule"
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-srun ./main
-#compute-sanitizer --tool=memcheck ./main
+srun ./release/main
+#compute-sanitizer --tool=memcheck ./release/main
 # -f overwrite profile if it exists
 #srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./main
 #srun nsys profile ./main
