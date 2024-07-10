@@ -17,6 +17,9 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 __device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
     uint32_t address;
+    // This is converting our generic 64 bit address to the shared memory state space. This means
+    // subtracting the base address of the shared space, and then truncating to 32 bits since shared
+    // memory all fits into 32 bits this is safe. The generic address space is 64 bits though.
     asm("{\n\t"
         "  .reg .u64 u64addr;\n\t"
         "  cvta.to.shared.u64 u64addr, %1;\n\t"
@@ -85,6 +88,10 @@ __global__ void MmaPtxShared() {
     smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
 
     if (tidx == 0) {
+        printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
+    }
+
+    if (tidx == 0) {
         printf("Loading A Matrix\n");
     }
 
@@ -112,6 +119,11 @@ __global__ void MmaPtxShared() {
     // Page into B
     // Need to duplicate addresses here for threads 16-31
     smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
+
+    if (tidx == 0) {
+        printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+    }
+
     asm volatile(
         "ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 "
         "{ %0, %1 }, [%2];"
