@@ -5,6 +5,7 @@
 #include <iostream>
 
 __global__ void MmaPtxShared();
+__device__ uint get_smid(void);
 
 #define gpuErrchk(ans) \
     { gpuAssert((ans), __FILE__, __LINE__); }
@@ -13,6 +14,15 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
         fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
         if (abort) exit(code);
     }
+}
+
+// Return the ID of the steaming multiprocesser this block is running on
+__device__ uint get_smid(void) {
+    uint ret;
+
+    asm("mov.u32 %0, %smid;" : "=r"(ret));
+
+    return ret;
 }
 
 __device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
@@ -41,8 +51,12 @@ int main(int argc, char* argv[]) {
 }
 
 __global__ void MmaPtxShared() {
-    int tidx = threadIdx.x + blockIdx.x * blockDim.x;
-    int tidy = threadIdx.y + blockIdx.y * blockDim.y;
+    int tidx = threadIdx.x;
+    int tidy = threadIdx.y;
+
+    if (tidx == 0 && tidy == 0) {
+        printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
+    }
 
     // Each thread in has 4 32 bit registers for A
     // Each thread has 2 32 bit registers for B
@@ -124,17 +138,26 @@ __global__ void MmaPtxShared() {
         printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
     }
 
+    // To get this to work out like the example, you don't want to transpose here.
+    // It seems there is an implied transpose for the B matrix when you execute mma
     asm volatile(
-        "ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 "
+        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
         "{ %0, %1 }, [%2];"
         : "=r"(B[0]), "=r"(B[1])
         : "r"(smem_ptr));
 
     // Inspect B
+    for (int i = 0; i < 2; i++) {
+        half2* tempVal = reinterpret_cast<half2*>(&B[i]);
+        printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+               __half2float(tempVal->y));
+    }
 
     // Clear D
     D[0] = 0.0;
     D[1] = 0.0;
+    D[2] = 0.0;
+    D[3] = 0.0;
 
     // Perform MMA
     // 16x8x8 TC Operation
@@ -149,5 +172,7 @@ __global__ void MmaPtxShared() {
           "f"(D[2]), "f"(D[3]));
 
     // Inspect Results of D
-    printf("Thread %d, %d: D0=%f, D1=%f\n", tidx, tidy, D[0], D[1]);
+    // Expected value for T0 D[0] is 71192. It is the dot product of
+    // [0...7,64...71] and [0...7,128...135]
+    printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", tidx, tidy, D[0], D[1], D[2], D[3]);
 }
