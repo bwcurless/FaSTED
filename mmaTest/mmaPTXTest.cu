@@ -1,11 +1,14 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
+#include <cuda_runtime_api.h>
 #include <vector_types.h>
 
 #include <iostream>
 
 __global__ void MmaPtxShared();
 __device__ uint get_smid(void);
+
+constexpr bool Debug = false;
 
 #define gpuErrchk(ans) \
     { gpuAssert((ans), __FILE__, __LINE__); }
@@ -44,18 +47,37 @@ int main(int argc, char* argv[]) {
     // Launch MMA Kernel
     dim3 gridDim(1, 1, 1);
     dim3 blockDim(32, 1, 1);
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     printf("Running kernel\n");
+    // Events for timing execution
+    cudaEventRecord(start, 0);
+
     MmaPtxShared<<<gridDim, blockDim>>>();
 
-    gpuErrchk(cudaDeviceSynchronize());
+    cudaEventRecord(stop, 0);
+
+    gpuErrchk(cudaEventSynchronize(stop));
+
+    float elapsedTime;
+    cudaEventElapsedTime(&elapsedTime, start, stop);
+
+    printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
+
+    // Cleanup
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 }
 
 __global__ void MmaPtxShared() {
     int tidx = threadIdx.x;
     int tidy = threadIdx.y;
 
-    if (tidx == 0 && tidy == 0) {
-        printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
+    if (Debug) {
+        if (tidx == 0 && tidy == 0) {
+            printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
+        }
     }
 
     // Each thread in has 4 32 bit registers for A
@@ -70,12 +92,14 @@ __global__ void MmaPtxShared() {
     __shared__ __align__(16) half2 ATile[128];
     __shared__ __align__(16) half2 BTile[64];
 
-    // Check to make sure the address it allocated is 16B aligned
-    if (tidx == 0) {
-        // I essentially get 0x0 for this value
-        printf("ATile Address Alignment Check: %p\n", ATile);
-        // With ATile being 128 half2 (2x2 bytes) I get 512 as the offset so this adds up
-        printf("BTile Address Alignment Check: %p\n", BTile);
+    if (Debug) {
+        // Check to make sure the address it allocated is 16B aligned
+        if (tidx == 0) {
+            // I essentially get 0x0 for this value
+            printf("ATile Address Alignment Check: %p\n", ATile);
+            // With ATile being 128 half2 (2x2 bytes) I get 512 as the offset so this adds up
+            printf("BTile Address Alignment Check: %p\n", BTile);
+        }
     }
 
     // Have each thread copy one row of data into shared memory tile for A
@@ -101,12 +125,10 @@ __global__ void MmaPtxShared() {
 
     smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
 
-    if (tidx == 0) {
-        printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
-    }
-
-    if (tidx == 0) {
-        printf("Loading A Matrix\n");
+    if (Debug) {
+        if (tidx == 0) {
+            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
+        }
     }
 
     asm volatile(
@@ -115,27 +137,23 @@ __global__ void MmaPtxShared() {
         : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
         : "r"(smem_ptr));
 
-    if (tidx == 0) {
-        printf("Loading A Matrix done\n");
-    }
-
-    // Inspect A
-    for (int i = 0; i < 4; i++) {
-        half2* tempVal = reinterpret_cast<half2*>(&A[i]);
-        printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
-               __half2float(tempVal->y));
-    }
-
-    if (tidx == 0) {
-        printf("Loading B Matrix\n");
+    if (Debug) {
+        // Inspect A
+        for (int i = 0; i < 4; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&A[i]);
+            printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+                   __half2float(tempVal->y));
+        }
     }
 
     // Page into B
     // Need to duplicate addresses here for threads 16-31
     smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
 
-    if (tidx == 0) {
-        printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+    if (Debug) {
+        if (tidx == 0) {
+            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+        }
     }
 
     // To get this to work out like the example, you don't want to transpose here.
@@ -146,11 +164,13 @@ __global__ void MmaPtxShared() {
         : "=r"(B[0]), "=r"(B[1])
         : "r"(smem_ptr));
 
-    // Inspect B
-    for (int i = 0; i < 2; i++) {
-        half2* tempVal = reinterpret_cast<half2*>(&B[i]);
-        printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
-               __half2float(tempVal->y));
+    if (Debug) {
+        // Inspect B
+        for (int i = 0; i < 2; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&B[i]);
+            printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+                   __half2float(tempVal->y));
+        }
     }
 
     // Clear D
@@ -275,5 +295,7 @@ __global__ void MmaPtxShared() {
      [139352 163352 187352 211352 235352 259352 283352 307352]]
     */
 
-    printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", tidx, tidy, D[0], D[1], D[2], D[3]);
+    if (Debug) {
+        printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", tidx, tidy, D[0], D[1], D[2], D[3]);
+    }
 }
