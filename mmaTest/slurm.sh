@@ -66,10 +66,12 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --output=$outputPath$jobPrefix$outputFile-%j.out
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
-#SBATCH --time=03:00:00
+#SBATCH --time=00:10:00
 #SBATCH --mem=10000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
+#SBATCH --account=gowanlock_condo
+#SBATCH --partition=gowanlock
 
 # Code will not compile if we don't load the module
 module load "cuda/$cudaModule"
@@ -80,7 +82,7 @@ make
 srun ./release/main
 #compute-sanitizer --tool=memcheck ./release/main
 # -f overwrite profile if it exists
-#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./main
+#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
 #srun nsys profile ./main
 
 
