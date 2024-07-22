@@ -55,10 +55,6 @@ __device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
 }
 
 int main(int argc, char* argv[]) {
-    // Launch MMA Kernel
-    dim3 gridDim(numWaves * numSMs, 1, 1);
-    dim3 blockDim(32, 1, 1);
-
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
@@ -85,7 +81,8 @@ int main(int argc, char* argv[]) {
     // If each operation is 4096 FLOP, then we would expect 176M mma operations per second
     cudaEventRecord(start, 0);
 
-    size_t sharedMemSize = 65536;
+    dim3 gridDim(numWaves * numSMs, 1, 1);
+    dim3 blockDim(256, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
 
     gpuErrchk(cudaEventRecord(stop, 0));
@@ -101,9 +98,9 @@ int main(int argc, char* argv[]) {
     elapsedTime /= 1000;
 
     printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
-    // Estimated TFLOPS if we assume one wave
+    // Estimated TFLOPS that we computed
     const float tflops =
-        numWaves * numTensorCores * numIterations * totalFlopsPerOp / elapsedTime / 1e12;
+        gridDim.x * blockDim.x / 32.0 * numIterations * totalFlopsPerOp / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
@@ -164,66 +161,70 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     }
     // Repeat just the load matrix and calculation part of loop for benchmarking
     // This assumes that we are able to page from global memory to shared memory efficiently
-    for (long i = 0; i < numIterations; i++) {
-        // Page into A
-        // Pointer to 128 bit row of data in shared memory
-        uint32_t smem_ptr;
+    constexpr int unrollFactor = 1;
 
-        smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
+    // Clear D
+    D[0] = 0.0;
+    D[1] = 0.0;
+    D[2] = 0.0;
+    D[3] = 0.0;
 
-        if (Debug) {
-            if (tidx == 0) {
-                printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
-            }
+    //  Page into A
+    //  Pointer to 128 bit row of data in shared memory
+    uint32_t smem_ptr;
+
+    smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
+
+    if (Debug) {
+        if (tidx == 0) {
+            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
         }
+    }
 
-        asm volatile(
-            "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
-            "{ %0, %1, %2, %3 }, [%4];"
-            : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
-            : "r"(smem_ptr));
+    asm volatile(
+        "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
+        "{ %0, %1, %2, %3 }, [%4];"
+        : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
+        : "r"(smem_ptr));
 
-        if (Debug) {
-            // Inspect A
-            for (int i = 0; i < 4; i++) {
-                half2* tempVal = reinterpret_cast<half2*>(&A[i]);
-                printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
-                       i, __half2float(tempVal->y));
-            }
+    if (Debug) {
+        // Inspect A
+        for (int i = 0; i < 4; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&A[i]);
+            printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+                   __half2float(tempVal->y));
         }
+    }
 
-        // Page into B
-        // Need to duplicate addresses here for threads 16-31
-        smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
+    // Page into B
+    // Need to duplicate addresses here for threads 16-31
+    smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
 
-        if (Debug) {
-            if (tidx == 0) {
-                printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
-            }
+    if (Debug) {
+        if (tidx == 0) {
+            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
         }
+    }
 
-        // To get this to work out like the example, you don't want to transpose here.
-        // It seems there is an implied transpose for the B matrix when you execute mma
-        asm volatile(
-            "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
-            "{ %0, %1 }, [%2];"
-            : "=r"(B[0]), "=r"(B[1])
-            : "r"(smem_ptr));
+    // To get this to work out like the example, you don't want to transpose here.
+    // It seems there is an implied transpose for the B matrix when you execute mma
+    asm volatile(
+        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
+        "{ %0, %1 }, [%2];"
+        : "=r"(B[0]), "=r"(B[1])
+        : "r"(smem_ptr));
 
-        if (Debug) {
-            // Inspect B
-            for (int i = 0; i < 2; i++) {
-                half2* tempVal = reinterpret_cast<half2*>(&B[i]);
-                printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
-                       i, __half2float(tempVal->y));
-            }
+    if (Debug) {
+        // Inspect B
+        for (int i = 0; i < 2; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&B[i]);
+            printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
+                   __half2float(tempVal->y));
         }
+    }
 
-        // Clear D
-        D[0] = 0.0;
-        D[1] = 0.0;
-        D[2] = 0.0;
-        D[3] = 0.0;
+    for (long i = 0; i < numIterations / unrollFactor; i++) {
+        // for (int j = 0; j < unrollFactor; j++) {
 
         // Perform MMA
         // 16x8x8 TC Operation
@@ -235,10 +236,6 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
             : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
             : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(D[0]),
               "f"(D[1]), "f"(D[2]), "f"(D[3]));
-
-        if (tidx == 0 & D[0] > 0.0) {
-            count++;
-        }
 
         // Inspect Results of D
         /* These are the expected resultant full matrices and fragments for A, B, and D
@@ -348,6 +345,10 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
             printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", tidx, tidy, D[0], D[1], D[2],
                    D[3]);
         }
+    }
+    //    }
+    if (tidx == 0 && (D[0] > 10.0f)) {
+        count++;
     }
 
     // This is really just because I was doubting it was executing all this

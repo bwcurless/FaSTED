@@ -82,6 +82,7 @@ make
 srun ./release/main
 #compute-sanitizer --tool=memcheck ./release/main
 # -f overwrite profile if it exists
+# --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
 #srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
 #srun nsys profile ./main
 
