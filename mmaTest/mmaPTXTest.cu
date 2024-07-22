@@ -82,7 +82,10 @@ int main(int argc, char* argv[]) {
     cudaEventRecord(start, 0);
 
     dim3 gridDim(numWaves * numSMs, 1, 1);
-    dim3 blockDim(256, 1, 1);
+    // 16 warps is the minimum to achieve 100% tensor core usage.
+    // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
+    // cores, so we want a multiple of 4 warps for optimal performance.
+    dim3 blockDim(32 * 20, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
 
     gpuErrchk(cudaEventRecord(stop, 0));
@@ -228,7 +231,8 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
 
         // Perform MMA
         // 16x8x8 TC Operation
-        asm("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        asm volatile(
+            "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
             " { %0, %1, %2, %3 }, "
             " { %4, %5, %6, %7}, "
             " { %8, %9 }, "
