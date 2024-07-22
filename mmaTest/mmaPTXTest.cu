@@ -228,14 +228,13 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
 
         // Perform MMA
         // 16x8x8 TC Operation
-        asm("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        asm("mma.sync.aligned.m16n8k8.row.col.f32.f16.f16.f32 "
             " { %0, %1, %2, %3 }, "
-            " { %4, %5, %6, %7}, "
-            " { %8, %9 }, "
-            " { %10, %11, %12, %13 };"
+            " { %4, %5 }, "
+            " { %6 }, "
+            " { %7, %8, %9, %10 };"
             : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
-            : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(D[0]),
-              "f"(D[1]), "f"(D[2]), "f"(D[3]));
+            : "r"(A[0]), "r"(A[1]), "r"(B[0]), "f"(D[0]), "f"(D[1]), "f"(D[2]), "f"(D[3]));
 
         // Inspect Results of D
         /* These are the expected resultant full matrices and fragments for A, B, and D
