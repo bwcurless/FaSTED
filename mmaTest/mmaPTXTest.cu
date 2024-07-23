@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     // 16 warps is the minimum to achieve 100% tensor core usage.
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
-    dim3 blockDim(32 * 20, 1, 1);
+    dim3 blockDim(32 * 16, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
 
     gpuErrchk(cudaEventRecord(stop, 0));
@@ -172,62 +172,61 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     D[2] = 0.0;
     D[3] = 0.0;
 
-    //  Page into A
-    //  Pointer to 128 bit row of data in shared memory
-    uint32_t smem_ptr;
-
-    smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
-
-    if (Debug) {
-        if (tidx == 0) {
-            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
-        }
-    }
-
-    asm volatile(
-        "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
-        "{ %0, %1, %2, %3 }, [%4];"
-        : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
-        : "r"(smem_ptr));
-
-    if (Debug) {
-        // Inspect A
-        for (int i = 0; i < 4; i++) {
-            half2* tempVal = reinterpret_cast<half2*>(&A[i]);
-            printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
-                   __half2float(tempVal->y));
-        }
-    }
-
-    // Page into B
-    // Need to duplicate addresses here for threads 16-31
-    smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
-
-    if (Debug) {
-        if (tidx == 0) {
-            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
-        }
-    }
-
-    // To get this to work out like the example, you don't want to transpose here.
-    // It seems there is an implied transpose for the B matrix when you execute mma
-    asm volatile(
-        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
-        "{ %0, %1 }, [%2];"
-        : "=r"(B[0]), "=r"(B[1])
-        : "r"(smem_ptr));
-
-    if (Debug) {
-        // Inspect B
-        for (int i = 0; i < 2; i++) {
-            half2* tempVal = reinterpret_cast<half2*>(&B[i]);
-            printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x), i,
-                   __half2float(tempVal->y));
-        }
-    }
-
     for (long i = 0; i < numIterations / unrollFactor; i++) {
         // for (int j = 0; j < unrollFactor; j++) {
+        //  Page into A
+        //  Pointer to 128 bit row of data in shared memory
+        uint32_t smem_ptr;
+
+        smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
+
+        if (Debug) {
+            if (tidx == 0) {
+                printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
+            }
+        }
+
+        asm volatile(
+            "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
+            "{ %0, %1, %2, %3 }, [%4];"
+            : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
+            : "r"(smem_ptr));
+
+        if (Debug) {
+            // Inspect A
+            for (int i = 0; i < 4; i++) {
+                half2* tempVal = reinterpret_cast<half2*>(&A[i]);
+                printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
+                       i, __half2float(tempVal->y));
+            }
+        }
+
+        // Page into B
+        // Need to duplicate addresses here for threads 16-31
+        smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
+
+        if (Debug) {
+            if (tidx == 0) {
+                printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+            }
+        }
+
+        // To get this to work out like the example, you don't want to transpose here.
+        // It seems there is an implied transpose for the B matrix when you execute mma
+        asm volatile(
+            "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
+            "{ %0, %1 }, [%2];"
+            : "=r"(B[0]), "=r"(B[1])
+            : "r"(smem_ptr));
+
+        if (Debug) {
+            // Inspect B
+            for (int i = 0; i < 2; i++) {
+                half2* tempVal = reinterpret_cast<half2*>(&B[i]);
+                printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
+                       i, __half2float(tempVal->y));
+            }
+        }
 
         // Perform MMA
         // 16x8x8 TC Operation
