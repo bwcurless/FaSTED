@@ -8,6 +8,10 @@
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
+__device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A);
+__device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B);
+//__device__ void clearFragment<T, size>(uint32_t* regArray);
+__device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D);
 
 constexpr bool Debug = false;
 constexpr long numIterations = 1e7;
@@ -128,6 +132,7 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     // Each thread has 2 32 bit registers for B
     // Each thread has 4 floats for outputs
     float D[4];
+    // TODO convert these to half2 an reinterpret cast?
     uint32_t A[4];
     uint32_t B[2];
 
@@ -173,72 +178,14 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     D[3] = 0.0;
 
     for (long i = 0; i < numIterations / unrollFactor; i++) {
-        // for (int j = 0; j < unrollFactor; j++) {
-        //  Page into A
-        //  Pointer to 128 bit row of data in shared memory
-        uint32_t smem_ptr;
+        // Page fragment into A
+        loadAMatrix_16_16(&ATile[tidx * 4], A);
 
-        smem_ptr = cvta_to_shared_u32(&ATile[tidx * 4]);
-
-        if (Debug) {
-            if (tidx == 0) {
-                printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
-            }
-        }
-
-        asm volatile(
-            "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
-            "{ %0, %1, %2, %3 }, [%4];"
-            : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
-            : "r"(smem_ptr));
-
-        if (Debug) {
-            // Inspect A
-            for (int i = 0; i < 4; i++) {
-                half2* tempVal = reinterpret_cast<half2*>(&A[i]);
-                printf("Thread %d, %d: A%d=%f, A%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
-                       i, __half2float(tempVal->y));
-            }
-        }
-
-        // Page into B
+        // Page fragment into B
         // Need to duplicate addresses here for threads 16-31
-        smem_ptr = cvta_to_shared_u32(&BTile[(tidx % 16) * 4]);
-
-        if (Debug) {
-            if (tidx == 0) {
-                printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
-            }
-        }
-
-        // To get this to work out like the example, you don't want to transpose here.
-        // It seems there is an implied transpose for the B matrix when you execute mma
-        asm volatile(
-            "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
-            "{ %0, %1 }, [%2];"
-            : "=r"(B[0]), "=r"(B[1])
-            : "r"(smem_ptr));
-
-        if (Debug) {
-            // Inspect B
-            for (int i = 0; i < 2; i++) {
-                half2* tempVal = reinterpret_cast<half2*>(&B[i]);
-                printf("Thread %d, %d: B%d=%f, B%d=%f\n", tidx, tidy, i, __half2float(tempVal->x),
-                       i, __half2float(tempVal->y));
-            }
-        }
-
+        loadBMatrix_16_8(&BTile[(tidx % 16) * 4], B);
         // Perform MMA
-        // 16x8x8 TC Operation
-        asm volatile(
-            "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
-            " { %0, %1, %2, %3 }, "
-            " { %4, %5, %6, %7}, "
-            " { %8, %9 }, "
-            " { %10, %11, %12, %13 };"
-            : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
-            : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(D[0]),
-              "f"(D[1]), "f"(D[2]), "f"(D[3]));
+        mma_16_8_16(A, B, D, D);
 
         // Inspect Results of D
         /* These are the expected resultant full matrices and fragments for A, B, and D
@@ -358,4 +305,77 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     if (tidx == 0) {
         atomicAdd(iterationCount, count);
     }
+}
+
+__device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A) {
+    //  Page into A
+    //  Pointer to 128 bit row of data in shared memory
+    uint32_t smem_ptr;
+
+    smem_ptr = cvta_to_shared_u32(smem_row_start);
+
+    if (Debug) {
+        if (threadIdx.x == 0) {
+            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
+        }
+    }
+
+    asm volatile(
+        "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
+        "{ %0, %1, %2, %3 }, [%4];"
+        : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
+        : "r"(smem_ptr));
+
+    if (Debug) {
+        // Inspect A
+        for (int i = 0; i < 4; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&A[i]);
+            printf("Thread %d, %d: A%d=%f, A%d=%f\n", threadIdx.x, threadIdx.y, i,
+                   __half2float(tempVal->x), i, __half2float(tempVal->y));
+        }
+    }
+}
+
+__device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B) {
+    //  Page into A
+    //  Pointer to 128 bit row of data in shared memory
+    uint32_t smem_ptr;
+
+    smem_ptr = cvta_to_shared_u32(smem_row_start);
+
+    if (Debug) {
+        if (threadIdx.x == 0) {
+            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+        }
+    }
+
+    // To get this to work out like the example, you don't want to transpose here.
+    // It seems there is an implied transpose for the B matrix when you execute mma
+    asm volatile(
+        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
+        "{ %0, %1 }, [%2];"
+        : "=r"(B[0]), "=r"(B[1])
+        : "r"(smem_ptr));
+
+    if (Debug) {
+        // Inspect B
+        for (int i = 0; i < 2; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&B[i]);
+            printf("Thread %d, %d: B%d=%f, B%d=%f\n", threadIdx.x, threadIdx.y, i,
+                   __half2float(tempVal->x), i, __half2float(tempVal->y));
+        }
+    }
+}
+
+__device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D) {
+    // 16x8x8 TC Operation
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        " { %0, %1, %2, %3 }, "
+        " { %4, %5, %6, %7}, "
+        " { %8, %9 }, "
+        " { %10, %11, %12, %13 };"
+        : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
+        : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(C[0]), "f"(C[1]),
+          "f"(C[2]), "f"(C[3]));
 }
