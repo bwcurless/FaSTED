@@ -6,12 +6,41 @@
 
 #include <iostream>
 
+namespace WarpMma {
+
+// Represents one tile of matrix that ldmatrix loads into registers. Each thread holds a piece of
+// this fragment. Input operands in half precision are packed in pairs into registers. Precision and
+// fragment size dictate how many registers are required
+template <typename T, int NumReg>
+struct Fragment {
+    T Reg[NumReg]{};
+};
+
+constexpr int numRegistersA = 4;
+constexpr int numRegistersB = 2;
+constexpr int numRegistersD = 4;
+constexpr int numAFragments = 2;
+constexpr int numBFragments = 4;
+constexpr int numDFragments = 8;
+// Each WarpTile stores the operands A and B to compute a 32x32 output matrix D
+struct WarpTile {
+    // 2 Fragments of A (16x16 values each) really half2, not uint32
+    Fragment<uint32_t, numRegistersA> A[numAFragments]{};
+    // 4 Fragments of B (16x8 values each) really half2, not uint32
+    Fragment<uint32_t, numRegistersB> B[numBFragments]{};
+    // 8 Fragments of D (16x8 values each)
+    Fragment<float, numRegistersD> D[numDFragments]{};
+};
+
+};  // namespace WarpMma
+
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
 __device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A);
 __device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B);
-//__device__ void clearFragment<T, size>(uint32_t* regArray);
 __device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D);
+__device__ void clearD(struct WarpMma::WarpTile& tile);
+__device__ void warpTileMma(struct WarpMma::WarpTile& tile, half2* aTileAddr, half2* bTileAddr);
 
 constexpr bool Debug = false;
 constexpr long numIterations = 1e7;
@@ -106,8 +135,8 @@ int main(int argc, char* argv[]) {
 
     printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
     // Estimated TFLOPS that we computed
-    const float tflops =
-        gridDim.x * blockDim.x / 32.0 * numIterations * totalFlopsPerOp / elapsedTime / 1e12;
+    const float tflops = gridDim.x * blockDim.x / 32.0 * numIterations * WarpMma::numDFragments *
+                         totalFlopsPerOp / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
@@ -127,14 +156,6 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
             printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
         }
     }
-
-    // Each thread in has 4 32 bit registers for A
-    // Each thread has 2 32 bit registers for B
-    // Each thread has 4 floats for outputs
-    float D[4];
-    // TODO convert these to half2 an reinterpret cast?
-    uint32_t A[4];
-    uint32_t B[2];
 
     // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
     // Are static shared memory allocations already aligned?
@@ -167,26 +188,16 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
             BTile[tidx * 4 + row].y = static_cast<half>(tidx * 8 + row * 2 + 1);
         }
     }
+
+    // Declare two warp tiles for double buffering. One tile is being transferred while the other is
+    // being used by the mma instruction
+    WarpMma::WarpTile warpTile;
+    clearD(warpTile);
+
     // Repeat just the load matrix and calculation part of loop for benchmarking
     // This assumes that we are able to page from global memory to shared memory efficiently
-    constexpr int unrollFactor = 1;
-
-    // Clear D
-    D[0] = 0.0;
-    D[1] = 0.0;
-    D[2] = 0.0;
-    D[3] = 0.0;
-
-    for (long i = 0; i < numIterations / unrollFactor; i++) {
-        // Page fragment into A
-        loadAMatrix_16_16(&ATile[tidx * 4], A);
-
-        // Page fragment into B
-        // Need to duplicate addresses here for threads 16-31
-        loadBMatrix_16_8(&BTile[(tidx % 16) * 4], B);
-        // Perform MMA
-        mma_16_8_16(A, B, D, D);
-
+    for (long i = 0; i < numIterations; i++) {
+        warpTileMma(warpTile, &ATile[tidx * 4], &BTile[(tidx % 16) * 4]);
         // Inspect Results of D
         /* These are the expected resultant full matrices and fragments for A, B, and D
             These match the pictures in the Nvidia talk "Pushing tensor cores to the limit..."
@@ -290,18 +301,15 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
          [134808 157784 180760 203736 226712 249688 272664 295640]
          [139352 163352 187352 211352 235352 259352 283352 307352]]
         */
+    }
 
-        if (Debug) {
-            printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", tidx, tidy, D[0], D[1], D[2],
-                   D[3]);
+    // This is all here so everything isn't optimized away
+    for (int i = 0; i < WarpMma::numDFragments; i++) {
+        if (tidx == 0 && (warpTile.D[i].Reg[0] > 10.0f)) {
+            count++;
         }
     }
-    //    }
-    if (tidx == 0 && (D[0] > 10.0f)) {
-        count++;
-    }
 
-    // This is really just because I was doubting it was executing all this
     if (tidx == 0) {
         atomicAdd(iterationCount, count);
     }
@@ -378,4 +386,43 @@ __device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C
         : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
         : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(C[0]), "f"(C[1]),
           "f"(C[2]), "f"(C[3]));
+
+    if (Debug) {
+        printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", threadIdx.x, threadIdx.y, D[0], D[1],
+               D[2], D[3]);
+    }
+}
+
+__device__ void clearD(struct WarpMma::WarpTile& tile) {
+    for (int i = 0; i < WarpMma::numDFragments; i++) {
+        for (int j = 0; j < WarpMma::numRegistersD; j++) {
+            tile.D[i].Reg[j] = 0.0f;
+        }
+    }
+}
+
+__device__ void warpTileMma(struct WarpMma::WarpTile& tile, half2* aTileAddr, half2* bTileAddr) {
+    // Page fragment into A. This is 2 fragments
+    for (int i = 0; i < WarpMma::numAFragments; i++) {
+        // TODO aTileAddr can't be constant here obviously
+        loadAMatrix_16_16(aTileAddr, tile.A[i].Reg);
+    }
+
+    // Page fragment into B. This is 4 fragments
+    // Need to duplicate addresses here for threads 16-31
+    for (int i = 0; i < WarpMma::numBFragments; i++) {
+        // TODO bTileAddr can't be constant here
+        loadBMatrix_16_8(bTileAddr, tile.B[i].Reg);
+    }
+
+    // Perform MMA. Compute 8 fragments
+    // 0-1
+    for (int i = 0; i < WarpMma::numAFragments; i++) {
+        // 0-3
+        for (int j = 0; j < WarpMma::numBFragments; j++) {
+            int dIndex = i * WarpMma::numBFragments + j;
+            float* D = tile.D[dIndex].Reg;
+            mma_16_8_16(tile.A[i].Reg, tile.B[j].Reg, D, D);
+        }
+    }
 }
