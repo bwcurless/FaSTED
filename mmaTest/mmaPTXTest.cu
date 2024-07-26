@@ -19,9 +19,9 @@ struct Fragment {
 constexpr int numRegistersA = 4;
 constexpr int numRegistersB = 2;
 constexpr int numRegistersD = 4;
-constexpr int numAFragments = 2;
+constexpr int numAFragments = 4;
 constexpr int numBFragments = 4;
-constexpr int numDFragments = 8;
+constexpr int numDFragments = 16;
 // Each WarpTile stores the operands A and B to compute a 32x32 output matrix D
 struct WarpTile {
     // 2 Fragments of A (16x16 values each) really half2, not uint32
@@ -47,12 +47,20 @@ constexpr long numIterations = 1e7;
 constexpr int m = 16;
 constexpr int n = 8;
 constexpr int k = 16;
+// Have a 128x128 block tile
+constexpr int blockTileSize = 128;
+// How many chunks of k to page into shared memory at at time
+constexpr int kSlices = 4;
+// Divide by two since it's an array of half2 values
+constexpr int aBlockTileSize = blockTileSize * k * kSlices / 2;
+constexpr int bBlockTileSize = aBlockTileSize;
+
 constexpr int totalFlopsPerOp = m * n * k * 2;
 
 constexpr int tensorCoresPerSM = 4;
 constexpr int numSMs = 108;
+constexpr int numWarps = 8;
 constexpr int numWaves = 1;
-constexpr int numTensorCores = numSMs * tensorCoresPerSM;
 
 #define gpuErrchk(ans) \
     { gpuAssert((ans), __FILE__, __LINE__); }
@@ -118,7 +126,7 @@ int main(int argc, char* argv[]) {
     // 16 warps is the minimum to achieve 100% tensor core usage.
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
-    dim3 blockDim(32 * 16, 1, 1);
+    dim3 blockDim(32 * numWarps, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
 
     gpuErrchk(cudaEventRecord(stop, 0));
@@ -159,8 +167,8 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
 
     // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
     // Are static shared memory allocations already aligned?
-    __shared__ __align__(16) half2 ATile[128];
-    __shared__ __align__(16) half2 BTile[64];
+    __shared__ __align__(16) half2 ATile[aBlockTileSize];
+    __shared__ __align__(16) half2 BTile[bBlockTileSize];
 
     if (Debug) {
         // Check to make sure the address it allocated is 16B aligned
