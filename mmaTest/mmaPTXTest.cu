@@ -32,6 +32,11 @@ struct WarpTile {
     Fragment<float, numRegistersD> D[numDFragments]{};
 };
 
+template <int slices>
+struct BlockTileLayout {
+    int kSlices = slices;
+};
+
 };  // namespace WarpMma
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
@@ -40,7 +45,9 @@ __device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A);
 __device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B);
 __device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D);
 __device__ void clearD(struct WarpMma::WarpTile& tile);
-__device__ void warpTileMma(struct WarpMma::WarpTile& tile, half2* aTileAddr, half2* bTileAddr);
+__device__ void warpTileMma(struct WarpMma::WarpTile& tile);
+__device__ void warpTileLoadB(struct WarpMma::WarpTile& tile, half2* bTileAddr);
+__device__ void warpTileLoadA(struct WarpMma::WarpTile& tile, half2* aTileAddr);
 
 constexpr bool Debug = false;
 constexpr long numIterations = 1e7;
@@ -59,7 +66,9 @@ constexpr int totalFlopsPerOp = m * n * k * 2;
 
 constexpr int tensorCoresPerSM = 4;
 constexpr int numSMs = 108;
-constexpr int numWarps = 4;
+constexpr int numWarpCols = 2;
+constexpr int numWarpRows = 2;
+constexpr int numWarps = numWarpCols * numWarpRows;
 constexpr int numWaves = 1;
 
 #define gpuErrchk(ans) \
@@ -82,9 +91,10 @@ __device__ uint get_smid(void) {
 
 __device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
     uint32_t address;
-    // This is converting our generic 64 bit address to the shared memory state space. This means
-    // subtracting the base address of the shared space, and then truncating to 32 bits since shared
-    // memory all fits into 32 bits this is safe. The generic address space is 64 bits though.
+    // This is converting our generic 64 bit address to the shared memory state space. This
+    // means subtracting the base address of the shared space, and then truncating to 32 bits
+    // since shared memory all fits into 32 bits this is safe. The generic address space is 64
+    // bits though.
     asm("{\n\t"
         "  .reg .u64 u64addr;\n\t"
         "  cvta.to.shared.u64 u64addr, %1;\n\t"
@@ -155,12 +165,12 @@ int main(int argc, char* argv[]) {
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     int tidx = threadIdx.x % 32;
-    int tidy = threadIdx.y;
+    int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
 
     if (Debug) {
-        if (tidx == 0 && tidy == 0) {
+        if (tidx == 0) {
             printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
         }
     }
@@ -197,118 +207,30 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
         }
     }
 
-    // Declare two warp tiles for double buffering. One tile is being transferred while the other is
-    // being used by the mma instruction
+    // Declare two warp tiles for double buffering. One tile is being transferred while the
+    // other is being used by the mma instruction
     WarpMma::WarpTile warpTile;
     clearD(warpTile);
 
     // Repeat just the load matrix and calculation part of loop for benchmarking
     // This assumes that we are able to page from global memory to shared memory efficiently
     for (long i = 0; i < numIterations; i++) {
-        warpTileMma(warpTile, &ATile[tidx * 4], &BTile[(tidx % 16) * 4]);
-        // Inspect Results of D
-        /* These are the expected resultant full matrices and fragments for A, B, and D
-            These match the pictures in the Nvidia talk "Pushing tensor cores to the limit..."
-        a0: [[ 0  1  2  3  4  5  6  7]
-         [ 8  9 10 11 12 13 14 15]
-         [16 17 18 19 20 21 22 23]
-         [24 25 26 27 28 29 30 31]
-         [32 33 34 35 36 37 38 39]
-         [40 41 42 43 44 45 46 47]
-         [48 49 50 51 52 53 54 55]
-         [56 57 58 59 60 61 62 63]]
-        a1: [[ 64  65  66  67  68  69  70  71]
-         [ 72  73  74  75  76  77  78  79]
-         [ 80  81  82  83  84  85  86  87]
-         [ 88  89  90  91  92  93  94  95]
-         [ 96  97  98  99 100 101 102 103]
-         [104 105 106 107 108 109 110 111]
-         [112 113 114 115 116 117 118 119]
-         [120 121 122 123 124 125 126 127]]
-        a2: [[128 129 130 131 132 133 134 135]
-         [136 137 138 139 140 141 142 143]
-         [144 145 146 147 148 149 150 151]
-         [152 153 154 155 156 157 158 159]
-         [160 161 162 163 164 165 166 167]
-         [168 169 170 171 172 173 174 175]
-         [176 177 178 179 180 181 182 183]
-         [184 185 186 187 188 189 190 191]]
-        a3: [[192 193 194 195 196 197 198 199]
-         [200 201 202 203 204 205 206 207]
-         [208 209 210 211 212 213 214 215]
-         [216 217 218 219 220 221 222 223]
-         [224 225 226 227 228 229 230 231]
-         [232 233 234 235 236 237 238 239]
-         [240 241 242 243 244 245 246 247]
-         [248 249 250 251 252 253 254 255]]
-           a_full:
-        [[  0   1   2   3   4   5   6   7 128 129 130 131 132 133 134 135]
-         [  8   9  10  11  12  13  14  15 136 137 138 139 140 141 142 143]
-         [ 16  17  18  19  20  21  22  23 144 145 146 147 148 149 150 151]
-         [ 24  25  26  27  28  29  30  31 152 153 154 155 156 157 158 159]
-         [ 32  33  34  35  36  37  38  39 160 161 162 163 164 165 166 167]
-         [ 40  41  42  43  44  45  46  47 168 169 170 171 172 173 174 175]
-         [ 48  49  50  51  52  53  54  55 176 177 178 179 180 181 182 183]
-         [ 56  57  58  59  60  61  62  63 184 185 186 187 188 189 190 191]
-         [ 64  65  66  67  68  69  70  71 192 193 194 195 196 197 198 199]
-         [ 72  73  74  75  76  77  78  79 200 201 202 203 204 205 206 207]
-         [ 80  81  82  83  84  85  86  87 208 209 210 211 212 213 214 215]
-         [ 88  89  90  91  92  93  94  95 216 217 218 219 220 221 222 223]
-         [ 96  97  98  99 100 101 102 103 224 225 226 227 228 229 230 231]
-         [104 105 106 107 108 109 110 111 232 233 234 235 236 237 238 239]
-         [112 113 114 115 116 117 118 119 240 241 242 243 244 245 246 247]
-         [120 121 122 123 124 125 126 127 248 249 250 251 252 253 254 255]]
-        b0: [[ 0  8 16 24 32 40 48 56]
-         [ 1  9 17 25 33 41 49 57]
-         [ 2 10 18 26 34 42 50 58]
-         [ 3 11 19 27 35 43 51 59]
-         [ 4 12 20 28 36 44 52 60]
-         [ 5 13 21 29 37 45 53 61]
-         [ 6 14 22 30 38 46 54 62]
-         [ 7 15 23 31 39 47 55 63]]
-        b1: [[ 64  72  80  88  96 104 112 120]
-         [ 65  73  81  89  97 105 113 121]
-         [ 66  74  82  90  98 106 114 122]
-         [ 67  75  83  91  99 107 115 123]
-         [ 68  76  84  92 100 108 116 124]
-         [ 69  77  85  93 101 109 117 125]
-         [ 70  78  86  94 102 110 118 126]
-         [ 71  79  87  95 103 111 119 127]]
-        b_full:
-        [[  0   8  16  24  32  40  48  56]
-         [  1   9  17  25  33  41  49  57]
-         [  2  10  18  26  34  42  50  58]
-         [  3  11  19  27  35  43  51  59]
-         [  4  12  20  28  36  44  52  60]
-         [  5  13  21  29  37  45  53  61]
-         [  6  14  22  30  38  46  54  62]
-         [  7  15  23  31  39  47  55  63]
-         [ 64  72  80  88  96 104 112 120]
-         [ 65  73  81  89  97 105 113 121]
-         [ 66  74  82  90  98 106 114 122]
-         [ 67  75  83  91  99 107 115 123]
-         [ 68  76  84  92 100 108 116 124]
-         [ 69  77  85  93 101 109 117 125]
-         [ 70  78  86  94 102 110 118 126]
-         [ 71  79  87  95 103 111 119 127]]
-        d:
-        [[ 71192  79832  88472  97112 105752 114392 123032 131672]
-         [ 75736  85400  95064 104728 114392 124056 133720 143384]
-         [ 80280  90968 101656 112344 123032 133720 144408 155096]
-         [ 84824  96536 108248 119960 131672 143384 155096 166808]
-         [ 89368 102104 114840 127576 140312 153048 165784 178520]
-         [ 93912 107672 121432 135192 148952 162712 176472 190232]
-         [ 98456 113240 128024 142808 157592 172376 187160 201944]
-         [103000 118808 134616 150424 166232 182040 197848 213656]
-         [107544 124376 141208 158040 174872 191704 208536 225368]
-         [112088 129944 147800 165656 183512 201368 219224 237080]
-         [116632 135512 154392 173272 192152 211032 229912 248792]
-         [121176 141080 160984 180888 200792 220696 240600 260504]
-         [125720 146648 167576 188504 209432 230360 251288 272216]
-         [130264 152216 174168 196120 218072 240024 261976 283928]
-         [134808 157784 180760 203736 226712 249688 272664 295640]
-         [139352 163352 187352 211352 235352 259352 283352 307352]]
-        */
+        // Accumulate into D as many times as we need to
+        for (int kslice = 0; kslice < kSlices; kslice++) {
+            // Need to pass in here:
+            // First A address (based on what warp I am, and what kslice
+            // Which vertical slice this warp cares about
+            int aTileVerticalSliceIndex = warpId / numWarpCols;
+            int aTileVerticalSliceSize = k * kSlices * blockTileSize / numWarpRows;
+            // half2* aAddr = &ATile[aTileVerticalSliceIndex * aTileVerticalSliceSize + ];
+            //  Frst B address
+            //  A stride to get to next row (num k slices * k)
+            //  B stride
+
+            warpTileLoadA(warpTile, &ATile[tidx * 4]);
+            warpTileLoadB(warpTile, &BTile[(tidx % 16) * 4]);
+            warpTileMma(warpTile);
+        }
     }
 
     // This is all here so everything isn't optimized away
@@ -409,20 +331,27 @@ __device__ void clearD(struct WarpMma::WarpTile& tile) {
     }
 }
 
-__device__ void warpTileMma(struct WarpMma::WarpTile& tile, half2* aTileAddr, half2* bTileAddr) {
+// Given a WarpTile, loads all the A fragments into it
+__device__ void warpTileLoadA(struct WarpMma::WarpTile& tile, half2* aTileAddr) {
     // Page fragment into A. This is 2 fragments
     for (int i = 0; i < WarpMma::numAFragments; i++) {
         // TODO aTileAddr can't be constant here obviously
         loadAMatrix_16_16(aTileAddr, tile.A[i].Reg);
     }
+}
 
+// Given a WarpTile, loads all the B fragments into it
+__device__ void warpTileLoadB(struct WarpMma::WarpTile& tile, half2* bTileAddr) {
     // Page fragment into B. This is 4 fragments
     // Need to duplicate addresses here for threads 16-31
     for (int i = 0; i < WarpMma::numBFragments; i++) {
         // TODO bTileAddr can't be constant here
         loadBMatrix_16_8(bTileAddr, tile.B[i].Reg);
     }
+}
 
+// Given a WarpTile with operands A and B, computes all the output tiles D
+__device__ void warpTileMma(struct WarpMma::WarpTile& tile) {
     // Perform MMA. Compute 8 fragments
     // 0-1
     for (int i = 0; i < WarpMma::numAFragments; i++) {
