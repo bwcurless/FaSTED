@@ -20,9 +20,9 @@ constexpr int numRegistersA = 4;
 constexpr int numRegistersB = 2;
 constexpr int numRegistersD = 4;
 constexpr int numAFragments = 4;
-constexpr int numBFragments = 4;
-constexpr int numDFragments = 16;
-// Each WarpTile stores the operands A and B to compute a 32x32 output matrix D
+constexpr int numBFragments = 8;
+constexpr int numDFragments = 32;
+// Each WarpTile stores multiple operands A and B to compute a large output matrix D
 struct WarpTile {
     // 2 Fragments of A (16x16 values each) really half2, not uint32
     Fragment<uint32_t, numRegistersA> A[numAFragments]{};
@@ -59,7 +59,7 @@ constexpr int totalFlopsPerOp = m * n * k * 2;
 
 constexpr int tensorCoresPerSM = 4;
 constexpr int numSMs = 108;
-constexpr int numWarps = 8;
+constexpr int numWarps = 4;
 constexpr int numWaves = 1;
 
 #define gpuErrchk(ans) \
