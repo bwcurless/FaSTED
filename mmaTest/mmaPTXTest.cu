@@ -6,52 +6,169 @@
 
 #include <iostream>
 
-namespace WarpMma {
+#define WARPSIZE 32
 
-// Represents one tile of matrix that ldmatrix loads into registers. Each thread holds a piece of
-// this fragment. Input operands in half precision are packed in pairs into registers. Precision and
-// fragment size dictate how many registers are required
+// Low level namespace for fragments, and single mma operations
+namespace Mma {
+constexpr bool Debug = false;
+
+// TODO is this the best way to initialize this with defaults?
+// Dimensions of a fundamental mma operation in ptx
+struct MmaDims {
+    int m{16};
+    int n{8};
+    int k{16};
+};
+
+// Represents one operand A, B, C, or D, of an mma operaetion that ldmatrix loads into registers.
+// Each thread holds a piece of this operand. Input operands in half precision are packed in pairs
+// into registers. Precision and fragment size dictate how many registers are required
 template <typename T, int NumReg>
 struct Fragment {
-    T Reg[NumReg]{};
+   public:
+    T Registers[NumReg]{};
+
+    __device__ void clear() {
+        for (int j = 0; j < NumReg; j++) {
+            Registers[j] = 0.0f;
+        }
+    }
 };
 
-// These are hard coded for a 16x8x16 mixed precision mma for now
-constexpr int numRegistersA = 4;
-constexpr int numRegistersB = 2;
-constexpr int numRegistersD = 4;
+// Making some aliases to make it easier to define specific functions taking only these template
+// arguments
+using FragmentA_16x16 = Fragment<uint32_t, 4>;
+using FragmentB_16x8 = Fragment<uint32_t, 2>;
+using FragmentD_16x8 = Fragment<float, 4>;
+
+__device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
+    uint32_t address;
+    // This is converting our generic 64 bit address to the shared memory state space. This
+    // means subtracting the base address of the shared space, and then truncating to 32 bits
+    // since shared memory all fits into 32 bits this is safe. The generic address space is 64
+    // bits though.
+    asm("{\n\t"
+        "  .reg .u64 u64addr;\n\t"
+        "  cvta.to.shared.u64 u64addr, %1;\n\t"
+        "  cvt.u32.u64 %0, u64addr;\n\t"
+        "}"
+        : "=r"(address)
+        : "l"(pointer));
+    return address;
+}
+
+// Load row of shared memory into Fragment
+// Since this has inline PTX it only works for a specific template specification
+__device__ void loadAMatrix_16_16(const void* smem_row_start, FragmentA_16x16& A) {
+    //  Page into A
+    //  Pointer to 128 bit row of data in shared memory
+    uint32_t smem_ptr;
+
+    smem_ptr = cvta_to_shared_u32(smem_row_start);
+
+    if (Debug) {
+        if (threadIdx.x == 0) {
+            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
+        }
+    }
+
+    asm volatile(
+        "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
+        "{ %0, %1, %2, %3 }, [%4];"
+        : "=r"(A.Registers[0]), "=r"(A.Registers[1]), "=r"(A.Registers[2]), "=r"(A.Registers[3])
+        : "r"(smem_ptr));
+
+    if (Debug) {
+        // Inspect A
+        for (int i = 0; i < 4; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(A.Registers[i]);
+            printf("Thread %d, %d: A%d=%f, A%d=%f\n", threadIdx.x, threadIdx.y, i,
+                   __half2float(tempVal->x), i, __half2float(tempVal->y));
+        }
+    }
+}
+
+// Load row of shared memory into Fragment
+__device__ void loadBMatrix_16_8(const void* smem_row_start, FragmentB_16x8& B) {
+    //  Page into A
+    //  Pointer to 128 bit row of data in shared memory
+    uint32_t smem_ptr;
+
+    smem_ptr = cvta_to_shared_u32(smem_row_start);
+
+    if (Debug) {
+        if (threadIdx.x == 0) {
+            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
+        }
+    }
+
+    // To get this to work out like the example, you don't want to transpose here.
+    // It seems there is an implied transpose for the B matrix when you execute mma
+    asm volatile(
+        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
+        "{ %0, %1 }, [%2];"
+        : "=r"(B.Registers[0]), "=r"(B.Registers[1])
+        : "r"(smem_ptr));
+
+    if (Debug) {
+        // Inspect B
+        for (int i = 0; i < 2; i++) {
+            half2* tempVal = reinterpret_cast<half2*>(&B.Registers[i]);
+            printf("Thread %d, %d: B%d=%f, B%d=%f\n", threadIdx.x, threadIdx.y, i,
+                   __half2float(tempVal->x), i, __half2float(tempVal->y));
+        }
+    }
+}
+
+__device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
+                            const FragmentD_16x8& C, FragmentD_16x8& D) {
+    // 16x8x8 TC Operation
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        " { %0, %1, %2, %3 }, "
+        " { %4, %5, %6, %7}, "
+        " { %8, %9 }, "
+        " { %10, %11, %12, %13 };"
+        : "=f"(D.Registers[0]), "=f"(D.Registers[1]), "=f"(D.Registers[2]), "=f"(D.Registers[3])
+        : "r"(A.Registers[0]), "r"(A.Registers[1]), "r"(A.Registers[2]), "r"(A.Registers[3]),
+          "r"(B.Registers[0]), "r"(B.Registers[1]), "f"(C.Registers[0]), "f"(C.Registers[1]),
+          "f"(C.Registers[2]), "f"(C.Registers[3]));
+
+    if (Debug) {
+        printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", threadIdx.x, threadIdx.y,
+               D.Registers[0], D.Registers[1], D.Registers[2], D.Registers[3]);
+    }
+}
+
+};  // namespace Mma
+
+// A single warp operation made up of many fragments of A, B, and D
+namespace WarpMma {
+
+constexpr Mma::MmaDims mmaDims{};
+
+// TODO Rounding might not work out here, have to be careful
+constexpr int numRegistersA = mmaDims.m * mmaDims.k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+constexpr int numRegistersB = mmaDims.n * mmaDims.k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+constexpr int numRegistersD = mmaDims.m * mmaDims.n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
 // Each WarpTile stores multiple operands A and B to compute a large output matrix D
-// Template can specify the size of the actual warp tile. For example are we computing 32x32 output,
-// 32x64, 64x64?
+// Template can specify the size of the actual warp tile.
 template <int aFragments, int bFragments, int dFragments>
 struct WarpTile {
-    // 2 Fragments of A (16x16 values each) really half2, not uint32
-    Fragment<uint32_t, numRegistersA> A[aFragments]{};
-    // 4 Fragments of B (16x8 values each) really half2, not uint32
-    Fragment<uint32_t, numRegistersB> B[bFragments]{};
-    // 8 Fragments of D (16x8 values each)
-    Fragment<float, numRegistersD> D[dFragments]{};
+    Mma::Fragment<uint32_t, numRegistersA> A[aFragments]{};
+    Mma::Fragment<uint32_t, numRegistersB> B[bFragments]{};
+    Mma::Fragment<float, numRegistersD> D[dFragments]{};
 };
-
-template <int slices>
-struct BlockTileLayout {
-    int kSlices = slices;
-};
-
 };  // namespace WarpMma
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
-__device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A);
-__device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B);
-__device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D);
 
+// Given an WarpTile, clears the D registers to 0.0. Useful for when starting a computation
 template <int a, int b, int d>
 __device__ void clearD(struct WarpMma::WarpTile<a, b, d>& tile) {
     for (int i = 0; i < d; i++) {
-        for (int j = 0; j < WarpMma::numRegistersD; j++) {
-            tile.D[i].Reg[j] = 0.0f;
-        }
+        tile.D[i].clear();
     }
 }
 
@@ -61,7 +178,7 @@ __device__ void warpTileLoadA(struct WarpMma::WarpTile<a, b, d>& tile, half2* aT
     // Page fragment into A. This is 2 fragments
     for (int i = 0; i < a; i++) {
         // TODO aTileAddr can't be constant here obviously
-        loadAMatrix_16_16(aTileAddr, tile.A[i].Reg);
+        Mma::loadAMatrix_16_16(aTileAddr, tile.A[i]);
     }
 }
 
@@ -72,7 +189,7 @@ __device__ void warpTileLoadB(struct WarpMma::WarpTile<a, b, d>& tile, half2* bT
     // Need to duplicate addresses here for threads 16-31
     for (int i = 0; i < b; i++) {
         // TODO bTileAddr can't be constant here
-        loadBMatrix_16_8(bTileAddr, tile.B[i].Reg);
+        Mma::loadBMatrix_16_8(bTileAddr, tile.B[i]);
     }
 }
 
@@ -85,8 +202,8 @@ __device__ void warpTileMma(struct WarpMma::WarpTile<a, b, d>& tile) {
         // 0-3
         for (int j = 0; j < b; j++) {
             int dIndex = i * b + j;
-            float* D = tile.D[dIndex].Reg;
-            mma_16_8_16(tile.A[i].Reg, tile.B[j].Reg, D, D);
+            Mma::FragmentD_16x8& D = tile.D[dIndex];
+            Mma::mma_16_8_16(tile.A[i], tile.B[j], D, D);
         }
     }
 }
@@ -132,22 +249,6 @@ __device__ uint get_smid(void) {
     asm("mov.u32 %0, %smid;" : "=r"(ret));
 
     return ret;
-}
-
-__device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
-    uint32_t address;
-    // This is converting our generic 64 bit address to the shared memory state space. This
-    // means subtracting the base address of the shared space, and then truncating to 32 bits
-    // since shared memory all fits into 32 bits this is safe. The generic address space is 64
-    // bits though.
-    asm("{\n\t"
-        "  .reg .u64 u64addr;\n\t"
-        "  cvta.to.shared.u64 u64addr, %1;\n\t"
-        "  cvt.u32.u64 %0, u64addr;\n\t"
-        "}"
-        : "=r"(address)
-        : "l"(pointer));
-    return address;
 }
 
 int main(int argc, char* argv[]) {
@@ -280,90 +381,12 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
 
     // This is all here so everything isn't optimized away
     for (int i = 0; i < numDFragments; i++) {
-        if (tidx == 0 && (warpTile.D[i].Reg[0] > 10.0f)) {
+        if (tidx == 0 && (warpTile.D[i].Registers[0] > 10.0f)) {
             count++;
         }
     }
 
     if (tidx == 0) {
         atomicAdd(iterationCount, count);
-    }
-}
-
-__device__ void loadAMatrix_16_16(const void* smem_row_start, uint32_t* A) {
-    //  Page into A
-    //  Pointer to 128 bit row of data in shared memory
-    uint32_t smem_ptr;
-
-    smem_ptr = cvta_to_shared_u32(smem_row_start);
-
-    if (Debug) {
-        if (threadIdx.x == 0) {
-            printf("Shared 32b Memory Address A 0x%x\n", smem_ptr);
-        }
-    }
-
-    asm volatile(
-        "ldmatrix.sync.aligned.x4.m8n8.shared.b16 "
-        "{ %0, %1, %2, %3 }, [%4];"
-        : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
-        : "r"(smem_ptr));
-
-    if (Debug) {
-        // Inspect A
-        for (int i = 0; i < 4; i++) {
-            half2* tempVal = reinterpret_cast<half2*>(&A[i]);
-            printf("Thread %d, %d: A%d=%f, A%d=%f\n", threadIdx.x, threadIdx.y, i,
-                   __half2float(tempVal->x), i, __half2float(tempVal->y));
-        }
-    }
-}
-
-__device__ void loadBMatrix_16_8(const void* smem_row_start, uint32_t* B) {
-    //  Page into A
-    //  Pointer to 128 bit row of data in shared memory
-    uint32_t smem_ptr;
-
-    smem_ptr = cvta_to_shared_u32(smem_row_start);
-
-    if (Debug) {
-        if (threadIdx.x == 0) {
-            printf("Shared 32b Memory Address B 0x%x\n", smem_ptr);
-        }
-    }
-
-    // To get this to work out like the example, you don't want to transpose here.
-    // It seems there is an implied transpose for the B matrix when you execute mma
-    asm volatile(
-        "ldmatrix.sync.aligned.x2.m8n8.shared.b16 "
-        "{ %0, %1 }, [%2];"
-        : "=r"(B[0]), "=r"(B[1])
-        : "r"(smem_ptr));
-
-    if (Debug) {
-        // Inspect B
-        for (int i = 0; i < 2; i++) {
-            half2* tempVal = reinterpret_cast<half2*>(&B[i]);
-            printf("Thread %d, %d: B%d=%f, B%d=%f\n", threadIdx.x, threadIdx.y, i,
-                   __half2float(tempVal->x), i, __half2float(tempVal->y));
-        }
-    }
-}
-
-__device__ void mma_16_8_16(const uint32_t* A, const uint32_t* B, const float* C, float* D) {
-    // 16x8x8 TC Operation
-    asm volatile(
-        "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
-        " { %0, %1, %2, %3 }, "
-        " { %4, %5, %6, %7}, "
-        " { %8, %9 }, "
-        " { %10, %11, %12, %13 };"
-        : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
-        : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]), "r"(B[0]), "r"(B[1]), "f"(C[0]), "f"(C[1]),
-          "f"(C[2]), "f"(C[3]));
-
-    if (Debug) {
-        printf("Thread %d, %d: D0=%f, D1=%f, D2=%f, D3=%f\n", threadIdx.x, threadIdx.y, D[0], D[1],
-               D[2], D[3]);
     }
 }
