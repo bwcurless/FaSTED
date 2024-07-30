@@ -12,13 +12,10 @@
 namespace Mma {
 constexpr bool Debug = false;
 
-// TODO is this the best way to initialize this with defaults?
 // Dimensions of a fundamental mma operation in ptx
-struct MmaDims {
-    int m{16};
-    int n{8};
-    int k{16};
-};
+constexpr int m = 16;
+constexpr int n = 8;
+constexpr int k = 16;
 
 // Represents one operand A, B, C, or D, of an mma operaetion that ldmatrix loads into registers.
 // Each thread holds a piece of this operand. Input operands in half precision are packed in pairs
@@ -36,7 +33,7 @@ struct Fragment {
 };
 
 // Making some aliases to make it easier to define specific functions taking only these template
-// arguments
+// arguments due to the fact that they require inline ptx and aren't generic
 using FragmentA_16x16 = Fragment<uint32_t, 4>;
 using FragmentB_16x8 = Fragment<uint32_t, 2>;
 using FragmentD_16x8 = Fragment<float, 4>;
@@ -145,92 +142,91 @@ __device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
 // A single warp operation made up of many fragments of A, B, and D
 namespace WarpMma {
 
-constexpr Mma::MmaDims mmaDims{};
-
 // TODO Rounding might not work out here, have to be careful
-constexpr int numRegistersA = mmaDims.m * mmaDims.k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
-constexpr int numRegistersB = mmaDims.n * mmaDims.k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
-constexpr int numRegistersD = mmaDims.m * mmaDims.n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
+constexpr int numRegistersA = Mma::m * Mma::k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+constexpr int numRegistersB = Mma::k * Mma::n * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+constexpr int numRegistersD = Mma::m * Mma::n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
+
 // Each WarpTile stores multiple operands A and B to compute a large output matrix D
 // Template can specify the size of the actual warp tile.
 template <int aFragments, int bFragments, int dFragments>
 struct WarpTile {
+   public:
     Mma::Fragment<uint32_t, numRegistersA> A[aFragments]{};
     Mma::Fragment<uint32_t, numRegistersB> B[bFragments]{};
     Mma::Fragment<float, numRegistersD> D[dFragments]{};
+
+    // Given an WarpTile, clears the D registers to 0.0. Useful for when starting a computation
+    __device__ void clearD() {
+        for (int i = 0; i < dFragments; i++) {
+            D[i].clear();
+        }
+    }
+
+    // Given a WarpTile, loads all the A fragments into it
+    __device__ void warpTileLoadA(half2* aTileAddr) {
+        // Page fragment into A. This is 2 fragments
+        for (int i = 0; i < aFragments; i++) {
+            // TODO aTileAddr can't be constant here obviously
+            Mma::loadAMatrix_16_16(aTileAddr, A[i]);
+        }
+    }
+
+    // Given a WarpTile, loads all the B fragments into it
+    __device__ void warpTileLoadB(half2* bTileAddr) {
+        // Page fragment into B. This is 4 fragments
+        // Need to duplicate addresses here for threads 16-31
+        for (int i = 0; i < bFragments; i++) {
+            // TODO bTileAddr can't be constant here
+            Mma::loadBMatrix_16_8(bTileAddr, B[i]);
+        }
+    }
+
+    // Given a WarpTile with operands A and B, computes all the output tiles D
+    __device__ void warpTileMma() {
+        // Perform MMA. Compute 8 fragments
+        // 0-1
+        for (int i = 0; i < aFragments; i++) {
+            // 0-3
+            for (int j = 0; j < bFragments; j++) {
+                int dIndex = i * bFragments + j;
+                Mma::FragmentD_16x8& Dfrag = D[dIndex];
+                Mma::mma_16_8_16(A[i], B[j], Dfrag, Dfrag);
+            }
+        }
+    }
 };
 };  // namespace WarpMma
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
 
-// Given an WarpTile, clears the D registers to 0.0. Useful for when starting a computation
-template <int a, int b, int d>
-__device__ void clearD(struct WarpMma::WarpTile<a, b, d>& tile) {
-    for (int i = 0; i < d; i++) {
-        tile.D[i].clear();
-    }
-}
-
-// Given a WarpTile, loads all the A fragments into it
-template <int a, int b, int d>
-__device__ void warpTileLoadA(struct WarpMma::WarpTile<a, b, d>& tile, half2* aTileAddr) {
-    // Page fragment into A. This is 2 fragments
-    for (int i = 0; i < a; i++) {
-        // TODO aTileAddr can't be constant here obviously
-        Mma::loadAMatrix_16_16(aTileAddr, tile.A[i]);
-    }
-}
-
-// Given a WarpTile, loads all the B fragments into it
-template <int a, int b, int d>
-__device__ void warpTileLoadB(struct WarpMma::WarpTile<a, b, d>& tile, half2* bTileAddr) {
-    // Page fragment into B. This is 4 fragments
-    // Need to duplicate addresses here for threads 16-31
-    for (int i = 0; i < b; i++) {
-        // TODO bTileAddr can't be constant here
-        Mma::loadBMatrix_16_8(bTileAddr, tile.B[i]);
-    }
-}
-
-// Given a WarpTile with operands A and B, computes all the output tiles D
-template <int a, int b, int d>
-__device__ void warpTileMma(struct WarpMma::WarpTile<a, b, d>& tile) {
-    // Perform MMA. Compute 8 fragments
-    // 0-1
-    for (int i = 0; i < a; i++) {
-        // 0-3
-        for (int j = 0; j < b; j++) {
-            int dIndex = i * b + j;
-            Mma::FragmentD_16x8& D = tile.D[dIndex];
-            Mma::mma_16_8_16(tile.A[i], tile.B[j], D, D);
-        }
-    }
-}
-
 constexpr bool Debug = false;
 constexpr long numIterations = 1e7;
-constexpr int m = 16;
-constexpr int n = 8;
-constexpr int k = 16;
+
+// ---------- Mma parameters ----------
+constexpr int totalFlopsPerOp = Mma::m * Mma::n * Mma::k * 2;
+
+// ---------- Warp parameters ----------
 constexpr int numAFragments = 4;
 constexpr int numBFragments = 8;
 constexpr int numDFragments = 32;
-// Have a 128x128 block tile
-constexpr int blockTileSize = 128;
-// How many chunks of k to page into shared memory at at time
-constexpr int kSlices = 4;
-// Divide by two since it's an array of half2 values
-constexpr int aBlockTileSize = blockTileSize * k * kSlices / 2;
-constexpr int bBlockTileSize = aBlockTileSize;
 
-constexpr int totalFlopsPerOp = m * n * k * 2;
-
-constexpr int tensorCoresPerSM = 4;
-constexpr int numSMs = 108;
+// ---------- Block parameters ----------
 constexpr int numWarpCols = 2;
 constexpr int numWarpRows = 2;
 constexpr int numWarps = numWarpCols * numWarpRows;
+// Assume a square block tile
+constexpr int blockTileSize = numWarpCols * numAFragments * Mma::m;
+// How many chunks of k to page into shared memory at at time
+constexpr int kSlices = 4;
+// Divide by two since it's an array of half2 values
+constexpr int aBlockTileSize = blockTileSize * Mma::k * kSlices / 2;
+constexpr int bBlockTileSize = aBlockTileSize;
+
+// ---------- Hardware parameters ----------
+constexpr int tensorCoresPerSM = 4;
+constexpr int numSMs = 108;
 constexpr int numWaves = 1;
 
 #define gpuErrchk(ans) \
@@ -356,7 +352,7 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
     // Declare two warp tiles for double buffering. One tile is being transferred while the
     // other is being used by the mma instruction
     WarpMma::WarpTile<numAFragments, numBFragments, numDFragments> warpTile;
-    clearD(warpTile);
+    warpTile.clearD();
 
     // Repeat just the load matrix and calculation part of loop for benchmarking
     // This assumes that we are able to page from global memory to shared memory efficiently
@@ -367,15 +363,15 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount) {
             // First A address (based on what warp I am, and what kslice
             // Which vertical slice this warp cares about
             int aTileVerticalSliceIndex = warpId / numWarpCols;
-            int aTileVerticalSliceSize = k * kSlices * blockTileSize / numWarpRows;
+            int aTileVerticalSliceSize = Mma::k * kSlices * blockTileSize / numWarpRows;
             // half2* aAddr = &ATile[aTileVerticalSliceIndex * aTileVerticalSliceSize + ];
             //  Frst B address
             //  A stride to get to next row (num k slices * k)
             //  B stride
 
-            warpTileLoadA(warpTile, &ATile[tidx * 4]);
-            warpTileLoadB(warpTile, &BTile[(tidx % 16) * 4]);
-            warpTileMma(warpTile);
+            warpTile.warpTileLoadA(&ATile[tidx * 4]);
+            warpTile.warpTileLoadB(&BTile[(tidx % 16) * 4]);
+            warpTile.warpTileMma();
         }
     }
 
