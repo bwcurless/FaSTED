@@ -195,7 +195,7 @@ struct WarpTile {
     }
 
     // Given a WarpTile, loads all the A fragments into it
-    __device__ void warpTileLoadA(half2* aTileAddr) {
+    __device__ void warpTileLoadA(half2* aTileAddr, Mma::Coordinate& baseCoord) {
         // Page fragment into A. This is 2 fragments
         for (int i = 0; i < numAFragments; i++) {
             // TODO aTileAddr can't be constant here obviously
@@ -204,7 +204,7 @@ struct WarpTile {
     }
 
     // Given a WarpTile, loads all the B fragments into it
-    __device__ void warpTileLoadB(half2* bTileAddr) {
+    __device__ void warpTileLoadB(half2* bTileAddr, Mma::Coordinate& baseCoord) {
         // Page fragment into B. This is 4 fragments
         // Need to duplicate addresses here for threads 16-31
         for (int i = 0; i < numBFragments; i++) {
@@ -258,9 +258,17 @@ constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
 constexpr int aBlockTileSize = blockTileDims.m * blockTileDims.k / 2;
 constexpr int bBlockTileSize = blockTileDims.n * blockTileDims.k / 2;
 
-__device__ Mma::Coordinate GetBaseCoordinate() {
+__device__ Mma::Coordinate GetBaseBlockCoordinate() {
     int baseRow = blockIdx.y * GetBlockTileDims().m;
     int baseCol = blockIdx.x * GetBlockTileDims().n;
+    return {baseRow, baseCol};
+}
+
+__device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord, int warpId) {
+    int warpRow = warpId / numWarpCols;
+    int warpCol = warpId % numWarpCols;
+    int baseRow = baseBlockCoord.row + warpRow * WarpMma::GetWarpTileDims().m;
+    int baseCol = baseBlockCoord.col + warpCol * WarpMma::GetWarpTileDims().n;
     return {baseRow, baseCol};
 }
 
@@ -278,7 +286,9 @@ __device__ void Mma(unsigned long long* iterationCount) {
     // Page Global --> Shared Memory
 
     // Compute Upper left coordinate that this block is responsible for
-    Mma::Coordinate baseCoordinate = GetBaseCoordinate();
+    Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate();
+    // Compute the Upper left coordinate that each warp is responsible for
+    Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
 
     // At this point we are in the kernel, so cuda parallelism is taking place. We really have
     // numWarps running
@@ -287,8 +297,8 @@ __device__ void Mma(unsigned long long* iterationCount) {
 
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-        warpTile.warpTileLoadA(&ATile[tidx * 4]);
-        warpTile.warpTileLoadB(&BTile[(tidx % 16) * 4]);
+        warpTile.warpTileLoadA(ATile, baseWarpCoord);
+        warpTile.warpTileLoadB(BTile, baseWarpCoord);
         warpTile.warpTileMma();
     }
 
