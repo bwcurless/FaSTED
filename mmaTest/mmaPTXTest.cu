@@ -18,6 +18,11 @@ struct mmaTileDims {
     int k{};
 };
 
+struct Coordinate {
+    int row{};
+    int col{};
+};
+
 // Declare a constant for reference elsewhere
 // Dimensions of a fundamental mma operation in ptx
 constexpr mmaTileDims dims{16, 8, 16};
@@ -166,7 +171,7 @@ constexpr int numRegistersB =
 constexpr int numRegistersD =
     Mma::dims.m * Mma::dims.n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
 
-constexpr WarpTileDims GetWarpTileDims() {
+__device__ constexpr WarpTileDims GetWarpTileDims() {
     int m = numAFragments * Mma::dims.m;
     int n = numBFragments * Mma::dims.n;
     // Warp handles a single k slice at a time in registers
@@ -230,6 +235,7 @@ namespace BlockMma {
 constexpr int numWarpCols = 2;
 constexpr int numWarpRows = 2;
 constexpr int kSlices = 4;
+constexpr int coarseFactor = 1;
 
 struct BlockTileDims {
     int m{};
@@ -237,7 +243,7 @@ struct BlockTileDims {
     int k{};
 };
 
-constexpr BlockTileDims GetBlockTileDims() {
+__device__ constexpr BlockTileDims GetBlockTileDims() {
     WarpMma::WarpTileDims warpDims = WarpMma::GetWarpTileDims();
     int m = numWarpRows * warpDims.m;
     int n = numWarpCols * warpDims.n;
@@ -246,13 +252,64 @@ constexpr BlockTileDims GetBlockTileDims() {
     return BlockTileDims{m, n, k};
 }
 
+// Compute how much shared memory to allocate when we launch the kernel
+// Divide by two since it's an array of half2 values
+constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
+constexpr int aBlockTileSize = blockTileDims.m * blockTileDims.k / 2;
+constexpr int bBlockTileSize = blockTileDims.n * blockTileDims.k / 2;
+
+__device__ Mma::Coordinate GetBaseCoordinate() {
+    int baseRow = blockIdx.y * GetBlockTileDims().m;
+    int baseCol = blockIdx.x * GetBlockTileDims().n;
+    return {baseRow, baseCol};
+}
+
+__device__ void Mma(unsigned long long* iterationCount) {
+    int tidx = threadIdx.x % 32;
+    int warpId = threadIdx.x / 32;
+    // Kind of a useless count to get compiler to not optimize away my code
+    unsigned int count = 0;
+
+    // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
+    // Are static shared memory allocations already aligned?
+    __shared__ __align__(16) half2 ATile[aBlockTileSize];
+    __shared__ __align__(16) half2 BTile[bBlockTileSize];
+
+    // Page Global --> Shared Memory
+
+    // Compute Upper left coordinate that this block is responsible for
+    Mma::Coordinate baseCoordinate = GetBaseCoordinate();
+
+    // At this point we are in the kernel, so cuda parallelism is taking place. We really have
+    // numWarps running
+    WarpMma::WarpTile warpTile;
+    warpTile.clearD();
+
+    // Accumulate into D as many times as we need to
+    for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
+        warpTile.warpTileLoadA(&ATile[tidx * 4]);
+        warpTile.warpTileLoadB(&BTile[(tidx % 16) * 4]);
+        warpTile.warpTileMma();
+    }
+
+    // TODO the warpTile should determime if values are in bounds
+    // This is all here so everything isn't optimized away
+    for (int i = 0; i < WarpMma::numDFragments; i++) {
+        if (tidx == 0 && (warpTile.D[i].Registers[0] > 10.0f)) {
+            count++;
+        }
+    }
+    if (tidx == 0) {
+        atomicAdd(iterationCount, count);
+    }
+}
+
 };  // namespace BlockMma
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
 
 constexpr bool Debug = false;
-constexpr long numIterations = 1e7;
 
 // ---------- Mma parameters ----------
 constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
@@ -262,11 +319,6 @@ constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
 // ---------- Block parameters ----------
 // How many warps to launch per block
 constexpr int numWarps = BlockMma::numWarpCols * BlockMma::numWarpRows;
-// Compute how much shared memory to allocate when we launch the kernel
-// Divide by two since it's an array of half2 values
-constexpr BlockMma::BlockTileDims blockTileDims = BlockMma::GetBlockTileDims();
-constexpr int aBlockTileSize = blockTileDims.m * blockTileDims.k / 2;
-constexpr int bBlockTileSize = blockTileDims.n * blockTileDims.k / 2;
 
 // ---------- Hardware parameters ----------
 constexpr int numSMs = 108;
@@ -338,8 +390,9 @@ int main(int argc, char* argv[]) {
 
     printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
     // Estimated TFLOPS that we computed
-    const float tflops = gridDim.x * blockDim.x / 32.0 * numIterations * BlockMma::kSlices *
-                         WarpMma::numDFragments * totalFlopsPerOp / elapsedTime / 1e12;
+    const float tflops = gridDim.x * blockDim.x / 32.0 * BlockMma::coarseFactor *
+                         BlockMma::kSlices * WarpMma::numDFragments * totalFlopsPerOp /
+                         elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
@@ -348,74 +401,4 @@ int main(int argc, char* argv[]) {
     cudaFree(d_iterationCount);
 }
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount) {
-    int tidx = threadIdx.x % 32;
-    int warpId = threadIdx.x / 32;
-    // Kind of a useless count to get compiler to not optimize away my code
-    unsigned int count = 0;
-
-    if (Debug) {
-        if (tidx == 0) {
-            printf("Block Index %d, %d running on SM %d\n", blockIdx.x, blockIdx.y, get_smid());
-        }
-    }
-
-    // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
-    // Are static shared memory allocations already aligned?
-    __shared__ __align__(16) half2 ATile[aBlockTileSize];
-    __shared__ __align__(16) half2 BTile[bBlockTileSize];
-
-    if (Debug) {
-        // Check to make sure the address it allocated is 16B aligned
-        if (tidx == 0) {
-            // I essentially get 0x0 for this value
-            printf("ATile Address Alignment Check: %p\n", ATile);
-            // With ATile being 128 half2 (2x2 bytes) I get 512 as the offset so this adds up
-            printf("BTile Address Alignment Check: %p\n", BTile);
-        }
-    }
-
-    // Have each thread copy one row of data into shared memory tile for A
-    // Each thread copies 8 half values over
-    // We have 4 fragments for A, so all threads participate
-    for (int col = 0; col < 4; col++) {
-        ATile[tidx * 4 + col].x = static_cast<half>(tidx * 8 + col * 2);
-        ATile[tidx * 4 + col].y = static_cast<half>(tidx * 8 + col * 2 + 1);
-    }
-
-    // Have each thread copy one row fo data into shared memory tile for B
-    // We have 2 fragments for B, so only half the threads participate
-    if (tidx < 16) {
-        for (int row = 0; row < 4; row++) {
-            BTile[tidx * 4 + row].x = static_cast<half>(tidx * 8 + row * 2);
-            BTile[tidx * 4 + row].y = static_cast<half>(tidx * 8 + row * 2 + 1);
-        }
-    }
-
-    // Declare two warp tiles for double buffering. One tile is being transferred while the
-    // other is being used by the mma instruction
-    WarpMma::WarpTile warpTile;
-    warpTile.clearD();
-
-    // Repeat just the load matrix and calculation part of loop for benchmarking
-    // This assumes that we are able to page from global memory to shared memory efficiently
-    for (long i = 0; i < numIterations; i++) {
-        // Accumulate into D as many times as we need to
-        for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-            warpTile.warpTileLoadA(&ATile[tidx * 4]);
-            warpTile.warpTileLoadB(&BTile[(tidx % 16) * 4]);
-            warpTile.warpTileMma();
-        }
-    }
-
-    // This is all here so everything isn't optimized away
-    for (int i = 0; i < WarpMma::numDFragments; i++) {
-        if (tidx == 0 && (warpTile.D[i].Registers[0] > 10.0f)) {
-            count++;
-        }
-    }
-
-    if (tidx == 0) {
-        atomicAdd(iterationCount, count);
-    }
-}
+__global__ void MmaPtxShared(unsigned long long* iterationCount) { BlockMma::Mma(iterationCount); }
