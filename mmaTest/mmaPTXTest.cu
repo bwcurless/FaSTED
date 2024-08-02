@@ -155,7 +155,7 @@ namespace WarpMma {
 // Warp  Parameters
 constexpr int numAFragments = 4;
 constexpr int numBFragments = 8;
-constexpr int numDFragments = 32;
+constexpr int numDFragments = numAFragments * numBFragments;
 
 struct WarpTileDims {
     int m{};
@@ -194,11 +194,14 @@ struct WarpTile {
         }
     }
 
-    // Given a WarpTile, loads all the A fragments into it
+    // TODO pass in k index here
+    //  Given a WarpTile, loads all the A fragments into it
     __device__ void warpTileLoadA(half2* aTileAddr, Mma::Coordinate& baseCoord) {
         // Page fragment into A. This is 2 fragments
         for (int i = 0; i < numAFragments; i++) {
-            // TODO aTileAddr can't be constant here obviously
+            // Upper left row
+            int rowIndex = baseCoord.row + (i * Mma::dims.m);
+            // TODO compute address for this thread
             Mma::loadAMatrix_16_16(aTileAddr, A[i]);
         }
     }
@@ -208,21 +211,43 @@ struct WarpTile {
         // Page fragment into B. This is 4 fragments
         // Need to duplicate addresses here for threads 16-31
         for (int i = 0; i < numBFragments; i++) {
-            // TODO bTileAddr can't be constant here
+            int colIndex = baseCoord.col + (i * Mma::dims.n);
+            // TODO compute address for this thread
             Mma::loadBMatrix_16_8(bTileAddr, B[i]);
         }
     }
 
-    // Given a WarpTile with operands A and B, computes all the output tiles D
+    __device__ int GetDIndex(const int aFragIndex, const int bFragIndex) {
+        return aFragIndex * numBFragments + bFragIndex;
+    }
+
+    // Given a WarpTile with operands A and B, computes D=A*B+D
     __device__ void warpTileMma() {
-        // Perform MMA. Compute 8 fragments
-        // 0-1
-        for (int i = 0; i < numAFragments; i++) {
-            // 0-3
-            for (int j = 0; j < numBFragments; j++) {
-                int dIndex = i * numBFragments + j;
-                Mma::FragmentD_16x8& Dfrag = D[dIndex];
-                Mma::mma_16_8_16(A[i], B[j], Dfrag, Dfrag);
+        for (int a = 0; a < numAFragments; a++) {
+            for (int b = 0; b < numBFragments; b++) {
+                Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
+                Mma::mma_16_8_16(A[a], B[b], Dfrag, Dfrag);
+            }
+        }
+    }
+
+    __device__ Mma::Coordinate GetBaseFragmentCoordinate(Mma::Coordinate& baseCoord,
+                                                         const int aFragIndex,
+                                                         const int bFragIndex) {
+        int fragRow = baseCoord.row + (aFragIndex * Mma::dims.m);
+        int fragCol = baseCoord.col + (bFragIndex * Mma::dims.n);
+        return {fragRow, fragCol};
+    }
+
+    // Once computation is done, iterate over all output elements and apply epilogue
+    __device__ void inspectResults(Mma::Coordinate& baseCoord) {
+        for (int a = 0; a < numAFragments; a++) {
+            for (int b = 0; b < numBFragments; b++) {
+                Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(baseCoord, a, b);
+                Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
+                for (int i = 0; i < numRegistersD; i++) {
+                    // TODO compute which coordinate this thread is looking at
+                }
             }
         }
     }
@@ -320,6 +345,11 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount);
 __device__ uint get_smid(void);
 
 constexpr bool Debug = false;
+
+// ---------- Matrix Parameters ----------
+constexpr int m = 1024;
+constexpr int n = 1024;
+constexpr int k = 1024;
 
 // ---------- Mma parameters ----------
 constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
