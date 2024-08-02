@@ -147,6 +147,24 @@ __device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
     }
 }
 
+// TODO, this feels like I'm hard coding this...maybe it can be templated?
+// Compute the coordinate of a specific register
+__device__ Coordinate GetDElementCoordinate_16_8_float(Coordinate& baseCoord, int threadInWarp,
+                                                       int dIndex) {
+    int row, col;
+    // First 8x8 matrix
+    if (dIndex < 2) {
+        row = baseCoord.row + (threadInWarp / 4);
+        col = baseCoord.col + ((threadInWarp % 4) * 2) + dIndex;
+    }
+    // second 8x8 matrix
+    else {
+        row = baseCoord.row + 8 + (threadInWarp / 4);
+        col = baseCoord.col + ((threadInWarp % 4) * 2) + (dIndex / 2);
+    }
+    return {row, col};
+}
+
 };  // namespace Mma
 
 // A single warp operation made up of many fragments of A, B, and D
@@ -245,8 +263,11 @@ struct WarpTile {
             for (int b = 0; b < numBFragments; b++) {
                 Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(baseCoord, a, b);
                 Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
-                for (int i = 0; i < numRegistersD; i++) {
-                    // TODO compute which coordinate this thread is looking at
+                for (int d = 0; d < numRegistersD; d++) {
+                    int threadInWarp = threadIdx.x % WARPSIZE;
+                    Mma::Coordinate elemCoord =
+                        Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
+                    // TODO perform addition of squared terms and comparison with epsilon here
                 }
             }
         }
