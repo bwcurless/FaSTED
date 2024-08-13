@@ -189,7 +189,7 @@ constexpr int numRegistersB =
 constexpr int numRegistersD =
     Mma::dims.m * Mma::dims.n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
 
-__device__ constexpr WarpTileDims GetWarpTileDims() {
+__host__ __device__ constexpr WarpTileDims GetWarpTileDims() {
     int m = numAFragments * Mma::dims.m;
     int n = numBFragments * Mma::dims.n;
     // Warp handles a single k slice at a time in registers
@@ -289,7 +289,7 @@ struct BlockTileDims {
     int k{};
 };
 
-__device__ constexpr BlockTileDims GetBlockTileDims() {
+__host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
     WarpMma::WarpTileDims warpDims = WarpMma::GetWarpTileDims();
     int m = numWarpRows * warpDims.m;
     int n = numWarpCols * warpDims.n;
@@ -382,8 +382,6 @@ constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
 constexpr int numWarps = BlockMma::numWarpCols * BlockMma::numWarpRows;
 
 // ---------- Hardware parameters ----------
-constexpr int numSMs = 108;
-constexpr int numWaves = 1;
 
 #define gpuErrchk(ans) \
     { gpuAssert((ans), __FILE__, __LINE__); }
@@ -430,11 +428,12 @@ int main(int argc, char* argv[]) {
     // If each operation is 4096 FLOP, then we would expect 176M mma operations per second
     cudaEventRecord(start, 0);
 
-    dim3 gridDim(numWaves * numSMs, 1, 1);
+    dim3 gridDim(ceil(1.0 * n / BlockMma::GetBlockTileDims().n),
+                 ceil(1.0 * m / BlockMma::GetBlockTileDims().m), 1);
     // 16 warps is the minimum to achieve 100% tensor core usage.
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
-    dim3 blockDim(32 * numWarps, 1, 1);
+    dim3 blockDim(WARPSIZE * numWarps, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
 
     gpuErrchk(cudaEventRecord(stop, 0));
