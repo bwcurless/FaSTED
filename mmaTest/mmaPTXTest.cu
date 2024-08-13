@@ -174,6 +174,10 @@ namespace WarpMma {
 constexpr int numAFragments = 4;
 constexpr int numBFragments = 8;
 constexpr int numDFragments = numAFragments * numBFragments;
+// Swizzle the 8 columns of shared memory
+constexpr int swizzleFactor = 8;
+// Swizzle in groups of 8 half values
+constexpr int swizzleGroupSize = 8;
 
 struct WarpTileDims {
     int m{};
@@ -198,7 +202,6 @@ __host__ __device__ constexpr WarpTileDims GetWarpTileDims() {
 }
 
 // Each WarpTile stores multiple operands A and B to compute a large output matrix D
-// Template can specify the size of the actual warp tile.
 struct WarpTile {
    public:
     Mma::Fragment<uint32_t, numRegistersA> A[numAFragments]{};
@@ -212,24 +215,38 @@ struct WarpTile {
         }
     }
 
-    // TODO pass in k index here
     //  Given a WarpTile, loads all the A fragments into it
-    __device__ void warpTileLoadA(half2* aTileAddr, Mma::Coordinate& baseCoord) {
-        // Page fragment into A. This is 2 fragments
+    // TODO should I make these all half arrays?
+    __device__ void warpTileLoadA(half2* aSharedAddr, int kslice, int kStride, int warpRow) {
+        // Page fragment into A.
+        int laneId = threadIdx.x % WARPSIZE;
+        Mma::Coordinate warpBase{warpRow, 0};
         for (int i = 0; i < numAFragments; i++) {
-            // Upper left row
-            int rowIndex = baseCoord.row + (i * Mma::dims.m);
-            // TODO compute address for this thread
-            Mma::loadAMatrix_16_16(aTileAddr, A[i]);
+            // Determine which row we will load
+            // Reuse this function by passing in a block scoped base coordinate
+            int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
+            int threadRow = fragmentRow + (laneId % Mma::dims.m);
+
+            // Determine which chunk of cols we will load
+            // base slice offset plus additional offset for lanes 16-31
+            // relies on integer truncation during division
+            // TODO would this be better to just do a conditional? (laneId > dims.m) ? 16 : 0
+            int threadCol = kslice * Mma::dims.k + (laneId / Mma::dims.m * Mma::dims.m);
+            int swizzleRow = laneId % swizzleFactor;
+            // Left shift swizzle factor since we swap sets of 8 half values
+            int swizzledCol = threadCol ^ (swizzleRow * swizzleGroupSize);
+
+            int linearizedIndex = threadRow * kStride + swizzledCol;
+            Mma::loadAMatrix_16_16(&aSharedAddr[linearizedIndex], A[i]);
         }
     }
 
     // Given a WarpTile, loads all the B fragments into it
-    __device__ void warpTileLoadB(half2* bTileAddr, Mma::Coordinate& baseCoord) {
-        // Page fragment into B. This is 4 fragments
+    __device__ void warpTileLoadB(half2* bTileAddr, Mma::Coordinate& warpLocalBaseCoord) {
+        // Page fragment into B.
         // Need to duplicate addresses here for threads 16-31
         for (int i = 0; i < numBFragments; i++) {
-            int colIndex = baseCoord.col + (i * Mma::dims.n);
+            int colIndex = warpLocalBaseCoord.col + (i * Mma::dims.n);
             // TODO compute address for this thread
             Mma::loadBMatrix_16_8(bTileAddr, B[i]);
         }
@@ -249,19 +266,19 @@ struct WarpTile {
         }
     }
 
-    __device__ Mma::Coordinate GetBaseFragmentCoordinate(Mma::Coordinate& baseCoord,
+    __device__ Mma::Coordinate GetBaseFragmentCoordinate(Mma::Coordinate& warpBaseCoord,
                                                          const int aFragIndex,
                                                          const int bFragIndex) {
-        int fragRow = baseCoord.row + (aFragIndex * Mma::dims.m);
-        int fragCol = baseCoord.col + (bFragIndex * Mma::dims.n);
+        int fragRow = warpBaseCoord.row + (aFragIndex * Mma::dims.m);
+        int fragCol = warpBaseCoord.col + (bFragIndex * Mma::dims.n);
         return {fragRow, fragCol};
     }
 
     // Once computation is done, iterate over all output elements and apply epilogue
-    __device__ void inspectResults(Mma::Coordinate& baseCoord) {
+    __device__ void inspectResults(Mma::Coordinate& warpBaseCoord) {
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
-                Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(baseCoord, a, b);
+                Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(warpBaseCoord, a, b);
                 Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
                 for (int d = 0; d < numRegistersD; d++) {
                     int threadInWarp = threadIdx.x % WARPSIZE;
@@ -310,11 +327,18 @@ __device__ Mma::Coordinate GetBaseBlockCoordinate() {
     return {baseRow, baseCol};
 }
 
-__device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord, int warpId) {
+__device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
     int warpRow = warpId / numWarpCols;
     int warpCol = warpId % numWarpCols;
-    int baseRow = baseBlockCoord.row + warpRow * WarpMma::GetWarpTileDims().m;
-    int baseCol = baseBlockCoord.col + warpCol * WarpMma::GetWarpTileDims().n;
+    int baseRow = warpRow * WarpMma::GetWarpTileDims().m;
+    int baseCol = warpCol * WarpMma::GetWarpTileDims().n;
+    return {baseRow, baseCol};
+}
+
+__device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord, int warpId) {
+    Mma::Coordinate baseLocal = GetBaseLocalWarpCoordinate(warpId);
+    int baseRow = baseBlockCoord.row + baseLocal.row;
+    int baseCol = baseBlockCoord.col + baseLocal.col;
     return {baseRow, baseCol};
 }
 
@@ -325,16 +349,25 @@ __device__ void Mma(unsigned long long* iterationCount) {
     unsigned int count = 0;
 
     // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
-    // Are static shared memory allocations already aligned?
     __shared__ __align__(16) half2 ATile[aBlockTileSize];
     __shared__ __align__(16) half2 BTile[bBlockTileSize];
 
     // Page Global --> Shared Memory
 
+    // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
     Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate();
+    // Block MMA Scoped
+    // Compute local warpBase Coordinates relative to this block. Useful for extracting the
+    // appropriate values from shared memory
+    Mma::Coordinate baseLocalWarpCoord = GetBaseLocalWarpCoordinate(warpId);
+    // Global MMA Scoped
     // Compute the Upper left coordinate that each warp is responsible for
+    // MMA Useful for performing final inspection of results
     Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
+
+    // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
+    // in the block
 
     // At this point we are in the kernel, so cuda parallelism is taking place. We really have
     // numWarps running
@@ -343,8 +376,8 @@ __device__ void Mma(unsigned long long* iterationCount) {
 
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-        warpTile.warpTileLoadA(ATile, baseWarpCoord);
-        warpTile.warpTileLoadB(BTile, baseWarpCoord);
+        warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
+        warpTile.warpTileLoadB(BTile, baseLocalWarpCoord);
         warpTile.warpTileMma();
     }
 
