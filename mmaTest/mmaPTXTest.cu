@@ -5,12 +5,16 @@
 #include <vector_types.h>
 
 #include <iostream>
+#include <vector>
 
 #define WARPSIZE 32
 
 // Low level namespace for fragments, and single mma operations
 namespace Mma {
 constexpr bool Debug = false;
+
+using InPrec = half;
+using OutPrec = float;
 
 struct mmaTileDims {
     int m{};
@@ -169,6 +173,7 @@ __device__ Coordinate GetDElementCoordinate_16_8_float(Coordinate& baseCoord, in
 
 // A single warp operation made up of many fragments of A, B, and D
 namespace WarpMma {
+using InPrec = Mma::InPrec;
 
 // Warp  Parameters
 constexpr int numAFragments = 4;
@@ -176,8 +181,8 @@ constexpr int numBFragments = 8;
 constexpr int numDFragments = numAFragments * numBFragments;
 // Swizzle the 8 columns of shared memory
 constexpr int swizzleFactor = 8;
-// Swizzle in groups of 8 half values
-constexpr int swizzleGroupSize = 8;
+using SharedSize = int4;
+constexpr int dimPerInt4 = sizeof(SharedSize) / sizeof(InPrec);
 
 struct WarpTileDims {
     int m{};
@@ -187,9 +192,9 @@ struct WarpTileDims {
 
 // TODO Rounding might not work out here, have to be careful
 constexpr int numRegistersA =
-    Mma::dims.m * Mma::dims.k * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+    Mma::dims.m * Mma::dims.k * sizeof(InPrec) / sizeof(uint32_t) / WARPSIZE;
 constexpr int numRegistersB =
-    Mma::dims.k * Mma::dims.n * sizeof(half) / sizeof(uint32_t) / WARPSIZE;
+    Mma::dims.k * Mma::dims.n * sizeof(InPrec) / sizeof(uint32_t) / WARPSIZE;
 constexpr int numRegistersD =
     Mma::dims.m * Mma::dims.n * sizeof(float) / sizeof(uint32_t) / WARPSIZE;
 
@@ -216,25 +221,21 @@ struct WarpTile {
     }
 
     //  Given a WarpTile, loads all the A fragments into it
-    // TODO should I make these all half arrays?
-    __device__ void warpTileLoadA(half2* aSharedAddr, int kslice, int kStride, int warpRow) {
+    // TODO A and B should really follow the same functions
+    __device__ void warpTileLoadA(SharedSize* aSharedAddr, int kslice, int kStride, int warpRow) {
         // Page fragment into A.
         int laneId = threadIdx.x % WARPSIZE;
         Mma::Coordinate warpBase{warpRow, 0};
         for (int i = 0; i < numAFragments; i++) {
             // Determine which row we will load
-            // Reuse this function by passing in a block scoped base coordinate
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
             int threadRow = fragmentRow + (laneId % Mma::dims.m);
 
             // Determine which chunk of cols we will load
             // base slice offset plus additional offset for lanes 16-31
-            // relies on integer truncation during division
-            // TODO would this be better to just do a conditional? (laneId > dims.m) ? 16 : 0
-            int threadCol = kslice * Mma::dims.k + (laneId / Mma::dims.m * Mma::dims.m);
+            int threadCol = kslice * Mma::dims.k / dimPerInt4 + (laneId > Mma::dims.m ? 1 : 0);
             int swizzleRow = laneId % swizzleFactor;
-            // Left shift swizzle factor since we swap sets of 8 half values
-            int swizzledCol = threadCol ^ (swizzleRow * swizzleGroupSize);
+            int swizzledCol = threadCol ^ swizzleRow;
 
             int linearizedIndex = threadRow * kStride + swizzledCol;
             Mma::loadAMatrix_16_16(&aSharedAddr[linearizedIndex], A[i]);
@@ -242,13 +243,26 @@ struct WarpTile {
     }
 
     // Given a WarpTile, loads all the B fragments into it
-    __device__ void warpTileLoadB(half2* bTileAddr, Mma::Coordinate& warpLocalBaseCoord) {
+    __device__ void warpTileLoadB(SharedSize* bSharedAddr, int kslice, int kStride, int warpCol) {
         // Page fragment into B.
-        // Need to duplicate addresses here for threads 16-31
+        // B is stored row-major in shared memory
+        int laneId = threadIdx.x % WARPSIZE;
+        Mma::Coordinate warpBase{0, warpCol};
         for (int i = 0; i < numBFragments; i++) {
-            int colIndex = warpLocalBaseCoord.col + (i * Mma::dims.n);
-            // TODO compute address for this thread
-            Mma::loadBMatrix_16_8(bTileAddr, B[i]);
+            // Determine which col we will load
+            int fragmentRow = GetBaseFragmentCoordinate(warpBase, 0, i).col;
+            int threadRow = fragmentRow + (laneId % Mma::dims.n);
+
+            // Determine which chunk of rows we will load
+            // base slice offset plus additional offset for lanes 8-15
+            // threads 16-31 need to have the same addresses as 0-16 for the B Matrices
+            int threadCol =
+                kslice * Mma::dims.k / dimPerInt4 + (((laneId % 16) < Mma::dims.n) ? 1 : 0);
+            int swizzleRow = laneId % swizzleFactor;
+            int swizzledCol = threadCol ^ swizzleRow;
+
+            int linearizedIndex = threadRow * kStride + swizzledCol;
+            Mma::loadBMatrix_16_8(&bSharedAddr[linearizedIndex], B[i]);
         }
     }
 
@@ -300,6 +314,8 @@ constexpr int numWarpRows = 2;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 
+using SharedSize = WarpMma::SharedSize;
+
 struct BlockTileDims {
     int m{};
     int n{};
@@ -316,10 +332,7 @@ __host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
 }
 
 // Compute how much shared memory to allocate when we launch the kernel
-// Divide by two since it's an array of half2 values
 constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
-constexpr int aBlockTileSize = blockTileDims.m * blockTileDims.k / 2;
-constexpr int bBlockTileSize = blockTileDims.n * blockTileDims.k / 2;
 
 __device__ Mma::Coordinate GetBaseBlockCoordinate() {
     int baseRow = blockIdx.y * GetBlockTileDims().m;
@@ -342,17 +355,18 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
     return {baseRow, baseCol};
 }
 
-__device__ void Mma(unsigned long long* iterationCount) {
+__device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, SharedSize* BValues,
+                    int globalKStride) {
     int tidx = threadIdx.x % 32;
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
 
-    // We need 16 byte alignment here since LDMatrix will read rows of 16B at a time
-    __shared__ __align__(16) half2 ATile[aBlockTileSize];
-    __shared__ __align__(16) half2 BTile[bBlockTileSize];
-
-    // Page Global --> Shared Memory
+    // We need 128 byte alignment here so each point ends up in it's own row of shared memory
+    __shared__ __align__(128)
+        SharedSize ATile[GetBlockTileDims().m * GetBlockTileDims().k / WarpMma::dimPerInt4];
+    __shared__ __align__(128)
+        SharedSize BTile[GetBlockTileDims().n * GetBlockTileDims().k / WarpMma::dimPerInt4];
 
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
@@ -368,16 +382,38 @@ __device__ void Mma(unsigned long long* iterationCount) {
 
     // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
     // in the block
+    // Page A in
+    // Each thread does an int4 copy from global to shared
+    // Each warp would be copying 4 points over of 64 D each
+    // TODO make this work for multiple K iterations
+    // How many vectorized loads are required per point
+    constexpr int copiesPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 16
+    int copyLane = threadIdx.x % copiesPerPoint;
+    // First 16 threads copy over point 1, next 16 point 2, so on until all points are satisfied
+    for (int blockQueryIndex = threadIdx.x / copiesPerPoint; blockQueryIndex < GetBlockTileDims().m;
+         blockQueryIndex += blockDim.x / copiesPerPoint) {
+        int globalQueryIndex = blockQueryIndex + baseBlockCoord.row;
+        SharedSize values =
+            AValues[(globalQueryIndex * globalKStride / WarpMma::dimPerInt4) + copyLane];
 
-    // At this point we are in the kernel, so cuda parallelism is taking place. We really have
-    // numWarps running
+        // Compute swizzled shared mem location
+        int swizzledLane = copyLane ^ WarpMma::swizzleFactor;
+        int swizzledAddress = blockQueryIndex * GetBlockTileDims().k + swizzledLane;
+
+        ATile[swizzledAddress] = values;
+    }
+
+    // Page B in
+
+    // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
     warpTile.clearD();
 
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-        warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
-        warpTile.warpTileLoadB(BTile, baseLocalWarpCoord);
+        int kStride = blockTileDims.k / WarpMma::dimPerInt4;
+        warpTile.warpTileLoadA(ATile, kslice, kStride, baseLocalWarpCoord.row);
+        warpTile.warpTileLoadB(BTile, kslice, kStride, baseLocalWarpCoord.col);
         warpTile.warpTileMma();
     }
 
@@ -395,15 +431,19 @@ __device__ void Mma(unsigned long long* iterationCount) {
 
 };  // namespace BlockMma
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount);
+using SharedSize = WarpMma::SharedSize;
+using InPrec = Mma::InPrec;
+
+__global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AValues,
+                             SharedSize* BValues, int kStride);
 __device__ uint get_smid(void);
 
 constexpr bool Debug = false;
 
 // ---------- Matrix Parameters ----------
-constexpr int m = 1024;
-constexpr int n = 1024;
-constexpr int k = 1024;
+constexpr int m = 128;
+constexpr int n = 128;
+constexpr int k = 64;
 
 // ---------- Mma parameters ----------
 constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
@@ -449,6 +489,39 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(d_iterationCount, &h_iterationCount, sizeof(unsigned long long),
                cudaMemcpyHostToDevice);
 
+    SharedSize *d_AValues, *d_BValues;
+    int aSize = sizeof(InPrec) * m * k;
+    int bSize = sizeof(InPrec) * n * k;
+    cudaMalloc(&d_AValues, aSize);
+    cudaMalloc(&d_BValues, bSize);
+
+    std::vector<half2> h_AValues{};
+    // Fill the vector with increasing half-precision values
+    for (int i = 0; i <= m * k / 2; i += 2) {
+        half2 val{};
+        val.x = i;
+        val.y = i + 1;
+        h_AValues.push_back(val);
+    }
+
+    std::vector<half2> h_BValues{};
+    // Create identity matrix
+    for (int row = 0; row < k; row++) {
+        for (int col = 0; col < n / 2; col += 2) {
+            half2 val{};
+            val.x = 0;
+            val.y = 0;
+            if (col == row)
+                val.x = 1;
+            else if (col + 1 == row)
+                val.y = 1;
+            h_BValues.push_back(val);
+        }
+    }
+
+    cudaMemcpy(d_AValues, h_AValues.data(), aSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_BValues, h_BValues.data(), bSize, cudaMemcpyHostToDevice);
+
     printf("Running kernel\n");
 
     // Each MMA operation is a 16x8x16 operation
@@ -467,7 +540,7 @@ int main(int argc, char* argv[]) {
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
     dim3 blockDim(WARPSIZE * numWarps, 1, 1);
-    MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount);
+    MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount, d_AValues, d_BValues, k);
 
     gpuErrchk(cudaEventRecord(stop, 0));
 
@@ -492,6 +565,11 @@ int main(int argc, char* argv[]) {
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
     cudaFree(d_iterationCount);
+    cudaFree(d_AValues);
+    cudaFree(d_BValues);
 }
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount) { BlockMma::Mma(iterationCount); }
+__global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AValues,
+                             SharedSize* BValues, int kStride) {
+    BlockMma::Mma(iterationCount, AValues, BValues, kStride);
+}
