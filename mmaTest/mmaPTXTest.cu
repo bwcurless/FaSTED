@@ -9,6 +9,18 @@
 
 #define WARPSIZE 32
 
+__device__ __host__ constexpr bool IsDivisionExact(int dividend, int divisor) {
+    return dividend == (divisor * (dividend / divisor));
+}
+
+// Compile time fails if constexpr division results in any rounding
+template <size_t dividend, size_t divisor>
+__device__ void Assert_Is_Division_Exact() {
+    // Check if the division is exact
+    // Forced round down will happen here due to truncation.
+    static_assert(IsDivisionExact(dividend, divisor), "Division is not exact.");
+}
+
 // Low level namespace for fragments, and single mma operations
 namespace Mma {
 constexpr bool Debug = false;
@@ -50,14 +62,19 @@ struct Fragment {
 // arguments due to the fact that they require inline ptx and aren't generic
 using FragmentA_16x16 = Fragment<uint32_t, 4>;
 using FragmentB_16x8 = Fragment<uint32_t, 2>;
-using FragmentD_16x8 = Fragment<float, 4>;
+using FragmentD_16x8 = Fragment<OutPrec, 4>;
 
-__device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
+/** Convert pointer to shared memory state space. This is converting our generic 64 bit address to
+ * the shared memory state space. This means subtracting the base address of the shared space, and
+ * then truncating to 32 bits. Since shared memory all fits into 32 bits this is safe. The generic
+ * address space is 64 bits.
+ *
+ * \param pointer The generic pointer to convert
+ *
+ * \return 32-bit pointer to shared memory
+ */
+__device__ uint32_t cvta_to_shared_u32(const void* pointer) {
     uint32_t address;
-    // This is converting our generic 64 bit address to the shared memory state space. This
-    // means subtracting the base address of the shared space, and then truncating to 32 bits
-    // since shared memory all fits into 32 bits this is safe. The generic address space is 64
-    // bits though.
     asm("{\n\t"
         "  .reg .u64 u64addr;\n\t"
         "  cvta.to.shared.u64 u64addr, %1;\n\t"
@@ -68,8 +85,14 @@ __device__ inline uint32_t cvta_to_shared_u32(const void* pointer) {
     return address;
 }
 
-// Load row of shared memory into Fragment
-// Since this has inline PTX it only works for a specific template specification
+/** Load row of shared memory into 16x16 Fragment.
+ *
+ *
+ *
+ * \param smem_row_start int4* to shared memory
+ * \param A fragment to load into
+ *
+ */
 __device__ void loadAMatrix_16_16(const void* smem_row_start, FragmentA_16x16& A) {
     //  Page into A
     //  Pointer to 128 bit row of data in shared memory
@@ -99,7 +122,14 @@ __device__ void loadAMatrix_16_16(const void* smem_row_start, FragmentA_16x16& A
     }
 }
 
-// Load row of shared memory into Fragment
+/** Load row of shared memory into 16x8 Fragment.
+ *
+ *
+ *
+ * \param smem_row_start int4* to shared memory
+ * \param B fragment to load into
+ *
+ */
 __device__ void loadBMatrix_16_8(const void* smem_row_start, FragmentB_16x8& B) {
     //  Page into A
     //  Pointer to 128 bit row of data in shared memory
@@ -131,6 +161,16 @@ __device__ void loadBMatrix_16_8(const void* smem_row_start, FragmentB_16x8& B) 
     }
 }
 
+/** Computes A*B+C=D
+ *
+ *
+ *
+ * \param A Input fragment operand
+ * \param B Input fragment operand
+ * \param C Input fragment operand
+ * \param D Output fragment operand
+ *
+ */
 __device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
                             const FragmentD_16x8& C, FragmentD_16x8& D) {
     // 16x8x8 TC Operation
@@ -151,10 +191,19 @@ __device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
     }
 }
 
-// TODO, this feels like I'm hard coding this...maybe it can be templated?
-// Compute the coordinate of a specific register
+/** Compute the global coordinates of a specific output register.
+ *
+ *
+ *
+ * \param baseCoord Upper left global coordinate of a single Mma operation's output matrix D
+ * \param threadInWarp Warp lane (0..31)
+ * \param dIndex Index of output element (0..4)
+ *
+ * \return Global coordinates of this element
+ */
 __device__ Coordinate GetDElementCoordinate_16_8_float(Coordinate& baseCoord, int threadInWarp,
                                                        int dIndex) {
+    // TODO, this feels like I'm hard coding this...maybe it can be templated?
     int row, col;
     // First 8x8 matrix
     if (dIndex < 2) {
@@ -164,11 +213,10 @@ __device__ Coordinate GetDElementCoordinate_16_8_float(Coordinate& baseCoord, in
     // second 8x8 matrix
     else {
         row = baseCoord.row + 8 + (threadInWarp / 4);
-        col = baseCoord.col + ((threadInWarp % 4) * 2) + (dIndex / 2);
+        col = baseCoord.col + ((threadInWarp % 4) * 2) + (dIndex % 2);
     }
     return {row, col};
 }
-
 };  // namespace Mma
 
 // A single warp operation made up of many fragments of A, B, and D
@@ -182,6 +230,9 @@ constexpr int numDFragments = numAFragments * numBFragments;
 // Swizzle the 8 columns of shared memory
 constexpr int swizzleFactor = 8;
 using SharedSize = int4;
+
+static_assert(IsDivisionExact(sizeof(SharedSize), sizeof(InPrec)),
+              "Input data precision doesn't divide cleanly into shared memory array");
 constexpr int dimPerInt4 = sizeof(SharedSize) / sizeof(InPrec);
 
 struct WarpTileDims {
@@ -220,12 +271,22 @@ struct WarpTile {
         }
     }
 
-    //  Given a WarpTile, loads all the A fragments into it
+    /** Loads a WarpTile's A fragments from relevant parts of shared memory.
+     *
+     *
+     *
+     * \param aSharedAddr Start of shared mem. array
+     * \param kslice k slice to accumulate ex. (0..3)
+     * \param kStride Shared mem. k dimension
+     * \param warpRow First row of A to load
+     *
+     */
     // TODO A and B should really follow the same functions
     __device__ void warpTileLoadA(SharedSize* aSharedAddr, int kslice, int kStride, int warpRow) {
         // Page fragment into A.
         int laneId = threadIdx.x % WARPSIZE;
         Mma::Coordinate warpBase{warpRow, 0};
+        int kStrideInt4 = kStride / dimPerInt4;
         for (int i = 0; i < numAFragments; i++) {
             // Determine which row we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
@@ -237,17 +298,18 @@ struct WarpTile {
             int swizzleRow = laneId % swizzleFactor;
             int swizzledCol = threadCol ^ swizzleRow;
 
-            int linearizedIndex = threadRow * kStride + swizzledCol;
+            int linearizedIndex = threadRow * kStrideInt4 + swizzledCol;
             Mma::loadAMatrix_16_16(&aSharedAddr[linearizedIndex], A[i]);
         }
     }
 
-    // Given a WarpTile, loads all the B fragments into it
+    // Same as warpTileLoadA, but for B
     __device__ void warpTileLoadB(SharedSize* bSharedAddr, int kslice, int kStride, int warpCol) {
         // Page fragment into B.
         // B is stored row-major in shared memory
         int laneId = threadIdx.x % WARPSIZE;
         Mma::Coordinate warpBase{0, warpCol};
+        int kStrideInt4 = kStride / dimPerInt4;
         for (int i = 0; i < numBFragments; i++) {
             // Determine which col we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, 0, i).col;
@@ -261,16 +323,29 @@ struct WarpTile {
             int swizzleRow = laneId % swizzleFactor;
             int swizzledCol = threadCol ^ swizzleRow;
 
-            int linearizedIndex = threadRow * kStride + swizzledCol;
+            int linearizedIndex = threadRow * kStrideInt4 + swizzledCol;
             Mma::loadBMatrix_16_8(&bSharedAddr[linearizedIndex], B[i]);
         }
     }
 
+    /** Compute linearized index of output fragment D>
+     *
+     *
+     *
+     * \param aFragIndex Index of A fragment of WarpTile ex. (0..3)
+     * \param bFragIndex Index of B fragment of WarpTile ex. (0..7)
+     *
+     * \return Row-major linearized index of D fragment of WarpTile
+     */
     __device__ int GetDIndex(const int aFragIndex, const int bFragIndex) {
         return aFragIndex * numBFragments + bFragIndex;
     }
 
-    // Given a WarpTile with operands A and B, computes D=A*B+D
+    /** Compute A*B+D=D for a single k-slice of all fragments in a WarpTile. Accumulates in
+     * place.
+     *
+     *
+     */
     __device__ void warpTileMma() {
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
@@ -280,6 +355,15 @@ struct WarpTile {
         }
     }
 
+    /** Compute upper left coordinate of a single output fragment D of a WarpTile.
+     *
+     *
+     * \param warpBaseCoord - Upper left coordinate of the WarpTile.
+     * \param aFragIndex A fragment used to compute the desired D fragment.
+     * \param bFragIndex B fragment used to compute the desired D fragment.
+     *
+     * \return The upper left coordinate of the specified output fragment D.
+     */
     __device__ Mma::Coordinate GetBaseFragmentCoordinate(Mma::Coordinate& warpBaseCoord,
                                                          const int aFragIndex,
                                                          const int bFragIndex) {
@@ -288,7 +372,13 @@ struct WarpTile {
         return {fragRow, fragCol};
     }
 
-    // Once computation is done, iterate over all output elements and apply epilogue
+    /** Final checks after MMA has completed.
+     *
+     * Iterate over all output elements of WarpTile and compute distance.
+     *
+     * \param warpBaseCoord Upper left global coordinate of WarpTile.
+     *
+     */
     __device__ void inspectResults(Mma::Coordinate& warpBaseCoord) {
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
@@ -334,12 +424,26 @@ __host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
 // Compute how much shared memory to allocate when we launch the kernel
 constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
 
+/** Get global coordinates of upper left element this block is responsible for.
+ *
+ *
+ *
+ * \return Global coordinates of upper left element
+ */
 __device__ Mma::Coordinate GetBaseBlockCoordinate() {
     int baseRow = blockIdx.y * GetBlockTileDims().m;
     int baseCol = blockIdx.x * GetBlockTileDims().n;
     return {baseRow, baseCol};
 }
 
+/** Local coordinates of warp. Get local (relative to this block) coordinates of upper left element
+ * that a warp in a block is responsible for
+ *
+ * \param warpId Index of warp to return coordinates for
+ *
+ * \return The local coordinates (relative to this block) of upper left
+ * element
+ */
 __device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
     int warpRow = warpId / numWarpCols;
     int warpCol = warpId % numWarpCols;
@@ -348,6 +452,15 @@ __device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
     return {baseRow, baseCol};
 }
 
+/** Global coordinates a warp is responsible for. Get global coordinates of upper left element that
+ * a given warp in a block is responsible for
+ *
+ * \param baseBlockCoord Global coordinates of upper left element this block is
+ * responsible for
+ * \param warpId Index of warp to return coordinates for
+ *
+ * \return The global coordinates of upper left element
+ */
 __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord, int warpId) {
     Mma::Coordinate baseLocal = GetBaseLocalWarpCoordinate(warpId);
     int baseRow = baseBlockCoord.row + baseLocal.row;
@@ -355,6 +468,14 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
     return {baseRow, baseCol};
 }
 
+/** Computes an mma operation at the block scope.
+ *
+ * \param iterationCount TODO Delete this
+ * \param AValues Global memory array containing elements of A
+ * \param BValues Global memory array containing elements of B
+ * \param globalKStride Global k dimension of MMA
+ *
+ */
 __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, SharedSize* BValues,
                     int globalKStride) {
     int tidx = threadIdx.x % 32;
@@ -411,9 +532,8 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
 
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-        int kStride = blockTileDims.k / WarpMma::dimPerInt4;
-        warpTile.warpTileLoadA(ATile, kslice, kStride, baseLocalWarpCoord.row);
-        warpTile.warpTileLoadB(BTile, kslice, kStride, baseLocalWarpCoord.col);
+        warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
+        warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
         warpTile.warpTileMma();
     }
 
