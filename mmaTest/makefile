@@ -20,7 +20,10 @@ DBGEXE = $(DBGDIR)/$(EXE)
 DBGOBJS = $(addprefix $(DBGDIR)/, $(OBJECTS))
 # rdynamic and lineinfo for running memcheck
 # -keep to keep all intermediate files (like ptx)
-DBGFLAGS = -std=c++17 -keep -g -G -Xptxas=-v -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
+# --device-debug disables all device code optimisations in order to debug effectively
+#  --debug disables host code optimizations for debugging.
+# -lineinfo is useful for profiling to find hot spots
+DBGFLAGS = -std=c++17 -keep --debug --device-debug -Xptxas=-v -Xcompiler -fopenmp -lcuda -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -Xcompiler -rdynamic -DDEBUG
 
 #
 ## Release build settings
