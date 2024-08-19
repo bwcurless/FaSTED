@@ -519,7 +519,10 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
 
         // Compute swizzled shared mem location
         int swizzledLane = copyLane ^ WarpMma::swizzleFactor;
-        int swizzledAddress = blockQueryIndex * GetBlockTileDims().k + swizzledLane;
+        static_assert(IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
+                      "Block tile k dimension is not cleanly divisible by shared memory int4 type");
+        int swizzledAddress =
+            blockQueryIndex * GetBlockTileDims().k / WarpMma::dimPerInt4 + swizzledLane;
 
         ATile[swizzledAddress] = values;
     }
