@@ -401,6 +401,8 @@ namespace BlockMma {
 // Block Parameters
 constexpr int numWarpCols = 2;
 constexpr int numWarpRows = 2;
+constexpr int numWarps = numWarpCols * numWarpRows;
+constexpr int blockSize = WARPSIZE * numWarps;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 
@@ -468,6 +470,44 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
     return {baseRow, baseCol};
 }
 
+/** Pages points from global to shared memory. Pages in a certain number of points in global
+ memory from a specified start point. Each thread does an int4 copy from global to
+ shared for every point that the BlockTile needs. This method swizzles the addresses as it stores
+ into shared memory to avoid shared memory conflicts.
+ *
+ * \param globalArray Base address of global memory array to page from
+ * \param sharedArray Base address of shared memory array to page into
+ * \param firstPoint Index of the first point in global memory to page in
+ * \param numPoints How many points to page in
+ * \param globalKStride The number of dimensions per point in global memory
+ *
+ * \return
+ */
+__device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedArray, int firstPoint,
+                                   int numPoints, int globalKStride) {
+    // TODO make this work for multiple K iterations
+    // TODO refactor this into smaller methods
+    static_assert(IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
+                  "Block tile k dimension is not cleanly divisible by shared memory int4 type");
+    // How many vectorized loads are required per point
+    constexpr int copiesPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
+    int copyLane = threadIdx.x % copiesPerPoint;
+
+    // First 8 threads copy over point 1, next 8 point 2, so on until all points are satisfied
+    for (int blockPointRow = threadIdx.x / copiesPerPoint; blockPointRow < numPoints;
+         blockPointRow += blockSize / copiesPerPoint) {
+        int globalPointRow = blockPointRow + firstPoint;
+        SharedSize values =
+            globalArray[(globalPointRow * globalKStride / WarpMma::dimPerInt4) + copyLane];
+
+        // Column ^ Row in shared memory
+        int swizzledLane = copyLane ^ (blockPointRow % WarpMma::swizzleFactor);
+        int swizzledAddress = blockPointRow * copiesPerPoint + swizzledLane;
+
+        sharedArray[swizzledAddress] = values;
+    }
+}
+
 /** Computes an mma operation at the block scope.
  *
  * \param iterationCount TODO Delete this
@@ -504,30 +544,10 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
     // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
     // in the block
     // Page A in
-    // Each thread does an int4 copy from global to shared
-    // Each warp would be copying 4 points over of 64 D each
-    // TODO make this work for multiple K iterations
-    // How many vectorized loads are required per point
-    constexpr int copiesPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 16
-    int copyLane = threadIdx.x % copiesPerPoint;
-    // First 16 threads copy over point 1, next 16 point 2, so on until all points are satisfied
-    for (int blockQueryIndex = threadIdx.x / copiesPerPoint; blockQueryIndex < GetBlockTileDims().m;
-         blockQueryIndex += blockDim.x / copiesPerPoint) {
-        int globalQueryIndex = blockQueryIndex + baseBlockCoord.row;
-        SharedSize values =
-            AValues[(globalQueryIndex * globalKStride / WarpMma::dimPerInt4) + copyLane];
-
-        // Compute swizzled shared mem location
-        int swizzledLane = copyLane ^ WarpMma::swizzleFactor;
-        static_assert(IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
-                      "Block tile k dimension is not cleanly divisible by shared memory int4 type");
-        int swizzledAddress =
-            blockQueryIndex * GetBlockTileDims().k / WarpMma::dimPerInt4 + swizzledLane;
-
-        ATile[swizzledAddress] = values;
-    }
+    LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, globalKStride);
 
     // Page B in
+    LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, globalKStride);
 
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
@@ -572,10 +592,6 @@ constexpr int k = 64;
 constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
 
 // ---------- Warp parameters ----------
-
-// ---------- Block parameters ----------
-// How many warps to launch per block
-constexpr int numWarps = BlockMma::numWarpCols * BlockMma::numWarpRows;
 
 // ---------- Hardware parameters ----------
 
@@ -662,7 +678,8 @@ int main(int argc, char* argv[]) {
     // 16 warps is the minimum to achieve 100% tensor core usage.
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
-    dim3 blockDim(WARPSIZE * numWarps, 1, 1);
+    // TODO is there a cleaner way to define block size so we can use it instead of blockDim.x
+    dim3 blockDim(BlockMma::numWarps * WARPSIZE, 1, 1);
     MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount, d_AValues, d_BValues, k);
 
     gpuErrchk(cudaEventRecord(stop, 0));
