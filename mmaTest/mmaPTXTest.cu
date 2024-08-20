@@ -471,6 +471,24 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
     return {baseRow, baseCol};
 }
 
+/** Given an address, swizzle it to avoid bank conflicts. Takes in either an expected address in
+ * row/column format, and swizzles it so that each individual copy has no conflicts with others.
+ * This is highly specialized for an MMA operation.
+ *
+ *
+ * \param sharedMemRow The row of shared memory to store into.
+ * \param sharedMemColumn The column of shared memory to store into.
+ * \param columnsPerRow How many columns shared memory has.
+ *
+ * \return
+ */
+__device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columnsPerRow) {
+    // Column ^ Row in shared memory
+    int swizzledLane = sharedMemColumn ^ (sharedMemRow % columnsPerRow);
+    int swizzledAddress = sharedMemRow * columnsPerRow + swizzledLane;
+    return swizzledAddress;
+}
+
 /** Pages points from global to shared memory. Pages in a certain number of points in global
  memory from a specified start point. Each thread does an int4 copy from global to
  shared for every point that the BlockTile needs. This method swizzles the addresses as it stores
@@ -478,33 +496,36 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
  *
  * \param globalArray Base address of global memory array to page from
  * \param sharedArray Base address of shared memory array to page into
- * \param firstPoint Index of the first point in global memory to page in
+ * \param firstGlobalPoint Index of the first point in global memory to page in
  * \param numPoints How many points to page in
  * \param globalKStride The number of dimensions per point in global memory
  *
  * \return
  */
-__device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedArray, int firstPoint,
-                                   int numPoints, int globalKStride) {
+__device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedArray,
+                                   int firstGlobalPoint, int numPoints, int globalKStride) {
     // TODO make this work for multiple K iterations
-    // TODO refactor this into smaller methods
-    static_assert(IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
-                  "Block tile k dimension is not cleanly divisible by shared memory int4 type");
-    // How many vectorized loads are required per point
-    constexpr int copiesPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
-    int copyLane = threadIdx.x % copiesPerPoint;
+    static_assert(
+        IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
+        "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
+    // A kGroup is a group of InPrec k values organized together for efficiency
+    constexpr int kGroupsPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
 
-    // First 8 threads copy over point 1, next 8 point 2, so on until all points are satisfied
-    for (int blockPointRow = threadIdx.x / copiesPerPoint; blockPointRow < numPoints;
-         blockPointRow += blockSize / copiesPerPoint) {
-        int globalPointRow = blockPointRow + firstPoint;
-        SharedSize values =
-            globalArray[(globalPointRow * globalKStride / WarpMma::dimPerInt4) + copyLane];
+    int firstPoint = threadIdx.x / kGroupsPerPoint;
+    int firstDim = threadIdx.x % kGroupsPerPoint;
+    int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
+    constexpr int pointStride = blockSize / kGroupsPerPoint;
 
-        // Column ^ Row in shared memory
-        int swizzledLane = copyLane ^ (blockPointRow % WarpMma::swizzleFactor);
-        int swizzledAddress = blockPointRow * copiesPerPoint + swizzledLane;
+    // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
+    for (int point = firstPoint; point < numPoints; point += pointStride) {
+        // Extact int4 from global
+        int globalPoint = point + firstGlobalPoint;
+        int globalDim = firstDim;
+        int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
+        SharedSize values = globalArray[globalPointIndex];
 
+        // Store int4 to shared
+        int swizzledAddress = SwizzleAddress(point, firstDim, kGroupsPerPoint);
         sharedArray[swizzledAddress] = values;
     }
 }
