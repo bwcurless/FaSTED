@@ -372,9 +372,8 @@ struct WarpTile {
         return {fragRow, fragCol};
     }
 
-    /** Final checks after MMA has completed.
-     *
-     * Iterate over all output elements of WarpTile and compute distance.
+    /** Final checks after MMA has completed. Iterate over all output elements of WarpTile and
+     * compute distance.
      *
      * \param warpBaseCoord Upper left global coordinate of WarpTile.
      *
@@ -388,6 +387,8 @@ struct WarpTile {
                     int threadInWarp = threadIdx.x % WARPSIZE;
                     Mma::Coordinate elemCoord =
                         Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
+                    printf("Element %d, %d = %f\n", elemCoord.row, elemCoord.col,
+                           Dfrag.Registers[d]);
                     // TODO perform addition of squared terms and comparison with epsilon here
                 }
             }
@@ -560,6 +561,8 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
         warpTile.warpTileMma();
     }
 
+    warpTile.inspectResults(baseWarpCoord);
+
     // TODO the warpTile should determime if values are in bounds
     // This is all here so everything isn't optimized away
     for (int i = 0; i < WarpMma::numDFragments; i++) {
@@ -613,6 +616,25 @@ __device__ uint get_smid(void) {
     return ret;
 }
 
+/** Pretty print an array as a matrix.
+ *
+ *
+ * \param matrix
+ * \param m
+ * \param n
+ *
+ * \return
+ */
+void PrintMatrix(half* matrix, int m, int n) {
+    printf("Printing matrix\n");
+    for (int row = 0; row < m; ++row) {
+        for (int col = 0; col < n; ++col) {
+            printf("%d ", static_cast<int>(matrix[row * n + col]));
+        }
+        printf("\n");
+    }
+}
+
 int main(int argc, char* argv[]) {
     cudaSetDevice(0);
     cudaDeviceSynchronize();
@@ -636,20 +658,18 @@ int main(int argc, char* argv[]) {
 
     std::vector<half2> h_AValues{};
     // Fill the vector with increasing half-precision values
-    for (int i = 0; i <= m * k / 2; i += 2) {
-        half2 val{};
-        val.x = i;
-        val.y = i + 1;
+    for (int i = 1; i <= m * k; i += 2) {
+        half2 val{i, i + 1};
         h_AValues.push_back(val);
     }
+
+    PrintMatrix(reinterpret_cast<half*>(h_AValues.data()), m, k);
 
     std::vector<half2> h_BValues{};
     // Create identity matrix
     for (int row = 0; row < k; row++) {
-        for (int col = 0; col < n / 2; col += 2) {
-            half2 val{};
-            val.x = 0;
-            val.y = 0;
+        for (int col = 0; col < n; col += 2) {
+            half2 val{0, 0};
             if (col == row)
                 val.x = 1;
             else if (col + 1 == row)
@@ -657,6 +677,7 @@ int main(int argc, char* argv[]) {
             h_BValues.push_back(val);
         }
     }
+    PrintMatrix(reinterpret_cast<half*>(h_BValues.data()), k, n);
 
     cudaMemcpy(d_AValues, h_AValues.data(), aSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_BValues, h_BValues.data(), bSize, cudaMemcpyHostToDevice);
