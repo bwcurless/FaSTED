@@ -9,6 +9,8 @@
 
 #define WARPSIZE 32
 
+__device__ __host__ void PrintMatrix(half* matrix, int m, int n);
+
 __device__ __host__ constexpr bool IsDivisionExact(int dividend, int divisor) {
     return dividend == (divisor * (dividend / divisor));
 }
@@ -28,7 +30,7 @@ constexpr bool Debug = false;
 using InPrec = half;
 using OutPrec = float;
 
-struct mmaTileDims {
+struct mmaShape {
     int m{};
     int n{};
     int k{};
@@ -41,7 +43,7 @@ struct Coordinate {
 
 // Declare a constant for reference elsewhere
 // Dimensions of a fundamental mma operation in ptx
-constexpr mmaTileDims dims{16, 8, 16};
+constexpr mmaShape dims{16, 8, 16};
 
 // Represents one operand A, B, C, or D, of an mma operaetion that ldmatrix loads into registers.
 // Each thread holds a piece of this operand. Input operands in half precision are packed in pairs
@@ -294,7 +296,7 @@ struct WarpTile {
 
             // Determine which chunk of cols we will load
             // base slice offset plus additional offset for lanes 16-31
-            int threadCol = kslice * Mma::dims.k / dimPerInt4 + (laneId > Mma::dims.m ? 1 : 0);
+            int threadCol = kslice * Mma::dims.k / dimPerInt4 + (laneId < Mma::dims.m ? 0 : 1);
             int swizzleRow = laneId % swizzleFactor;
             int swizzledCol = threadCol ^ swizzleRow;
 
@@ -319,7 +321,7 @@ struct WarpTile {
             // base slice offset plus additional offset for lanes 8-15
             // threads 16-31 need to have the same addresses as 0-16 for the B Matrices
             int threadCol =
-                kslice * Mma::dims.k / dimPerInt4 + (((laneId % 16) < Mma::dims.n) ? 1 : 0);
+                kslice * Mma::dims.k / dimPerInt4 + (((laneId % 16) < Mma::dims.n) ? 0 : 1);
             int swizzleRow = laneId % swizzleFactor;
             int swizzledCol = threadCol ^ swizzleRow;
 
@@ -387,7 +389,7 @@ struct WarpTile {
                     int threadInWarp = threadIdx.x % WARPSIZE;
                     Mma::Coordinate elemCoord =
                         Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
-                    printf("Element %d, %d = %f\n", elemCoord.row, elemCoord.col,
+                    printf("OElement %d, %d = %f\n", elemCoord.row, elemCoord.col,
                            Dfrag.Registers[d]);
                     // TODO perform addition of squared terms and comparison with epsilon here
                 }
@@ -573,6 +575,14 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
     LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, globalKStride);
     __syncthreads();  // Wait for all data to be paged before computing
 
+    if (threadIdx.x == 0) {
+        printf("Shared Array A Matrix\n");
+        PrintMatrix(reinterpret_cast<half*>(ATile), GetBlockTileDims().m, GetBlockTileDims().k);
+        printf("Shared Array B Matrix transposed\n");
+        PrintMatrix(reinterpret_cast<half*>(BTile), GetBlockTileDims().n, GetBlockTileDims().k);
+    }
+    __syncthreads();
+
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
     warpTile.clearD();
@@ -610,9 +620,7 @@ __device__ uint get_smid(void);
 constexpr bool Debug = false;
 
 // ---------- Matrix Parameters ----------
-constexpr int m = 128;
-constexpr int n = 128;
-constexpr int k = 64;
+constexpr Mma::mmaShape globalMmaShape{128, 128, 64};
 
 // ---------- Mma parameters ----------
 constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
@@ -648,7 +656,7 @@ __device__ uint get_smid(void) {
  *
  * \return
  */
-void PrintMatrix(half* matrix, int m, int n) {
+__device__ __host__ void PrintMatrix(half* matrix, int m, int n) {
     printf("Printing matrix\n");
     for (int row = 0; row < m; ++row) {
         for (int col = 0; col < n; ++col) {
@@ -674,24 +682,24 @@ int main(int argc, char* argv[]) {
                cudaMemcpyHostToDevice);
 
     SharedSize *d_AValues, *d_BValues;
-    int aSize = sizeof(InPrec) * m * k;
-    int bSize = sizeof(InPrec) * n * k;
+    int aSize = sizeof(InPrec) * globalMmaShape.m * globalMmaShape.k;
+    int bSize = sizeof(InPrec) * globalMmaShape.n * globalMmaShape.k;
     cudaMalloc(&d_AValues, aSize);
     cudaMalloc(&d_BValues, bSize);
 
     std::vector<half2> h_AValues{};
     // Fill the vector with increasing half-precision values
-    for (int i = 1; i <= m * k; i += 2) {
+    for (int i = 1; i <= globalMmaShape.m * globalMmaShape.k; i += 2) {
         half2 val{i, i + 1};
         h_AValues.push_back(val);
     }
 
-    PrintMatrix(reinterpret_cast<half*>(h_AValues.data()), m, k);
+    PrintMatrix(reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m, globalMmaShape.k);
 
     std::vector<half2> h_BValues{};
     // Create identity matrix
-    for (int row = 0; row < k; row++) {
-        for (int col = 0; col < n; col += 2) {
+    for (int row = 0; row < globalMmaShape.n; row++) {
+        for (int col = 0; col < globalMmaShape.k; col += 2) {
             half2 val{0, 0};
             if (col == row)
                 val.x = 1;
@@ -700,7 +708,7 @@ int main(int argc, char* argv[]) {
             h_BValues.push_back(val);
         }
     }
-    PrintMatrix(reinterpret_cast<half*>(h_BValues.data()), k, n);
+    PrintMatrix(reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n, globalMmaShape.k);
 
     cudaMemcpy(d_AValues, h_AValues.data(), aSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_BValues, h_BValues.data(), bSize, cudaMemcpyHostToDevice);
@@ -717,14 +725,14 @@ int main(int argc, char* argv[]) {
     // If each operation is 4096 FLOP, then we would expect 176M mma operations per second
     cudaEventRecord(start, 0);
 
-    dim3 gridDim(ceil(1.0 * n / BlockMma::GetBlockTileDims().n),
-                 ceil(1.0 * m / BlockMma::GetBlockTileDims().m), 1);
+    dim3 gridDim(ceil(1.0 * globalMmaShape.n / BlockMma::GetBlockTileDims().n),
+                 ceil(1.0 * globalMmaShape.m / BlockMma::GetBlockTileDims().m), 1);
     // 16 warps is the minimum to achieve 100% tensor core usage.
     // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
     // cores, so we want a multiple of 4 warps for optimal performance.
     // TODO is there a cleaner way to define block size so we can use it instead of blockDim.x
     dim3 blockDim(BlockMma::numWarps * WARPSIZE, 1, 1);
-    MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount, d_AValues, d_BValues, k);
+    MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount, d_AValues, d_BValues, globalMmaShape.k);
 
     gpuErrchk(cudaEventRecord(stop, 0));
 
