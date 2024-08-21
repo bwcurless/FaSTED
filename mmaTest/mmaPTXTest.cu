@@ -566,10 +566,12 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
     // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
     // in the block
     // Page A in
+    __syncthreads();  // Wait for all warps to complete using data
     LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, globalKStride);
 
     // Page B in
     LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, globalKStride);
+    __syncthreads();  // Wait for all data to be paged before computing
 
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
