@@ -9,7 +9,7 @@
 
 #define WARPSIZE 32
 
-__device__ __host__ void PrintMatrix(half* matrix, int m, int n);
+__device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n);
 
 __device__ __host__ constexpr bool IsDivisionExact(int dividend, int divisor) {
     return dividend == (divisor * (dividend / divisor));
@@ -275,8 +275,6 @@ struct WarpTile {
 
     /** Loads a WarpTile's A fragments from relevant parts of shared memory.
      *
-     *
-     *
      * \param aSharedAddr Start of shared mem. array
      * \param kslice k slice to accumulate ex. (0..3)
      * \param kStride Shared mem. k dimension
@@ -332,8 +330,6 @@ struct WarpTile {
 
     /** Compute linearized index of output fragment D>
      *
-     *
-     *
      * \param aFragIndex Index of A fragment of WarpTile ex. (0..3)
      * \param bFragIndex Index of B fragment of WarpTile ex. (0..7)
      *
@@ -358,7 +354,6 @@ struct WarpTile {
     }
 
     /** Compute upper left coordinate of a single output fragment D of a WarpTile.
-     *
      *
      * \param warpBaseCoord - Upper left coordinate of the WarpTile.
      * \param aFragIndex A fragment used to compute the desired D fragment.
@@ -430,8 +425,6 @@ __host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
 constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
 
 /** Get global coordinates of upper left element this block is responsible for.
- *
- *
  *
  * \return Global coordinates of upper left element
  */
@@ -576,10 +569,10 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
     __syncthreads();  // Wait for all data to be paged before computing
 
     if (threadIdx.x == 0) {
-        printf("Shared Array A Matrix\n");
-        PrintMatrix(reinterpret_cast<half*>(ATile), GetBlockTileDims().m, GetBlockTileDims().k);
-        printf("Shared Array B Matrix transposed\n");
-        PrintMatrix(reinterpret_cast<half*>(BTile), GetBlockTileDims().n, GetBlockTileDims().k);
+        PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
+                    GetBlockTileDims().k);
+        PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
+                    GetBlockTileDims().k);
     }
     __syncthreads();
 
@@ -650,17 +643,18 @@ __device__ uint get_smid(void) {
 /** Pretty print an array as a matrix.
  *
  *
- * \param matrix
- * \param m
- * \param n
+ * \param name Name of the matrix
+ * \param matrix First address of matrix
+ * \param m Height dimension of matrix
+ * \param n Width dimension of matrix
  *
  * \return
  */
-__device__ __host__ void PrintMatrix(half* matrix, int m, int n) {
-    printf("Printing matrix\n");
+__device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n) {
+    printf("Printing matrix %s\n", name);
     for (int row = 0; row < m; ++row) {
         for (int col = 0; col < n; ++col) {
-            printf("%d ", static_cast<int>(matrix[row * n + col]));
+            printf("%.0f ", static_cast<double>(matrix[row * n + col]));
         }
         printf("\n");
     }
@@ -689,12 +683,18 @@ int main(int argc, char* argv[]) {
 
     std::vector<half2> h_AValues{};
     // Fill the vector with increasing half-precision values
-    for (int i = 1; i <= globalMmaShape.m * globalMmaShape.k; i += 2) {
-        half2 val{i, i + 1};
-        h_AValues.push_back(val);
+    // Note that this gets funny > 2048 because of imprecision of half values
+    for (int m = 0; m < globalMmaShape.m; m++) {
+        for (int k = 0; k < globalMmaShape.k; k += 2) {
+            half2 val{};
+            val.x = m * globalMmaShape.k + k;
+            val.y = m * globalMmaShape.k + k + 1;
+            h_AValues.push_back(val);
+        }
     }
 
-    PrintMatrix(reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m, globalMmaShape.k);
+    PrintMatrix("Global A", reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m,
+                globalMmaShape.k);
 
     std::vector<half2> h_BValues{};
     // Create identity matrix
@@ -708,7 +708,8 @@ int main(int argc, char* argv[]) {
             h_BValues.push_back(val);
         }
     }
-    PrintMatrix(reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n, globalMmaShape.k);
+    PrintMatrix("Global B", reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n,
+                globalMmaShape.k);
 
     cudaMemcpy(d_AValues, h_AValues.data(), aSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_BValues, h_BValues.data(), bSize, cudaMemcpyHostToDevice);
