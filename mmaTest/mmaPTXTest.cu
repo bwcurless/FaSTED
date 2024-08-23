@@ -2,12 +2,14 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <math.h>
 #include <vector_types.h>
 
 #include <iostream>
 #include <vector>
 
 #define WARPSIZE 32
+constexpr bool Debug = false;
 
 __device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n);
 
@@ -384,8 +386,10 @@ struct WarpTile {
                     int threadInWarp = threadIdx.x % WARPSIZE;
                     Mma::Coordinate elemCoord =
                         Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
-                    printf("OElement %d, %d = %f\n", elemCoord.row, elemCoord.col,
-                           Dfrag.Registers[d]);
+                    if (Debug) {
+                        printf("OElement %d, %d = %f\n", elemCoord.row, elemCoord.col,
+                               Dfrag.Registers[d]);
+                    }
                     // TODO perform addition of squared terms and comparison with epsilon here
                 }
             }
@@ -493,13 +497,15 @@ __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columns
  * \param sharedArray Base address of shared memory array to page into
  * \param firstGlobalPoint Index of the first point in global memory to page in
  * \param numPoints How many points to page in
+ * \param globalKStart The first k dimension to page in from global memory
  * \param globalKStride The number of dimensions per point in global memory
  *
  * \return
  */
 __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedArray,
-                                   int firstGlobalPoint, int numPoints, int globalKStride) {
-    // TODO make this work for multiple K iterations
+                                   int firstGlobalPoint, int numPoints, int globalKStart,
+                                   int globalKStride) {
+    // TODO make this use globalKStart
     static_assert(
         IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
         "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
@@ -515,7 +521,7 @@ __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedAr
     for (int point = firstPoint; point < numPoints; point += pointStride) {
         // Extact int4 from global
         int globalPoint = point + firstGlobalPoint;
-        int globalDim = firstDim;
+        int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
         SharedSize values = globalArray[globalPointIndex];
 
@@ -533,8 +539,8 @@ __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedAr
  * \param globalKStride Global k dimension of MMA
  *
  */
-__device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, SharedSize* BValues,
-                    int globalKStride) {
+__device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AValues,
+                             SharedSize* BValues, int globalKStride) {
     int tidx = threadIdx.x % 32;
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
@@ -558,35 +564,38 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
     // MMA Useful for performing final inspection of results
     Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
 
-    // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
-    // in the block
-    // Page A in
-    __syncthreads();  // Wait for all warps to complete using data
-    LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, globalKStride);
-
-    // Page B in
-    LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, globalKStride);
-    __syncthreads();  // Wait for all data to be paged before computing
-
-    if (threadIdx.x == 0) {
-        PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
-                    GetBlockTileDims().k);
-        PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
-                    GetBlockTileDims().k);
-    }
-    __syncthreads();
-
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
     warpTile.clearD();
 
-    // Accumulate into D as many times as we need to
-    for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-        warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
-        warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
-        warpTile.warpTileMma();
-    }
+    // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
+    for (int kStart = 0; kStart < globalKStride; kStart += GetBlockTileDims().k) {
+        // in the block
+        // Page A in
+        __syncthreads();  // Wait for all warps to complete using data
+        LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, kStart,
+                           globalKStride);
 
+        // Page B in
+        LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, kStart,
+                           globalKStride);
+        __syncthreads();  // Wait for all data to be paged before computing
+
+        if (threadIdx.x == 0) {
+            PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
+                        GetBlockTileDims().k);
+            PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
+                        GetBlockTileDims().k);
+        }
+        __syncthreads();
+
+        // Accumulate into D as many times as we need to
+        for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
+            warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
+            warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
+            warpTile.warpTileMma();
+        }
+    }
     warpTile.inspectResults(baseWarpCoord);
 
     // TODO the warpTile should determime if values are in bounds
@@ -596,6 +605,7 @@ __device__ void Mma(unsigned long long* iterationCount, SharedSize* AValues, Sha
             count++;
         }
     }
+
     if (tidx == 0) {
         atomicAdd(iterationCount, count);
     }
@@ -610,13 +620,11 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AVa
                              SharedSize* BValues, int kStride);
 __device__ uint get_smid(void);
 
-constexpr bool Debug = false;
-
 // ---------- Matrix Parameters ----------
-constexpr Mma::mmaShape globalMmaShape{128, 128, 64};
+constexpr int numPoints = 1048576;
+constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64};
 
 // ---------- Mma parameters ----------
-constexpr int totalFlopsPerOp = Mma::dims.m * Mma::dims.n * Mma::dims.k * 2;
 
 // ---------- Warp parameters ----------
 
@@ -651,12 +659,14 @@ __device__ uint get_smid(void) {
  * \return
  */
 __device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n) {
-    printf("Printing matrix %s\n", name);
-    for (int row = 0; row < m; ++row) {
-        for (int col = 0; col < n; ++col) {
-            printf("%.0f ", static_cast<double>(matrix[row * n + col]));
+    if (Debug) {
+        printf("Printing matrix %s\n", name);
+        for (int row = 0; row < m; ++row) {
+            for (int col = 0; col < n; ++col) {
+                printf("%.0f ", static_cast<double>(matrix[row * n + col]));
+            }
+            printf("\n");
         }
-        printf("\n");
     }
 }
 
@@ -749,9 +759,8 @@ int main(int argc, char* argv[]) {
 
     printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
     // Estimated TFLOPS that we computed
-    const float tflops = gridDim.x * blockDim.x / 32.0 * BlockMma::coarseFactor *
-                         BlockMma::kSlices * WarpMma::numDFragments * totalFlopsPerOp /
-                         elapsedTime / 1e12;
+    const float tflops = static_cast<float>(globalMmaShape.m) * globalMmaShape.n *
+                         globalMmaShape.k * 2 / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
@@ -764,5 +773,5 @@ int main(int argc, char* argv[]) {
 
 __global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AValues,
                              SharedSize* BValues, int kStride) {
-    BlockMma::Mma(iterationCount, AValues, BValues, kStride);
+    BlockMma::BlockTileMma(iterationCount, AValues, BValues, kStride);
 }
