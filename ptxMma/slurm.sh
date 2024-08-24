@@ -50,7 +50,8 @@ esac
 # Do a test build locally to make sure there aren't errors before waiting in queue
 echo "Building executable to $outputFile"
 module load "cuda/$cudaModule"
-make
+make clean
+make release
 
 # Define where outputs go
 outputPath="/scratch/$USER/"
