@@ -165,7 +165,8 @@ struct WarpTile {
      * \param warpBaseCoord Upper left global coordinate of WarpTile.
      *
      */
-    __device__ void inspectResults(Mma::Coordinate& warpBaseCoord) {
+    __device__ int inspectResults(Mma::Coordinate& warpBaseCoord, float epsilon) {
+        int count = 0;
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
                 Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(warpBaseCoord, a, b);
@@ -179,9 +180,13 @@ struct WarpTile {
                                Dfrag.Registers[d]);
                     }
                     // TODO perform addition of squared terms and comparison with epsilon here
+                    if (Dfrag.Registers[d] > epsilon) {
+                        count++;
+                    }
                 }
             }
         }
+        return count;
     }
 };
 };  // namespace WarpMma

@@ -9,6 +9,10 @@
 #ifndef BLOCKMMA_CUH_KP5RAZNA
 #define BLOCKMMA_CUH_KP5RAZNA
 
+#include <cooperative_groups.h>
+
+#include <cuda/pipeline>
+
 #include "utils.cuh"
 #include "warpMma.cuh"
 
@@ -21,6 +25,8 @@ constexpr int numWarps = numWarpCols * numWarpRows;
 constexpr int blockSize = WARPSIZE * numWarps;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
+// To to global memory copies asynchronously or synchronously
+constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
 
@@ -102,6 +108,54 @@ __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columns
     return swizzledAddress;
 }
 
+/** Pages points from global to shared memory asynchronously. Pages in a certain number of points in
+ global memory from a specified start point. Each thread does an int4 copy from global to shared for
+ every point that the BlockTile needs. This method swizzles the addresses as it stores into shared
+ memory to avoid shared memory conflicts.
+ *
+ * \param globalArray Base address of global memory array to page from
+ * \param sharedArray Base address of shared memory array to page into
+ * \param firstGlobalPoint Index of the first point in global memory to page in
+ * \param numPoints How many points to page in
+ * \param globalKStart The first k dimension to page in from global memory
+ * \param globalKStride The number of dimensions per point in global memory
+ *
+ * \return
+ */
+__device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread>& pipe,
+                                        SharedSize* globalArray, SharedSize* sharedArray,
+                                        int firstGlobalPoint, int numPoints, int globalKStart,
+                                        int globalKStride) {
+    // TODO make this use globalKStart
+    static_assert(
+        IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
+        "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
+    // A kGroup is a group of InPrec k values organized together for efficiency
+    constexpr int kGroupsPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
+
+    int firstPoint = threadIdx.x / kGroupsPerPoint;
+    int firstDim = threadIdx.x % kGroupsPerPoint;
+    int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
+    constexpr int pointStride = blockSize / kGroupsPerPoint;
+
+    // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
+    for (int point = firstPoint; point < numPoints; point += pointStride) {
+        // Extact int4 from global
+        int globalPoint = point + firstGlobalPoint;
+        int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
+        int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
+        // Don't actually read the value in async version
+        // SharedSize values = globalArray[globalPointIndex];
+
+        // Store int4 to shared
+        int swizzledAddress = SwizzleAddress(point, firstDim, kGroupsPerPoint);
+        // Don't write value in async version
+        // sharedArray[swizzledAddress] = values;
+        cuda::memcpy_async(&(sharedArray[swizzledAddress]), &(globalArray[globalPointIndex]),
+                           sizeof(SharedSize), pipe);
+    }
+}
+
 /** Pages points from global to shared memory. Pages in a certain number of points in global
  memory from a specified start point. Each thread does an int4 copy from global to
  shared for every point that the BlockTile needs. This method swizzles the addresses as it stores
@@ -145,6 +199,30 @@ __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedAr
     }
 }
 
+/** Accumulates a single k slice into a warp tile from shared memory. Data needs to be done being
+ * paged in from global memory before calling this method.
+ *
+ *
+ * \param warpTile The warp tile to accumulate into
+ * \param baseLocalWarpCoord The upper left coordinate this warp is responsible for. Scoped to the
+ * block (not global matrix).
+ * \param kBlockTile k dimension of the block tile.
+ * \param ATile Pointer to start of shared memory array containing A
+ * \param BTile Pointer to start of shared memory array containing B
+ *
+ * \return
+ */
+__device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize* ATile,
+                                         SharedSize* BTile, Mma::Coordinate& baseLocalWarpCoord,
+                                         int kBlockTile) {
+    // Accumulate into D as many times as we need to
+    for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
+        warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
+        warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
+        warpTile.warpTileMma();
+    }
+}
+
 /** Computes an mma operation at the block scope.
  *
  * \param iterationCount TODO Delete this
@@ -159,6 +237,10 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
+
+    // Pipeline init
+    auto block = cooperative_groups::this_thread_block();
+    cuda::pipeline<cuda::thread_scope_thread> pipeline = cuda::make_pipeline();
 
     // We need 128 byte alignment here so each point ends up in it's own row of shared memory
     __shared__ __align__(128)
@@ -182,44 +264,62 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     WarpMma::WarpTile warpTile;
     warpTile.clearD();
 
-    // All threads colloborate to move Global-->Shared as data in shared is shared between all warps
+    // All threads colloborate to move Global-->Shared as data in shared is shared between all
+    // warps in the block
     for (int kStart = 0; kStart < globalKStride; kStart += GetBlockTileDims().k) {
-        // in the block
-        // Page A in
-        __syncthreads();  // Wait for all warps to complete using data
-        LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, kStart,
-                           globalKStride);
+        // Normal copy global->register, register->shared
+        if (sync) {
+            __syncthreads();  // Wait for all warps to complete using data
+            // Page A in
+            LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, kStart,
+                               globalKStride);
 
-        // Page B in
-        LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, kStart,
-                           globalKStride);
-        __syncthreads();  // Wait for all data to be paged before computing
+            // Page B in
+            LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, kStart,
+                               globalKStride);
+            __syncthreads();  // Wait for all data to be paged before computing
 
-        if (threadIdx.x == 0) {
-            PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
-                        GetBlockTileDims().k);
-            PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
-                        GetBlockTileDims().k);
+            // Debug print statements
+            if (Debug) {
+                if (threadIdx.x == 0) {
+                    PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
+                                GetBlockTileDims().k);
+                    PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
+                                GetBlockTileDims().k);
+                }
+                __syncthreads();
+            }
+
+            AccumulateKSliceWarpTile(warpTile, ATile, BTile, baseLocalWarpCoord, blockTileDims.k);
         }
-        __syncthreads();
+        // Async pipeline direct global->shared
+        else {
+            pipeline.producer_acquire();
+            // Page A in
+            LoadGlobalToSharedAsync(pipeline, AValues, ATile, baseBlockCoord.row,
+                                    GetBlockTileDims().m, kStart, globalKStride);
 
-        // Accumulate into D as many times as we need to
-        for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
-            warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
-            warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
-            warpTile.warpTileMma();
+            // Page B in
+            LoadGlobalToSharedAsync(pipeline, BValues, BTile, baseBlockCoord.col,
+                                    GetBlockTileDims().n, kStart, globalKStride);
+            pipeline.producer_commit();
+
+            cuda::pipeline_consumer_wait_prior<0>(pipeline);
+            // Thread scoped pipeline so must sync so we can read other thread's data
+
+            __syncthreads();
+
+            AccumulateKSliceWarpTile(warpTile, ATile, BTile, baseLocalWarpCoord, blockTileDims.k);
+
+            __syncthreads();
+
+            pipeline.consumer_release();
         }
     }
-    warpTile.inspectResults(baseWarpCoord);
+    // Number within epsilon in each thread
+    count += warpTile.inspectResults(baseWarpCoord, 10.0f);
 
-    // TODO the warpTile should determime if values are in bounds
-    // This is all here so everything isn't optimized away
-    for (int i = 0; i < WarpMma::numDFragments; i++) {
-        if (tidx == 0 && (warpTile.D[i].Registers[0] > 10.0f)) {
-            count++;
-        }
-    }
-
+    // TODO Need to do a reduction here because it's too slow to do this with every thread
     if (tidx == 0) {
         atomicAdd(iterationCount, count);
     }

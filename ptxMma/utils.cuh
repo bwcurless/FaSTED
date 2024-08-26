@@ -11,7 +11,7 @@
 
 #define WARPSIZE 32
 constexpr int SharedMemWidth = 128;  // 128 bytes, 32 lanes of 4 bytes each
-constexpr bool Debug = false;
+constexpr bool Debug = true;
 
 __device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n);
 

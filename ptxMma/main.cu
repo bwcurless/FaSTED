@@ -19,7 +19,7 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AVa
 __device__ uint get_smid(void);
 
 // ---------- Matrix Parameters ----------
-constexpr int numPoints = 1048576;
+constexpr int numPoints = 128;
 constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64};
 
 // ---------- Mma parameters ----------
