@@ -19,7 +19,7 @@ __global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AVa
 __device__ uint get_smid(void);
 
 // ---------- Matrix Parameters ----------
-constexpr int numPoints = 128;
+constexpr int numPoints = 1048576;
 constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64};
 
 // ---------- Mma parameters ----------
@@ -67,14 +67,16 @@ int main(int argc, char* argv[]) {
     cudaMalloc(&d_AValues, aSize);
     cudaMalloc(&d_BValues, bSize);
 
+    // Kind of a hack but we go to NaN if we let it keep incrementing
+    int maxFloat = 32768;
     std::vector<half2> h_AValues{};
     // Fill the vector with increasing half-precision values
     // Note that this gets funny > 2048 because of imprecision of half values
     for (int m = 0; m < globalMmaShape.m; m++) {
         for (int k = 0; k < globalMmaShape.k; k += 2) {
             half2 val{};
-            val.x = m * globalMmaShape.k + k;
-            val.y = m * globalMmaShape.k + k + 1;
+            val.x = static_cast<half>(min(maxFloat, m * globalMmaShape.k + k));
+            val.y = static_cast<half>(min(maxFloat, m * globalMmaShape.k + k + 1));
             h_AValues.push_back(val);
         }
     }

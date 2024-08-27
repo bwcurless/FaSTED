@@ -26,7 +26,7 @@ constexpr int blockSize = WARPSIZE * numWarps;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 // To to global memory copies asynchronously or synchronously
-constexpr bool sync = false;
+constexpr bool sync = true;
 
 using SharedSize = WarpMma::SharedSize;
 
@@ -248,6 +248,12 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     __shared__ __align__(128)
         SharedSize BTile[GetBlockTileDims().n * GetBlockTileDims().k / WarpMma::dimPerInt4];
 
+    __shared__ unsigned long long blockCount;
+    if (threadIdx.x == 0) {
+        blockCount = 0;
+    }
+    __syncthreads();
+
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
     Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate();
@@ -319,9 +325,11 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     // Number within epsilon in each thread
     count += warpTile.inspectResults(baseWarpCoord, 10.0f);
 
-    // TODO Need to do a reduction here because it's too slow to do this with every thread
-    if (tidx == 0) {
-        atomicAdd(iterationCount, count);
+    // Simple reduction in shared memory
+    atomicAdd(&blockCount, count);
+    __syncthreads();
+    if (threadIdx.x == 0) {
+        atomicAdd(iterationCount, blockCount);
     }
 }
 
