@@ -26,7 +26,7 @@ constexpr int blockSize = WARPSIZE * numWarps;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 // To to global memory copies asynchronously or synchronously
-constexpr bool sync = true;
+constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
 

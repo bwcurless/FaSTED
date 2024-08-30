@@ -63,7 +63,58 @@ struct WarpTile {
         }
     }
 
-    /** Loads a WarpTile's A fragments from relevant parts of shared memory.
+    /** Determine which chunk of dimensions to load for A. First m threads all read first 8
+     * dimensions. Rest of the threads read the last 8 dimensions.
+     *
+     * \param laneId The thread's lane id (0,31)
+     *
+     * \return Which chunk of 8 dimensions a given thread should load
+     */
+    __device__ static int computeADimChunk(int laneId) { return (laneId < Mma::dims.m ? 0 : 1); }
+
+    /** Determine which chunk of dimensions to load for B. First n threads all read first 8
+     * dimensions. The next 8 threads read the last 8 dimensions. Threads 16-31 must read the same
+     * addresses as the lower 16 threads for the underlying ldmatrix ptx instruction to work.
+     *
+     * \param laneId The thread's lane id (0,31)
+     *
+     * \return Which chunk of 8 dimensions a given thread should load
+     */
+    __device__ static int computeBDimChunk(int laneId) {
+        return (laneId % 16 < Mma::dims.n ? 0 : 1);
+    }
+
+    using ColOffset = int (*)(int);
+
+    /** The swizzled address of an int4 chunk of shared memory that a thread needs to read and copy
+     * into shared memory via ldmatrix ptx.
+     *
+     * \param kSlice k slice to accumulate ex. (0..3)
+     * \param kStride Shared mem. k dimension
+     // TODO Is there a better way to phrase this variable?
+     * \param fragmentRow First row of data in shared memory corresponding to a fragment
+     * \param outerDims The number of rows of A or columns of B that will be read.
+     * \param colOffset Given a lane Id, computes which chunk of 8 dimensions to read
+     *
+     * \return The swizzled shared memory address in an int4 array
+     */
+    __device__ int computeSwizzledIndex(int kSlice, int kStride, int fragmentRow, int outerDims,
+                                        ColOffset colOffset) {
+        int laneId = threadIdx.x % WARPSIZE;
+        int kStrideInt4 = kStride / dimPerInt4;
+        int threadRow = fragmentRow + (laneId % outerDims);
+
+        // Determine which chunk of dimensions we will load
+        // base slice offset plus an additional offset for last 8 dimensions
+        int threadCol = kSlice * Mma::dims.k / dimPerInt4 + colOffset(laneId);
+        int swizzleRow = laneId % swizzleFactor;
+        int swizzledCol = threadCol ^ swizzleRow;
+
+        return threadRow * kStrideInt4 + swizzledCol;
+    }
+
+    /** loads a warptile's a fragments from relevant parts of shared memory. A is laid out in
+     * row-major format in shared memory.
      *
      * \param aSharedAddr Start of shared mem. array
      * \param kslice k slice to accumulate ex. (0..3)
@@ -71,49 +122,36 @@ struct WarpTile {
      * \param warpRow First row of A to load
      *
      */
-    // TODO A and B should really follow the same functions
     __device__ void warpTileLoadA(SharedSize* aSharedAddr, int kslice, int kStride, int warpRow) {
         // Page fragment into A.
-        int laneId = threadIdx.x % WARPSIZE;
         Mma::Coordinate warpBase{warpRow, 0};
-        int kStrideInt4 = kStride / dimPerInt4;
         for (int i = 0; i < numAFragments; i++) {
             // Determine which row we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
-            int threadRow = fragmentRow + (laneId % Mma::dims.m);
-
-            // Determine which chunk of cols we will load
-            // base slice offset plus additional offset for lanes 16-31
-            int threadCol = kslice * Mma::dims.k / dimPerInt4 + (laneId < Mma::dims.m ? 0 : 1);
-            int swizzleRow = laneId % swizzleFactor;
-            int swizzledCol = threadCol ^ swizzleRow;
-
-            int linearizedIndex = threadRow * kStrideInt4 + swizzledCol;
+            int linearizedIndex =
+                computeSwizzledIndex(kslice, kStride, fragmentRow, Mma::dims.m, computeADimChunk);
             Mma::loadAMatrix_16_16(&aSharedAddr[linearizedIndex], A[i]);
         }
     }
 
-    // Same as warpTileLoadA, but for B
+    /** loads a warptile's b fragments from relevant parts of shared memory. B is laid out in
+     * row-major format in shared memory and is automatically transposed by the mma operation.
+     *
+     * \param bSharedAddr Start of shared mem. array
+     * \param kslice k slice to accumulate ex. (0..3)
+     * \param kStride Shared mem. k dimension
+     * \param warpCol First Col of B to load
+     *
+     */
     __device__ void warpTileLoadB(SharedSize* bSharedAddr, int kslice, int kStride, int warpCol) {
         // Page fragment into B.
-        // B is stored row-major in shared memory
-        int laneId = threadIdx.x % WARPSIZE;
         Mma::Coordinate warpBase{0, warpCol};
-        int kStrideInt4 = kStride / dimPerInt4;
         for (int i = 0; i < numBFragments; i++) {
             // Determine which col we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, 0, i).col;
-            int threadRow = fragmentRow + (laneId % Mma::dims.n);
+            int linearizedIndex =
+                computeSwizzledIndex(kslice, kStride, fragmentRow, Mma::dims.n, computeBDimChunk);
 
-            // Determine which chunk of rows we will load
-            // base slice offset plus additional offset for lanes 8-15
-            // threads 16-31 need to have the same addresses as 0-16 for the B Matrices
-            int threadCol =
-                kslice * Mma::dims.k / dimPerInt4 + (((laneId % 16) < Mma::dims.n) ? 0 : 1);
-            int swizzleRow = laneId % swizzleFactor;
-            int swizzledCol = threadCol ^ swizzleRow;
-
-            int linearizedIndex = threadRow * kStrideInt4 + swizzledCol;
             Mma::loadBMatrix_16_8(&bSharedAddr[linearizedIndex], B[i]);
         }
     }
