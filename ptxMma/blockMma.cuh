@@ -29,6 +29,7 @@ constexpr int coarseFactor = 1;
 constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
+constexpr int pipelineDepth = 2;
 
 struct BlockTileDims {
     int m{};
@@ -45,8 +46,12 @@ __host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
     return BlockTileDims{m, n, k};
 }
 
-// Compute how much shared memory to allocate when we launch the kernel
 constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
+
+// Compute how much shared memory to allocate when we launch the kernel
+constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimPerInt4;
+constexpr int BElemsPerStage = blockTileDims.n * blockTileDims.k / WarpMma::dimPerInt4;
+constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
 
 /** Get global coordinates of upper left element this block is responsible for.
  *
@@ -223,6 +228,19 @@ __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize
     }
 }
 
+/** Checks if an array of a specified type is an exact multiple of the desired alignment in bytes.
+ *
+ * \param numElements The number of elements in the array
+ * \param multiple The number of bytes to be a multiple of
+ * \param arrayType The type of the array elements. Used to determine bytes.
+ *
+ * \return If the array length is an exact multiple.
+ */
+template <int multiple, typename arrayType>
+__device__ constexpr bool IsMultiple(int numElements) {
+    return (numElements * sizeof(arrayType)) % multiple == 0;
+}
+
 /** Computes an mma operation at the block scope.
  *
  * \param iterationCount TODO Delete this
@@ -233,20 +251,32 @@ __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize
  */
 __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AValues,
                              SharedSize* BValues, int globalKStride) {
-    int tidx = threadIdx.x % 32;
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
 
     // Pipeline init
-    auto block = cooperative_groups::this_thread_block();
     cuda::pipeline<cuda::thread_scope_thread> pipeline = cuda::make_pipeline();
 
+    extern __shared__ SharedSize sharedMem[];
+
+    __shared__ SharedSize* ATile[pipelineDepth];
+    __shared__ SharedSize* BTile[pipelineDepth];
+
     // We need 128 byte alignment here so each point ends up in it's own row of shared memory
-    __shared__ __align__(128)
-        SharedSize ATile[GetBlockTileDims().m * GetBlockTileDims().k / WarpMma::dimPerInt4];
-    __shared__ __align__(128)
-        SharedSize BTile[GetBlockTileDims().n * GetBlockTileDims().k / WarpMma::dimPerInt4];
+    static_assert(IsMultiple<128, SharedSize>(AElemsPerStage),
+                  "A single stage of A must be a multiple of 128 bytes");
+    static_assert(IsMultiple<128, SharedSize>(BElemsPerStage),
+                  "A single stage of B must be a multiple of 128 bytes");
+    for (int i = 0; i < pipelineDepth; ++i) {
+        int stageOffset = (i * ElemsPerStage);
+        ATile[i] = sharedMem + stageOffset;
+        BTile[i] = ATile[i] + AElemsPerStage;
+        if (threadIdx.x == 0 && Debug) {
+            printf("Shared Memory addresses in stage %d are:\nATile: %p\nBTile: %p\n", i, ATile[i],
+                   BTile[i]);
+        }
+    }
 
     __shared__ unsigned long long blockCount;
     if (threadIdx.x == 0) {
@@ -272,16 +302,18 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
 
     // All threads colloborate to move Global-->Shared as data in shared is shared between all
     // warps in the block
-    for (int kStart = 0; kStart < globalKStride; kStart += GetBlockTileDims().k) {
-        // Normal copy global->register, register->shared
-        if (sync) {
+
+    // Normal copy global->register, register->shared
+    // Single buffered
+    if (sync) {
+        for (int kStart = 0; kStart < globalKStride; kStart += GetBlockTileDims().k) {
             __syncthreads();  // Wait for all warps to complete using data
             // Page A in
-            LoadGlobalToShared(AValues, ATile, baseBlockCoord.row, GetBlockTileDims().m, kStart,
+            LoadGlobalToShared(AValues, ATile[0], baseBlockCoord.row, GetBlockTileDims().m, kStart,
                                globalKStride);
 
             // Page B in
-            LoadGlobalToShared(BValues, BTile, baseBlockCoord.col, GetBlockTileDims().n, kStart,
+            LoadGlobalToShared(BValues, BTile[0], baseBlockCoord.col, GetBlockTileDims().n, kStart,
                                globalKStride);
             __syncthreads();  // Wait for all data to be paged before computing
 
@@ -296,30 +328,68 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
                 __syncthreads();
             }
 
-            AccumulateKSliceWarpTile(warpTile, ATile, BTile, baseLocalWarpCoord, blockTileDims.k);
+            AccumulateKSliceWarpTile(warpTile, ATile[0], BTile[0], baseLocalWarpCoord,
+                                     blockTileDims.k);
         }
-        // Async pipeline direct global->shared
-        else {
+    }
+    // Async pipeline direct global->shared
+    else {
+        // Fill pipeline
+        // TODO this assumes we need atleast two pipeline stages
+        // Keep track of which k index to load next since it's different than the next k we need to
+        // compute with
+        int nextKToLoad = 0;
+        // Handles situation where pipeline is deeper than we can fill with input data
+        int numStagesToBuffer = min(pipelineDepth, globalKStride / blockTileDims.k);
+        for (int i = 0; i < numStagesToBuffer; ++i) {
             pipeline.producer_acquire();
             // Page A in
-            LoadGlobalToSharedAsync(pipeline, AValues, ATile, baseBlockCoord.row,
-                                    GetBlockTileDims().m, kStart, globalKStride);
+            LoadGlobalToSharedAsync(pipeline, AValues, ATile[i], baseBlockCoord.row,
+                                    blockTileDims.m, nextKToLoad, globalKStride);
 
             // Page B in
-            LoadGlobalToSharedAsync(pipeline, BValues, BTile, baseBlockCoord.col,
-                                    GetBlockTileDims().n, kStart, globalKStride);
+            LoadGlobalToSharedAsync(pipeline, BValues, BTile[i], baseBlockCoord.col,
+                                    blockTileDims.n, nextKToLoad, globalKStride);
+            nextKToLoad += blockTileDims.k;
             pipeline.producer_commit();
+        }
+        // Pipeline stage to consume next
+        int pipelineIndex = 0;
+        for (int kStart = 0; kStart < globalKStride; kStart += blockTileDims.k) {
+            if (threadIdx.x == 0 && Debug) {
+                printf("Waiting for pipeline to compute k chunk %d\n", kStart);
+            }
+            cuda::pipeline_consumer_wait_prior<pipelineDepth - 1>(pipeline);
 
-            cuda::pipeline_consumer_wait_prior<0>(pipeline);
             // Thread scoped pipeline so must sync so we can read other thread's data
-
             __syncthreads();
 
-            AccumulateKSliceWarpTile(warpTile, ATile, BTile, baseLocalWarpCoord, blockTileDims.k);
+            AccumulateKSliceWarpTile(warpTile, ATile[pipelineIndex], BTile[pipelineIndex],
+                                     baseLocalWarpCoord, blockTileDims.k);
 
             __syncthreads();
 
             pipeline.consumer_release();
+
+            // Queue up the next stage of the pipeline
+            pipeline.producer_acquire();
+            // Still queue up empty stage if all the data we need is in the pipeline so wait
+            // doesn't block indefinitely at the end of the computation
+            if (nextKToLoad < globalKStride) {
+                // Page A in
+                LoadGlobalToSharedAsync(pipeline, AValues, ATile[pipelineIndex], baseBlockCoord.row,
+                                        blockTileDims.m, nextKToLoad, globalKStride);
+
+                // Page B in
+                LoadGlobalToSharedAsync(pipeline, BValues, BTile[pipelineIndex], baseBlockCoord.col,
+                                        blockTileDims.n, nextKToLoad, globalKStride);
+
+                nextKToLoad += blockTileDims.k;
+            }
+            pipeline.producer_commit();
+
+            // Set up next iteration to load from next stage in shared mem.
+            pipelineIndex = (pipelineIndex + 1) % pipelineDepth;
         }
     }
     // Number within epsilon in each thread

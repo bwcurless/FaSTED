@@ -20,7 +20,7 @@ __device__ uint get_smid(void);
 
 // ---------- Matrix Parameters ----------
 constexpr int numPoints = 1048576;
-constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64};
+constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64 * 8};
 
 // ---------- Mma parameters ----------
 
@@ -116,12 +116,13 @@ int main(int argc, char* argv[]) {
 
     dim3 gridDim(ceil(1.0 * globalMmaShape.n / BlockMma::GetBlockTileDims().n),
                  ceil(1.0 * globalMmaShape.m / BlockMma::GetBlockTileDims().m), 1);
-    // 16 warps is the minimum to achieve 100% tensor core usage.
-    // Interestingly, performance drops when you do 17 warps, likely because there are 4 tensor
-    // cores, so we want a multiple of 4 warps for optimal performance.
-    // TODO is there a cleaner way to define block size so we can use it instead of blockDim.x
     dim3 blockDim(BlockMma::numWarps * WARPSIZE, 1, 1);
-    MmaPtxShared<<<gridDim, blockDim>>>(d_iterationCount, d_AValues, d_BValues, globalMmaShape.k);
+    size_t sharedMemBytes = BlockMma::pipelineDepth * BlockMma::ElemsPerStage * sizeof(SharedSize);
+    printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
+    gpuErrchk(cudaFuncSetAttribute(MmaPtxShared, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                   sharedMemBytes));
+    MmaPtxShared<<<gridDim, blockDim, sharedMemBytes>>>(d_iterationCount, d_AValues, d_BValues,
+                                                        globalMmaShape.k);
 
     gpuErrchk(cudaEventRecord(stop, 0));
 

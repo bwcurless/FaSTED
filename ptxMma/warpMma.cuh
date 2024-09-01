@@ -10,6 +10,7 @@
 #define WARPMMA_CUH_OL9KOX7Y
 
 #include "ptxMma.cuh"
+#include "utils.cuh"
 
 // A single warp operation made up of many fragments of A, B, and D
 namespace WarpMma {
