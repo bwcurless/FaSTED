@@ -29,7 +29,7 @@ constexpr int coarseFactor = 1;
 constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
-constexpr int pipelineDepth = 2;
+constexpr int pipelineDepth = 1;
 
 struct BlockTileDims {
     int m{};
@@ -136,12 +136,13 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
         "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
     // A kGroup is a group of InPrec k values organized together for efficiency
-    constexpr int kGroupsPerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
+    constexpr int int4PerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
 
-    int firstPoint = threadIdx.x / kGroupsPerPoint;
-    int firstDim = threadIdx.x % kGroupsPerPoint;
+    int firstPoint = threadIdx.x / int4PerPoint;
+    int firstDim = threadIdx.x % int4PerPoint;
     int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
-    constexpr int pointStride = blockSize / kGroupsPerPoint;
+    // TODO change blockSize to BlockDim.x
+    constexpr int pointStride = blockSize / int4PerPoint;  // Block copies 16 points/iteration
 
     // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
     for (int point = firstPoint; point < numPoints; point += pointStride) {
@@ -149,15 +150,19 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         int globalPoint = point + firstGlobalPoint;
         int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
+        if (Debug && threadIdx.x < 128 && point < 8) {
+            // To check for coalesced accesses
+            printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
+        }
         // Don't actually read the value in async version
         // SharedSize values = globalArray[globalPointIndex];
 
         // Store int4 to shared
-        int swizzledAddress = SwizzleAddress(point, firstDim, kGroupsPerPoint);
+        int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
         // Don't write value in async version
         // sharedArray[swizzledAddress] = values;
-        cuda::memcpy_async(&(sharedArray[swizzledAddress]), &(globalArray[globalPointIndex]),
-                           sizeof(SharedSize), pipe);
+        cuda::memcpy_async(sharedArray + swizzledAddress, globalArray + globalPointIndex,
+                           cuda::aligned_size_t<16>(sizeof(SharedSize)), pipe);
     }
 }
 
@@ -287,6 +292,10 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
     Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate();
+    if (Debug && threadIdx.x == 0) {
+        printf("baseBlockCoord.row T%d is %d\n", threadIdx.x, baseBlockCoord.row);
+        printf("baseBlockCoord.col T%d is %d\n", threadIdx.x, baseBlockCoord.col);
+    }
     // Block MMA Scoped
     // Compute local warpBase Coordinates relative to this block. Useful for extracting the
     // appropriate values from shared memory
@@ -335,7 +344,6 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     // Async pipeline direct global->shared
     else {
         // Fill pipeline
-        // TODO this assumes we need atleast two pipeline stages
         // Keep track of which k index to load next since it's different than the next k we need to
         // compute with
         int nextKToLoad = 0;
