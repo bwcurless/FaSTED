@@ -80,11 +80,12 @@ module load "cuda/$cudaModule"
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-#srun ./release/main
+srun ./release/main
 #compute-sanitizer --tool=memcheck ./release/main
+#compute-sanitizer --tool=racecheck ./release/main
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
-srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
+#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
 #srun nsys profile ./main
 
 

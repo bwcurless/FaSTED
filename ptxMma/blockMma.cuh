@@ -136,6 +136,7 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
         "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
     // A kGroup is a group of InPrec k values organized together for efficiency
+    // How many int4 values must be copied to copy an entire point over
     constexpr int int4PerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
 
     int firstPoint = threadIdx.x / int4PerPoint;
@@ -150,19 +151,21 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         int globalPoint = point + firstGlobalPoint;
         int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
-        if (Debug && threadIdx.x < 128 && point < 8) {
-            // To check for coalesced accesses
-            printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
-        }
         // Don't actually read the value in async version
         // SharedSize values = globalArray[globalPointIndex];
 
         // Store int4 to shared
         int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
+
+        if (Debug && blockIdx.x == 0) {
+            // To check for coalesced accesses
+            printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
+            printf("swizzledAddress T%d Point %d: %d\n", threadIdx.x, point, swizzledAddress);
+        }
         // Don't write value in async version
         // sharedArray[swizzledAddress] = values;
         cuda::memcpy_async(sharedArray + swizzledAddress, globalArray + globalPointIndex,
-                           cuda::aligned_size_t<16>(sizeof(SharedSize)), pipe);
+                           (sizeof(SharedSize)), pipe);
     }
 }
 
@@ -351,6 +354,9 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
         int numStagesToBuffer = min(pipelineDepth, globalKStride / blockTileDims.k);
         for (int i = 0; i < numStagesToBuffer; ++i) {
             pipeline.producer_acquire();
+            if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
+                printf("Next k to load %d\n", nextKToLoad);
+            }
             // Page A in
             LoadGlobalToSharedAsync(pipeline, AValues, ATile[i], baseBlockCoord.row,
                                     blockTileDims.m, nextKToLoad, globalKStride);
@@ -364,8 +370,10 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
         // Pipeline stage to consume next
         int pipelineIndex = 0;
         for (int kStart = 0; kStart < globalKStride; kStart += blockTileDims.k) {
-            if (threadIdx.x == 0 && Debug) {
+            if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
                 printf("Waiting for pipeline to compute k chunk %d\n", kStart);
+                printf("Pipeline Index %d\n", pipelineIndex);
+                printf("Next k to load %d\n", nextKToLoad);
             }
             cuda::pipeline_consumer_wait_prior<pipelineDepth - 1>(pipeline);
 
