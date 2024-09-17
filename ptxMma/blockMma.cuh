@@ -29,7 +29,7 @@ constexpr int coarseFactor = 1;
 constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
-constexpr int pipelineDepth = 1;
+constexpr int pipelineDepth = 2;
 
 struct BlockTileDims {
     int m{};
@@ -95,7 +95,7 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
     return {baseRow, baseCol};
 }
 
-/** Given an address, swizzle it to avoid bank conflicts. Takes in either an expected address in
+/** Given an address, swizzle it to avoid bank conflicts. Takes in an expected address in
  * row/column format, and swizzles it so that each individual copy has no conflicts with others.
  * This is highly specialized for an MMA operation.
  *
@@ -108,7 +108,11 @@ __device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord,
  */
 __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columnsPerRow) {
     // Column ^ Row in shared memory
-    int swizzledLane = sharedMemColumn ^ (sharedMemRow % columnsPerRow);
+    // Swizzle in groups of 8 rows
+    constexpr int rowsToSwizzle = 8;
+    // Needs to swizzle in groups of int4 since this is what ldmatrix reads
+    int swizzledLane =
+        sharedMemColumn ^ ((sharedMemRow % rowsToSwizzle) * columnsPerRow / rowsToSwizzle);
     int swizzledAddress = sharedMemRow * columnsPerRow + swizzledLane;
     return swizzledAddress;
 }
@@ -131,41 +135,39 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
                                         SharedSize* globalArray, SharedSize* sharedArray,
                                         int firstGlobalPoint, int numPoints, int globalKStart,
                                         int globalKStride) {
+    constexpr int dimPerInt = 2;
     // TODO make this use globalKStart
-    static_assert(
-        IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
-        "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
+    static_assert(IsDivisionExact(GetBlockTileDims().k, dimPerInt),
+                  "Block tile k dimension is not cleanly divisible by transfer size (int)");
     // A kGroup is a group of InPrec k values organized together for efficiency
-    // How many int4 values must be copied to copy an entire point over
-    constexpr int int4PerPoint = GetBlockTileDims().k / WarpMma::dimPerInt4;  // 8
+    // How many values must be copied to copy an entire point over
+    // 32 in this case to make all threads in a warp participate
+    constexpr int copiesPerPoint = GetBlockTileDims().k / dimPerInt;  // 32
 
-    int firstPoint = threadIdx.x / int4PerPoint;
-    int firstDim = threadIdx.x % int4PerPoint;
-    int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
+    int firstPoint = threadIdx.x / copiesPerPoint;
+    int firstDim = threadIdx.x % copiesPerPoint;
+    int globalLeadingDim = globalKStride / dimPerInt;
     // TODO change blockSize to BlockDim.x
-    constexpr int pointStride = blockSize / int4PerPoint;  // Block copies 16 points/iteration
+    constexpr int pointStride = blockSize / copiesPerPoint;  // Block copies 4 points/iteration
 
-    // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
+    // First 32 threads copy over point 1, next 32 point 2, so on until all points are paged over
     for (int point = firstPoint; point < numPoints; point += pointStride) {
-        // Extact int4 from global
+        // Extact int from global
         int globalPoint = point + firstGlobalPoint;
-        int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
+        int globalDim = firstDim + (globalKStart / dimPerInt);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
-        // Don't actually read the value in async version
-        // SharedSize values = globalArray[globalPointIndex];
 
-        // Store int4 to shared
-        int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
+        // Compute swizzled shared memory address
+        int swizzledAddress = SwizzleAddress(point, firstDim, copiesPerPoint);
 
-        if (Debug && blockIdx.x == 0) {
+        if (Debug && blockIdx.x == 0 && threadIdx.x < 32) {
             // To check for coalesced accesses
             printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
             printf("swizzledAddress T%d Point %d: %d\n", threadIdx.x, point, swizzledAddress);
         }
-        // Don't write value in async version
-        // sharedArray[swizzledAddress] = values;
-        cuda::memcpy_async(sharedArray + swizzledAddress, globalArray + globalPointIndex,
-                           (sizeof(SharedSize)), pipe);
+        cuda::memcpy_async(reinterpret_cast<int*>(sharedArray) + swizzledAddress,
+                           reinterpret_cast<int*>(globalArray) + globalPointIndex, sizeof(int),
+                           pipe);
     }
 }
 
