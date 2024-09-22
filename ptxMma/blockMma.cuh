@@ -268,8 +268,8 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
 
     extern __shared__ SharedSize sharedMem[];
 
-    __shared__ SharedSize* ATile[pipelineDepth];
-    __shared__ SharedSize* BTile[pipelineDepth];
+    SharedSize* ATile[pipelineDepth];
+    SharedSize* BTile[pipelineDepth];
 
     // We need 128 byte alignment here so each point ends up in it's own row of shared memory
     static_assert(IsMultiple<128, SharedSize>(AElemsPerStage),
