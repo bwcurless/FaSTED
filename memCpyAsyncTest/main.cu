@@ -87,7 +87,7 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
 
     int firstRow = threadIdx.x / copiesPerStageRow;
     int firstCol = threadIdx.x % copiesPerStageRow;
-    int globalLeadingDim = globalColumns / copiesPerStageRow;
+    int globalLeadingDim = globalColumns / elementsPerInt4;
     int rowStride = blockDim.x / copiesPerStageRow;  // Block copies 16 points/iteration
 
     // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
