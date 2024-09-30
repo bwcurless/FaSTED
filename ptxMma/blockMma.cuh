@@ -1,7 +1,6 @@
 /******************************************************************************
  * File:             blockMma.cuh
- *
- * Author:           Brian Curless
+ * * Author:           Brian Curless
  * Created:          08/23/24
  * Description:      All the functionality to compute a single blockTile
  *****************************************************************************/
@@ -266,7 +265,7 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
     // Pipeline init
     cuda::pipeline<cuda::thread_scope_thread> pipeline = cuda::make_pipeline();
 
-    extern __shared__ SharedSize sharedMem[];
+    __align__(128) extern __shared__ SharedSize sharedMem[];
 
     SharedSize* ATile[pipelineDepth];
     SharedSize* BTile[pipelineDepth];
