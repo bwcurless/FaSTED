@@ -28,7 +28,7 @@ constexpr int coarseFactor = 1;
 constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
-constexpr int pipelineDepth = 1;
+constexpr int pipelineDepth = 2;
 
 struct BlockTileDims {
     int m{};
@@ -248,6 +248,32 @@ __device__ constexpr bool IsMultiple(int numElements) {
     return (numElements * sizeof(arrayType)) % multiple == 0;
 }
 
+/** Return the pointer to the next tile based on the pipeline index. This is an optimization because
+ * the compiler is putting the arrays in local memory becaus it can't determine the constant
+ * indices.
+ *
+ * \param pipelineIndex The next index to load.
+ * \param ATile The base address for the A Tile in shared memory.
+ * \param BTile The base address fo the B Tile in shared memory.
+ * \param nextATile Returns the next address in shared memory to read.
+ * \param nextBTile Returns the next address in shared memory to read.
+ *
+ * \return void. Returns through pointers passed in
+ */
+__device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedSize** BTile,
+                                  SharedSize** nextATile, SharedSize** nextBTile) {
+    switch (pipelineIndex) {
+        case 0:
+            *nextATile = ATile[0];
+            *nextBTile = BTile[0];
+            break;
+        case 1:
+            *nextATile = ATile[1];
+            *nextBTile = BTile[1];
+            break;
+    }
+}
+
 /** Computes an mma operation at the block scope.
  *
  * \param iterationCount TODO Delete this
@@ -374,13 +400,16 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
                 printf("Pipeline Index %d\n", pipelineIndex);
                 printf("Next k to load %d\n", nextKToLoad);
             }
+            SharedSize *nextATile, *nextBTile;
+            GetNextSharedTile(pipelineIndex, ATile, BTile, &nextATile, &nextBTile);
+
             cuda::pipeline_consumer_wait_prior<pipelineDepth - 1>(pipeline);
 
             // Thread scoped pipeline so must sync so we can read other thread's data
             __syncthreads();
 
-            AccumulateKSliceWarpTile(warpTile, ATile[pipelineIndex], BTile[pipelineIndex],
-                                     baseLocalWarpCoord, blockTileDims.k);
+            AccumulateKSliceWarpTile(warpTile, nextATile, nextBTile, baseLocalWarpCoord,
+                                     blockTileDims.k);
 
             __syncthreads();
 
@@ -392,11 +421,11 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
             // doesn't block indefinitely at the end of the computation
             if (nextKToLoad < globalKStride) {
                 // Page A in
-                LoadGlobalToSharedAsync(pipeline, AValues, ATile[pipelineIndex], baseBlockCoord.row,
+                LoadGlobalToSharedAsync(pipeline, AValues, nextATile, baseBlockCoord.row,
                                         blockTileDims.m, nextKToLoad, globalKStride);
 
                 // Page B in
-                LoadGlobalToSharedAsync(pipeline, BValues, BTile[pipelineIndex], baseBlockCoord.col,
+                LoadGlobalToSharedAsync(pipeline, BValues, nextBTile, baseBlockCoord.col,
                                         blockTileDims.n, nextKToLoad, globalKStride);
 
                 nextKToLoad += blockTileDims.k;
