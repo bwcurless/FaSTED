@@ -21,7 +21,6 @@ namespace BlockMma {
 constexpr int numWarpCols = 2;
 constexpr int numWarpRows = 2;
 constexpr int numWarps = numWarpCols * numWarpRows;
-constexpr int blockSize = WARPSIZE * numWarps;
 constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 // To to global memory copies asynchronously or synchronously
@@ -142,8 +141,7 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
     int firstPoint = threadIdx.x / int4PerPoint;
     int firstDim = threadIdx.x % int4PerPoint;
     int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
-    // TODO change blockSize to BlockDim.x
-    constexpr int pointStride = blockSize / int4PerPoint;  // Block copies 16 points/iteration
+    int pointStride = blockDim.x / int4PerPoint;  // Block copies 16 points/iteration
 
     // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
     for (int point = firstPoint; point < numPoints; point += pointStride) {
@@ -151,8 +149,6 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         int globalPoint = point + firstGlobalPoint;
         int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
-        // Don't actually read the value in async version
-        // SharedSize values = globalArray[globalPointIndex];
 
         // Store int4 to shared
         int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
@@ -162,10 +158,8 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
             printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
             printf("swizzledAddress T%d Point %d: %d\n", threadIdx.x, point, swizzledAddress);
         }
-        // Don't write value in async version
-        // sharedArray[swizzledAddress] = values;
         cuda::memcpy_async(sharedArray + swizzledAddress, globalArray + globalPointIndex,
-                           (sizeof(SharedSize)), pipe);
+                           sizeof(SharedSize), pipe);
     }
 }
 
@@ -196,7 +190,7 @@ __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedAr
     int firstPoint = threadIdx.x / kGroupsPerPoint;
     int firstDim = threadIdx.x % kGroupsPerPoint;
     int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
-    constexpr int pointStride = blockSize / kGroupsPerPoint;
+    int pointStride = blockDim.x / kGroupsPerPoint;
 
     // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
     for (int point = firstPoint; point < numPoints; point += pointStride) {
