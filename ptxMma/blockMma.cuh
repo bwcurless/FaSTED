@@ -29,6 +29,7 @@ constexpr bool sync = false;
 
 using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
+constexpr int maxPipelineDepth = 4;
 
 struct BlockTileDims {
     int m{};
@@ -271,6 +272,14 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
             *nextATile = ATile[1];
             *nextBTile = BTile[1];
             break;
+        case 2:
+            *nextATile = ATile[2];
+            *nextBTile = BTile[2];
+            break;
+        case 3:
+            *nextATile = ATile[3];
+            *nextBTile = BTile[3];
+            break;
     }
 }
 
@@ -293,8 +302,8 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AVa
 
     __align__(128) extern __shared__ SharedSize sharedMem[];
 
-    SharedSize* ATile[pipelineDepth];
-    SharedSize* BTile[pipelineDepth];
+    SharedSize* ATile[maxPipelineDepth];
+    SharedSize* BTile[maxPipelineDepth];
 
     // We need 128 byte alignment here so each point ends up in it's own row of shared memory
     static_assert(IsMultiple<128, SharedSize>(AElemsPerStage),
