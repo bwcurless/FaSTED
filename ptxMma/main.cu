@@ -47,26 +47,6 @@ __device__ uint get_smid(void) {
     return ret;
 }
 
-/** Generically allocates two arrays that share the same elementSize.
- *
- *
- * \param elementSize Size of each element in bytes. Shared by both arrays.
- * \param length1 Number of elements in first array.
- * \param length2 Number of elements in second array.
- * \param array1 Pointer to first array to allocate.
- * \param array2 Pointer to second array to allocate.
- *
- * \return
- */
-template <typename T>
-void AllocateDualArraysInGMem(size_t elementSize, size_t length1, size_t length2, T** array1,
-                              T** array2) {
-    int size1 = elementSize * length1;
-    int size2 = elementSize * length2;
-    cudaMalloc(array1, size1);
-    cudaMalloc(array2, size2);
-}
-
 /** Allocates space for and transfers query and candidate points stored in host memory to global
  * memory. You must free the memory allocated by this method when you are done using it.
  *
@@ -84,28 +64,10 @@ void TransferPointsToGMem(std::vector<Precision>& h_Query, std::vector<Precision
                           T** d_Query, T** d_Candidate) {
     size_t querySize = h_Query.size();
     size_t candidateSize = h_Candidate.size();
-    AllocateDualArraysInGMem(sizeof(Precision), querySize, candidateSize, d_Query, d_Candidate);
-    cudaMemcpy(d_Query, h_Query.data(), h_Query.size(), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Candidate, h_Candidate.data(), h_Candidate.size(), cudaMemcpyHostToDevice);
-}
-
-/** Allocates global memory for storing the sum of the squared dimensions of the query points and
- * candidate points. You must free the memory allocated by this method when you are done using it.
- *
- *
- * \param Precision The data type of each sum.
- * \param numQueryPoints The number of query points.
- * \param numCandidatePoints The number of candidate points.
- * \param queryPoints Pointer to the query points array.
- * \param candidatePoints Pointer to the candidate points array.
- *
- * \return
- */
-template <typename Precision, typename T>
-void AllocatePointSquaredSumsInGMem(size_t numQueryPoints, size_t numCandidatePoints,
-                                    T** queryPoints, T** candidatePoints) {
-    AllocateDualArraysInGMem(sizeof(Precision), numQueryPoints, numCandidatePoints, queryPoints,
-                             candidatePoints);
+    cudaMalloc(d_Query, querySize);
+    cudaMalloc(d_Candidate, candidateSize);
+    cudaMemcpy(*d_Query, h_Query.data(), h_Query.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(*d_Candidate, h_Candidate.data(), h_Candidate.size(), cudaMemcpyHostToDevice);
 }
 
 int main(int argc, char* argv[]) {
@@ -158,16 +120,15 @@ int main(int argc, char* argv[]) {
     SharedSize *d_AValues, *d_BValues;
     TransferPointsToGMem(h_AValues, h_BValues, &d_AValues, &d_BValues);
 
-    // Create space for sum of squared terms of each point
-    using SquaredPrec = BlockSumSquared::SquaredPrec;
-    SquaredPrec *d_ASqSums, *d_BSqSums;
-    AllocatePointSquaredSumsInGMem<SquaredPrec>(globalMmaShape.m, globalMmaShape.n, &d_ASqSums,
-                                                &d_BSqSums);
-
     printf("Running kernel\n");
 
-    // Compute sum of squared terms since subsequent steps will use them.
-    // TODO this...
+    // Compute sums of squared dimensions
+    using SquaredPrec = float;
+    SquaredPrec *d_ASqSums, *d_BSqSums;
+    d_ASqSums = BlockSumSquared::ComputeSquaredSums<SquaredPrec>(d_AValues, globalMmaShape.m,
+                                                                 globalMmaShape.k);
+    d_BSqSums = BlockSumSquared::ComputeSquaredSums<SquaredPrec>(d_BValues, globalMmaShape.n,
+                                                                 globalMmaShape.k);
 
     // Each MMA operation is a 16x8x16 operation
     // There are 16x8 values calculated per warp of 32 threads
