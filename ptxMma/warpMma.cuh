@@ -202,6 +202,7 @@ struct WarpTile {
      * compute distance.
      *
      * \param warpBaseCoord Upper left global coordinate of WarpTile.
+     * \param epsilon The maximum distance two points can be apart to be considered a pair.
      *
      */
     __device__ int inspectResults(Mma::Coordinate& warpBaseCoord, float epsilon) {

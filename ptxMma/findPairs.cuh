@@ -9,6 +9,7 @@
 #define BLOCKMMA_CUH_KP5RAZNA
 
 #include <cooperative_groups.h>
+#include <cooperative_groups/memcpy_async.h>
 
 #include <cuda/pipeline>
 
@@ -291,16 +292,37 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
     }
 }
 
+/** brief Asynchronously loads all the necessary sums of squared points that the entire block will
+ * need from global memory to shared memory. You must wait on the group before attempting to read
+ * values from shared memory.
+ *
+ * \param pipe The cuda pipeline to commit transactions to.
+ * \param globalSums The sums of the squared dimensions of the points in global memory.
+ * \param sharedSums The sums of the squared dimensions of the points in global memory.
+ * \param firstSum The index of the first sum this block needs to page in.
+ * \param numSums How many sums the entire block needs to page in.
+ *
+ */
+__device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, float* globalSums,
+                                    float* sharedSums, int firstSum, int numSums) {
+    cooperative_groups::memcpy_async(group, sharedSums, &globalSums[firstSum],
+                                     sizeof(float) * numSums);
+}
+
 /** Finds all pairs of query and candidate points within epsilon. Computes the distance using the
  * summed squared dimensions of each point in combination with a matrix multiplication of the
  * points.
  *
+ * \param params See struct documentation.
  *
  */
 __global__ void FindPairsKernel(FindPairsParams params) {
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
+
+    __align__(128) __shared__ float squaredQueries[blockTileDims.m];
+    __align__(128) __shared__ float squaredCandidates[blockTileDims.n];
 
     // Pipeline init
     cuda::pipeline<cuda::thread_scope_thread> pipeline = cuda::make_pipeline();
@@ -346,6 +368,13 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     // Compute the Upper left coordinate that each warp is responsible for
     // MMA Useful for performing final inspection of results
     Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
+
+    // Start transferring squared candidates over
+    auto group = cooperative_groups::this_thread_block();
+    LoadSumSquaredAsync(group, params.sumSqQueries, squaredQueries, baseBlockCoord.row,
+                        BlockTileDims().m);
+    LoadSumSquaredAsync(group, params.sumSqCandidates, squaredCandidates, baseBlockCoord.col,
+                        BlockTileDims().n);
 
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
@@ -451,6 +480,8 @@ __global__ void FindPairsKernel(FindPairsParams params) {
             pipelineIndex = (pipelineIndex + 1) % pipelineDepth;
         }
     }
+    // Wait for sums of squared terms to complete transferring
+    cooperative_groups::wait(group);
     // Number within epsilon in each thread
     count += warpTile.inspectResults(baseWarpCoord, 10.0f);
 
@@ -484,7 +515,6 @@ __host__ void FindPairs(FindPairsParams params) {
 
     FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params);
 }
-
 };  // namespace BlockTile
 
 #endif /* end of include guard: BLOCKMMA_CUH_KP5RAZNA */
