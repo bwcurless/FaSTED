@@ -8,44 +8,19 @@
 #include <iostream>
 #include <vector>
 
-#include "blockMma.cuh"
+#include "findPairs.cuh"
 #include "sumSquared.cuh"
 #include "utils.cuh"
 
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount, half2* AValues, half2* BValues,
-                             int kStride);
 __device__ uint get_smid(void);
 
-// ---------- Matrix Parameters ----------
+// ---------- Search Parameters ----------
+constexpr float epsilon = 0.1;
 constexpr int numPoints = 1024 * 16;
-constexpr Mma::mmaShape globalMmaShape{numPoints, numPoints, 64 * 64};
-
-// ---------- Mma parameters ----------
-
-// ---------- Warp parameters ----------
-
-// ---------- Hardware parameters ----------
-
-#define gpuErrchk(ans) \
-    { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-}
-
-// Return the ID of the steaming multiprocesser this block is running on
-__device__ uint get_smid(void) {
-    uint ret;
-
-    asm("mov.u32 %0, %smid;" : "=r"(ret));
-
-    return ret;
-}
+constexpr Mma::mmaShape searchShape{numPoints, numPoints, 64 * 64};
 
 /** Allocates space for and transfers query and candidate points stored in host memory to global
  * memory. You must free the memory allocated by this method when you are done using it.
@@ -92,24 +67,24 @@ int main(int argc, char* argv[]) {
     std::vector<half2> h_AValues{};
     // Fill the vector with increasing half-precision values
     // Note that this gets funny > 2048 because of imprecision of half values
-    for (int m = 0; m < globalMmaShape.m; m++) {
-        for (int k = 0; k < globalMmaShape.k; k += 2) {
+    for (int m = 0; m < searchShape.m; m++) {
+        for (int k = 0; k < searchShape.k; k += 2) {
             half2 val{};
-            val.x = static_cast<half>(min(maxFloat, m * globalMmaShape.k + k));
-            val.y = static_cast<half>(min(maxFloat, m * globalMmaShape.k + k + 1));
+            val.x = static_cast<half>(min(maxFloat, m * searchShape.k + k));
+            val.y = static_cast<half>(min(maxFloat, m * searchShape.k + k + 1));
             h_AValues.push_back(val);
         }
     }
 
     if (Debug) {
-        PrintMatrix<half>("Global A", reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m,
-                          globalMmaShape.k);
+        PrintMatrix<half>("Global A", reinterpret_cast<half*>(h_AValues.data()), searchShape.m,
+                          searchShape.k);
     }
 
     std::vector<half2> h_BValues{};
     // Create identity matrix
-    for (int row = 0; row < globalMmaShape.n; row++) {
-        for (int col = 0; col < globalMmaShape.k; col += 2) {
+    for (int row = 0; row < searchShape.n; row++) {
+        for (int col = 0; col < searchShape.k; col += 2) {
             half2 val{0, 0};
             if (col == row)
                 val.x = 1;
@@ -120,8 +95,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (Debug) {
-        PrintMatrix<half>("Global B", reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n,
-                          globalMmaShape.k);
+        PrintMatrix<half>("Global B", reinterpret_cast<half*>(h_BValues.data()), searchShape.n,
+                          searchShape.k);
     }
 
     half2 *d_AValues, *d_BValues;
@@ -132,28 +107,13 @@ int main(int argc, char* argv[]) {
     // Compute sums of squared dimensions
     using sumSize = float;
     sumSize *d_ASqSums, *d_BSqSums;
-    d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, globalMmaShape.m, globalMmaShape.k);
-    d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, globalMmaShape.n, globalMmaShape.k);
+    d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, searchShape.m, searchShape.k);
+    d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, searchShape.n, searchShape.k);
 
-    // Each MMA operation is a 16x8x16 operation
-    // There are 16x8 values calculated per warp of 32 threads
-    // Each value requires 2 * 16 FLOPS due to the multiply and add
-    // Total flops per warp per iteration is (16*8)*(2*16)=4096
-    // Theoretical max for A100 is 312 TFLOPS
-    // We have 4 Tensor cores per SM, 108 SM's, so 432 total TC's/GPU
-    // This means each tensor core can do 312 TFLOPS / 432 TC's = 722 GFLOPS
-    // If each operation is 4096 FLOP, then we would expect 176M mma operations per second
     cudaEventRecord(start, 0);
 
-    dim3 gridDim(ceil(1.0 * globalMmaShape.n / BlockMma::GetBlockTileDims().n),
-                 ceil(1.0 * globalMmaShape.m / BlockMma::GetBlockTileDims().m), 1);
-    dim3 blockDim(BlockMma::numWarps * WARPSIZE, 1, 1);
-    size_t sharedMemBytes = BlockMma::pipelineDepth * BlockMma::ElemsPerStage * sizeof(SharedSize);
-    printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
-    gpuErrchk(cudaFuncSetAttribute(MmaPtxShared, cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                   sharedMemBytes));
-    MmaPtxShared<<<gridDim, blockDim, sharedMemBytes>>>(d_iterationCount, d_AValues, d_BValues,
-                                                        globalMmaShape.k);
+    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilon, searchShape, d_iterationCount,
+                                                    d_AValues, d_BValues, d_ASqSums, d_BSqSums});
 
     gpuErrchk(cudaEventRecord(stop, 0));
 
@@ -169,8 +129,8 @@ int main(int argc, char* argv[]) {
 
     printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
     // Estimated TFLOPS that we computed
-    const float tflops = static_cast<float>(globalMmaShape.m) * globalMmaShape.n *
-                         globalMmaShape.k * 2 / elapsedTime / 1e12;
+    const float tflops =
+        static_cast<float>(searchShape.m) * searchShape.n * searchShape.k * 2 / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
@@ -181,9 +141,4 @@ int main(int argc, char* argv[]) {
     cudaFree(d_BValues);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
-}
-
-__global__ void MmaPtxShared(unsigned long long* iterationCount, half2* AValues, half2* BValues,
-                             int kStride) {
-    BlockMma::BlockTileMma(iterationCount, AValues, BValues, kStride);
 }

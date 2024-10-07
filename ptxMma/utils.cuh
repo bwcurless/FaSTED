@@ -15,6 +15,24 @@ constexpr bool Debug = false;
 
 __device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n);
 
+#define gpuErrchk(ans) \
+    { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+// Return the ID of the steaming multiprocesser this block is running on
+__device__ uint get_smid(void) {
+    uint ret;
+
+    asm("mov.u32 %0, %smid;" : "=r"(ret));
+
+    return ret;
+}
+
 __device__ __host__ constexpr bool IsDivisionExact(int dividend, int divisor) {
     return dividend == (divisor * (dividend / divisor));
 }

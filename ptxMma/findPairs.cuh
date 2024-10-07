@@ -1,5 +1,5 @@
 /******************************************************************************
- * File:             blockMma.cuh
+1* File:             findPairs.cuh
  * * Author:           Brian Curless
  * Created:          08/23/24
  * Description:      All the functionality to compute a single blockTile
@@ -12,10 +12,11 @@
 
 #include <cuda/pipeline>
 
+#include "ptxMma.cuh"
 #include "utils.cuh"
 #include "warpMma.cuh"
 
-namespace BlockMma {
+namespace BlockTile {
 
 // Block Parameters
 constexpr int numWarpCols = 2;
@@ -29,6 +30,17 @@ constexpr bool sync = false;
 using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
 constexpr int maxPipelineDepth = 4;
+
+struct FindPairsParams {
+    float epsilon;              // The maximum distance between points to be considered a pair.
+    Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
+                                // candidate points, and dimensions of each point.
+    unsigned long long* iterationCount;  // TODO Delete this
+    half2* queryPoints;                  // Global memory array containing all query points.
+    half2* candidatePoints;              // Global memory array containing all candidate points.
+    float* sumSqQueries;                 // Summed up squared dimensions of query points.
+    float* sumSqCandidates;              // Summed up squared dimensions of Candidates points.
+};
 
 struct BlockTileDims {
     int m{};
@@ -45,7 +57,7 @@ __host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
     return BlockTileDims{m, n, k};
 }
 
-constexpr BlockMma::BlockTileDims blockTileDims = GetBlockTileDims();
+constexpr BlockTileDims blockTileDims = GetBlockTileDims();
 
 // Compute how much shared memory to allocate when we launch the kernel
 constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimPerInt4;
@@ -225,7 +237,7 @@ __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize
                                          SharedSize* BTile, Mma::Coordinate& baseLocalWarpCoord,
                                          int kBlockTile) {
     // Accumulate into D as many times as we need to
-    for (int kslice = 0; kslice < BlockMma::kSlices; kslice++) {
+    for (int kslice = 0; kslice < kSlices; kslice++) {
         warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
         warpTile.warpTileLoadB(BTile, kslice, blockTileDims.k, baseLocalWarpCoord.col);
         warpTile.warpTileMma();
@@ -279,16 +291,13 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
     }
 }
 
-/** Computes an mma operation at the block scope.
+/** Finds all pairs of query and candidate points within epsilon. Computes the distance using the
+ * summed squared dimensions of each point in combination with a matrix multiplication of the
+ * points.
  *
- * \param iterationCount TODO Delete this
- * \param AValues Global memory array containing elements of A
- * \param BValues Global memory array containing elements of B
- * \param globalKStride Global k dimension of MMA
  *
  */
-__device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues, half2* BValues,
-                             int globalKStride) {
+__global__ void FindPairsKernel(FindPairsParams params) {
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;
@@ -348,15 +357,15 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues,
     // Normal copy global->register, register->shared
     // Single buffered
     if (sync) {
-        for (int kStart = 0; kStart < globalKStride; kStart += GetBlockTileDims().k) {
+        for (int kStart = 0; kStart < params.searchShape.k; kStart += GetBlockTileDims().k) {
             __syncthreads();  // Wait for all warps to complete using data
             // Page A in
-            LoadGlobalToShared(AValues, ATile[0], baseBlockCoord.row, GetBlockTileDims().m, kStart,
-                               globalKStride);
+            LoadGlobalToShared(params.queryPoints, ATile[0], baseBlockCoord.row,
+                               GetBlockTileDims().m, kStart, params.searchShape.k);
 
             // Page B in
-            LoadGlobalToShared(BValues, BTile[0], baseBlockCoord.col, GetBlockTileDims().n, kStart,
-                               globalKStride);
+            LoadGlobalToShared(params.candidatePoints, BTile[0], baseBlockCoord.col,
+                               GetBlockTileDims().n, kStart, params.searchShape.k);
             __syncthreads();  // Wait for all data to be paged before computing
 
             // Debug print statements
@@ -381,25 +390,25 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues,
         // compute with
         int nextKToLoad = 0;
         // Handles situation where pipeline is deeper than we can fill with input data
-        int numStagesToBuffer = min(pipelineDepth, globalKStride / blockTileDims.k);
+        int numStagesToBuffer = min(pipelineDepth, params.searchShape.k / blockTileDims.k);
         for (int i = 0; i < numStagesToBuffer; ++i) {
             pipeline.producer_acquire();
             if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
                 printf("Next k to load %d\n", nextKToLoad);
             }
             // Page A in
-            LoadGlobalToSharedAsync(pipeline, AValues, ATile[i], baseBlockCoord.row,
-                                    blockTileDims.m, nextKToLoad, globalKStride);
+            LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i], baseBlockCoord.row,
+                                    blockTileDims.m, nextKToLoad, params.searchShape.k);
 
             // Page B in
-            LoadGlobalToSharedAsync(pipeline, BValues, BTile[i], baseBlockCoord.col,
-                                    blockTileDims.n, nextKToLoad, globalKStride);
+            LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i], baseBlockCoord.col,
+                                    blockTileDims.n, nextKToLoad, params.searchShape.k);
             nextKToLoad += blockTileDims.k;
             pipeline.producer_commit();
         }
         // Pipeline stage to consume next
         int pipelineIndex = 0;
-        for (int kStart = 0; kStart < globalKStride; kStart += blockTileDims.k) {
+        for (int kStart = 0; kStart < params.searchShape.k; kStart += blockTileDims.k) {
             if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
                 printf("Waiting for pipeline to compute k chunk %d\n", kStart);
                 printf("Pipeline Index %d\n", pipelineIndex);
@@ -424,14 +433,15 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues,
             pipeline.producer_acquire();
             // Still queue up empty stage if all the data we need is in the pipeline so wait
             // doesn't block indefinitely at the end of the computation
-            if (nextKToLoad < globalKStride) {
+            if (nextKToLoad < params.searchShape.k) {
                 // Page A in
-                LoadGlobalToSharedAsync(pipeline, AValues, nextATile, baseBlockCoord.row,
-                                        blockTileDims.m, nextKToLoad, globalKStride);
+                LoadGlobalToSharedAsync(pipeline, params.queryPoints, nextATile, baseBlockCoord.row,
+                                        blockTileDims.m, nextKToLoad, params.searchShape.k);
 
                 // Page B in
-                LoadGlobalToSharedAsync(pipeline, BValues, nextBTile, baseBlockCoord.col,
-                                        blockTileDims.n, nextKToLoad, globalKStride);
+                LoadGlobalToSharedAsync(pipeline, params.candidatePoints, nextBTile,
+                                        baseBlockCoord.col, blockTileDims.n, nextKToLoad,
+                                        params.searchShape.k);
 
                 nextKToLoad += blockTileDims.k;
             }
@@ -448,10 +458,33 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues,
     atomicAdd(&blockCount, count);
     __syncthreads();
     if (threadIdx.x == 0) {
-        atomicAdd(iterationCount, blockCount);
+        atomicAdd(params.iterationCount, blockCount);
     }
 }
 
-};  // namespace BlockMma
+/** Finds all pairs of points in the query and candidate points. Launches the required kernels to do
+ * so.
+ *
+ * \param params See struct documentation.
+ *
+ * \return
+ */
+__host__ void FindPairs(FindPairsParams params) {
+    dim3 gridDim(ceil(1.0 * params.searchShape.n / GetBlockTileDims().n),
+                 ceil(1.0 * params.searchShape.m / GetBlockTileDims().m), 1);
+    dim3 blockDim(numWarps * WARPSIZE, 1, 1);
+    size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
+
+    if (Debug) {
+        printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
+    }
+
+    gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                   sharedMemBytes));
+
+    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params);
+}
+
+};  // namespace BlockTile
 
 #endif /* end of include guard: BLOCKMMA_CUH_KP5RAZNA */
