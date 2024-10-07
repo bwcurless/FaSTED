@@ -127,9 +127,10 @@ __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columns
  * \return
  */
 __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread>& pipe,
-                                        SharedSize* globalArray, SharedSize* sharedArray,
+                                        half2* globalArray, SharedSize* sharedArray,
                                         int firstGlobalPoint, int numPoints, int globalKStart,
                                         int globalKStride) {
+    SharedSize* reinterpretedGlobalArray = reinterpret_cast<SharedSize*>(globalArray);
     // TODO make this use globalKStart
     static_assert(
         IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
@@ -158,8 +159,8 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
             printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
             printf("swizzledAddress T%d Point %d: %d\n", threadIdx.x, point, swizzledAddress);
         }
-        cuda::memcpy_async(sharedArray + swizzledAddress, globalArray + globalPointIndex,
-                           sizeof(SharedSize), pipe);
+        cuda::memcpy_async(sharedArray + swizzledAddress,
+                           reinterpretedGlobalArray + globalPointIndex, sizeof(SharedSize), pipe);
     }
 }
 
@@ -177,10 +178,11 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
  *
  * \return
  */
-__device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedArray,
+__device__ void LoadGlobalToShared(half2* globalArray, SharedSize* sharedArray,
                                    int firstGlobalPoint, int numPoints, int globalKStart,
                                    int globalKStride) {
     // TODO make this use globalKStart
+    SharedSize* reinterpretedGlobalArray = reinterpret_cast<SharedSize*>(globalArray);
     static_assert(
         IsDivisionExact(GetBlockTileDims().k, WarpMma::dimPerInt4),
         "Block tile k dimension is not cleanly divisible by shared memory kGroup (int4) size");
@@ -198,7 +200,7 @@ __device__ void LoadGlobalToShared(SharedSize* globalArray, SharedSize* sharedAr
         int globalPoint = point + firstGlobalPoint;
         int globalDim = firstDim + (globalKStart / WarpMma::dimPerInt4);
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
-        SharedSize values = globalArray[globalPointIndex];
+        SharedSize values = reinterpretedGlobalArray[globalPointIndex];
 
         // Store int4 to shared
         int swizzledAddress = SwizzleAddress(point, firstDim, kGroupsPerPoint);
@@ -285,8 +287,8 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
  * \param globalKStride Global k dimension of MMA
  *
  */
-__device__ void BlockTileMma(unsigned long long* iterationCount, SharedSize* AValues,
-                             SharedSize* BValues, int globalKStride) {
+__device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues, half2* BValues,
+                             int globalKStride) {
     int warpId = threadIdx.x / 32;
     // Kind of a useless count to get compiler to not optimize away my code
     unsigned int count = 0;

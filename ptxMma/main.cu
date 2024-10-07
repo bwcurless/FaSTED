@@ -9,14 +9,14 @@
 #include <vector>
 
 #include "blockMma.cuh"
-#include "blockSumSquared.cuh"
+#include "sumSquared.cuh"
 #include "utils.cuh"
 
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AValues,
-                             SharedSize* BValues, int kStride);
+__global__ void MmaPtxShared(unsigned long long* iterationCount, half2* AValues, half2* BValues,
+                             int kStride);
 __device__ uint get_smid(void);
 
 // ---------- Matrix Parameters ----------
@@ -62,12 +62,14 @@ __device__ uint get_smid(void) {
 template <typename Precision, typename T>
 void TransferPointsToGMem(std::vector<Precision>& h_Query, std::vector<Precision>& h_Candidate,
                           T** d_Query, T** d_Candidate) {
-    size_t querySize = h_Query.size();
-    size_t candidateSize = h_Candidate.size();
+    size_t querySize = h_Query.size() * sizeof(h_Query[0]);
+    size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
+
     cudaMalloc(d_Query, querySize);
     cudaMalloc(d_Candidate, candidateSize);
-    cudaMemcpy(*d_Query, h_Query.data(), h_Query.size(), cudaMemcpyHostToDevice);
-    cudaMemcpy(*d_Candidate, h_Candidate.data(), h_Candidate.size(), cudaMemcpyHostToDevice);
+
+    cudaMemcpy(*d_Query, h_Query.data(), querySize, cudaMemcpyHostToDevice);
+    cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice);
 }
 
 int main(int argc, char* argv[]) {
@@ -117,18 +119,16 @@ int main(int argc, char* argv[]) {
     PrintMatrix("Global B", reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n,
                 globalMmaShape.k);
 
-    SharedSize *d_AValues, *d_BValues;
+    half2 *d_AValues, *d_BValues;
     TransferPointsToGMem(h_AValues, h_BValues, &d_AValues, &d_BValues);
 
     printf("Running kernel\n");
 
     // Compute sums of squared dimensions
-    using SquaredPrec = float;
-    SquaredPrec *d_ASqSums, *d_BSqSums;
-    d_ASqSums = BlockSumSquared::ComputeSquaredSums<SquaredPrec>(d_AValues, globalMmaShape.m,
-                                                                 globalMmaShape.k);
-    d_BSqSums = BlockSumSquared::ComputeSquaredSums<SquaredPrec>(d_BValues, globalMmaShape.n,
-                                                                 globalMmaShape.k);
+    using sumSize = float;
+    sumSize *d_ASqSums, *d_BSqSums;
+    d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, globalMmaShape.m, globalMmaShape.k);
+    d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, globalMmaShape.n, globalMmaShape.k);
 
     // Each MMA operation is a 16x8x16 operation
     // There are 16x8 values calculated per warp of 32 threads
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
     cudaFree(d_BSqSums);
 }
 
-__global__ void MmaPtxShared(unsigned long long* iterationCount, SharedSize* AValues,
-                             SharedSize* BValues, int kStride) {
+__global__ void MmaPtxShared(unsigned long long* iterationCount, half2* AValues, half2* BValues,
+                             int kStride) {
     BlockMma::BlockTileMma(iterationCount, AValues, BValues, kStride);
 }
