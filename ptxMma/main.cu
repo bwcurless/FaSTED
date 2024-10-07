@@ -101,8 +101,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    PrintMatrix("Global A", reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m,
-                globalMmaShape.k);
+    if (Debug) {
+        PrintMatrix<half>("Global A", reinterpret_cast<half*>(h_AValues.data()), globalMmaShape.m,
+                          globalMmaShape.k);
+    }
 
     std::vector<half2> h_BValues{};
     // Create identity matrix
@@ -116,8 +118,11 @@ int main(int argc, char* argv[]) {
             h_BValues.push_back(val);
         }
     }
-    PrintMatrix("Global B", reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n,
-                globalMmaShape.k);
+
+    if (Debug) {
+        PrintMatrix<half>("Global B", reinterpret_cast<half*>(h_BValues.data()), globalMmaShape.n,
+                          globalMmaShape.k);
+    }
 
     half2 *d_AValues, *d_BValues;
     TransferPointsToGMem(h_AValues, h_BValues, &d_AValues, &d_BValues);

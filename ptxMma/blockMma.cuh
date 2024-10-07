@@ -362,10 +362,10 @@ __device__ void BlockTileMma(unsigned long long* iterationCount, half2* AValues,
             // Debug print statements
             if (Debug) {
                 if (threadIdx.x == 0) {
-                    PrintMatrix("Shared A", reinterpret_cast<half*>(ATile), GetBlockTileDims().m,
-                                GetBlockTileDims().k);
-                    PrintMatrix("Shared B", reinterpret_cast<half*>(BTile), GetBlockTileDims().n,
-                                GetBlockTileDims().k);
+                    PrintMatrix<half>("Shared A", reinterpret_cast<half*>(ATile),
+                                      GetBlockTileDims().m, GetBlockTileDims().k);
+                    PrintMatrix<half>("Shared B", reinterpret_cast<half*>(BTile),
+                                      GetBlockTileDims().n, GetBlockTileDims().k);
                 }
                 __syncthreads();
             }

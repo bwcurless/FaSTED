@@ -37,15 +37,14 @@ __device__ void Assert_Is_Division_Exact() {
  *
  * \return
  */
-__device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n) {
-    if (Debug) {
-        printf("Printing matrix %s\n", name);
-        for (int row = 0; row < m; ++row) {
-            for (int col = 0; col < n; ++col) {
-                printf("%.0f ", static_cast<double>(matrix[row * n + col]));
-            }
-            printf("\n");
+template <typename T>
+__device__ __host__ void PrintMatrix(const char* name, T* matrix, int m, int n) {
+    printf("Printing matrix %s\n", name);
+    for (int row = 0; row < m; ++row) {
+        for (int col = 0; col < n; ++col) {
+            printf("%.0f ", static_cast<double>(matrix[row * n + col]));
         }
+        printf("\n");
     }
 }
 
