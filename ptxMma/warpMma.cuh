@@ -201,11 +201,17 @@ struct WarpTile {
     /** Final checks after MMA has completed. Iterate over all output elements of WarpTile and
      * compute distance.
      *
+     * \param blockBaseCoord Upper left global coordinate of the block. Useful for shared memory
+     * 	accesses since they are all relative to this.
      * \param warpBaseCoord Upper left global coordinate of WarpTile.
-     * \param epsilon The maximum distance two points can be apart to be considered a pair.
+     * \param epsilonSqd The maximum distance two points can be apart to be considered a pair.
+     * \param squaredQueries Array of sums of squared query points for the warp.
+     * \param squaredCandidates Array of sums of squared candidate points for the warp.
      *
      */
-    __device__ int inspectResults(Mma::Coordinate& warpBaseCoord, float epsilon) {
+    __device__ int inspectResults(Mma::Coordinate& blockBaseCoord, Mma::Coordinate& warpBaseCoord,
+                                  float* squaredQueries, float* squaredCandidates,
+                                  float epsilonSqd) {
         int count = 0;
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
@@ -215,12 +221,20 @@ struct WarpTile {
                     int threadInWarp = threadIdx.x % WARPSIZE;
                     Mma::Coordinate elemCoord =
                         Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
+
+                    int relativeQueryIndex = elemCoord.row - blockBaseCoord.row;
+                    int relativeCandidateIndex = elemCoord.col - blockBaseCoord.col;
+                    float querySquared = squaredQueries[relativeQueryIndex];
+                    float candidateSquared = squaredCandidates[relativeCandidateIndex];
+                    float distanceSqd = querySquared + candidateSquared -
+                                        (static_cast<float>(2.0) * Dfrag.Registers[d]);
+
                     if (Debug) {
-                        printf("OElement %d, %d = %f\n", elemCoord.row, elemCoord.col,
-                               Dfrag.Registers[d]);
+                        printf("OElement %d, %d query^2=%f can^2=%f eps=%f\n", elemCoord.row,
+                               elemCoord.col, querySquared, candidateSquared, distanceSqd);
                     }
-                    // TODO perform addition of squared terms and comparison with epsilon here
-                    if (Dfrag.Registers[d] > epsilon) {
+
+                    if (distanceSqd < epsilonSqd) {
                         count++;
                     }
                 }

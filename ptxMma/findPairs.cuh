@@ -33,7 +33,7 @@ constexpr int pipelineDepth = 2;
 constexpr int maxPipelineDepth = 4;
 
 struct FindPairsParams {
-    float epsilon;              // The maximum distance between points to be considered a pair.
+    float epsilonSquared;       // The maximum distance between points to be considered a pair.
     Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
                                 // candidate points, and dimensions of each point.
     unsigned long long* iterationCount;  // TODO Delete this
@@ -292,7 +292,7 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
     }
 }
 
-/** brief Asynchronously loads all the necessary sums of squared points that the entire block will
+/** Asynchronously loads all the necessary sums of squared points that the entire block will
  * need from global memory to shared memory. You must wait on the group before attempting to read
  * values from shared memory.
  *
@@ -309,9 +309,9 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
                                      sizeof(float) * numSums);
 }
 
-/** Finds all pairs of query and candidate points within epsilon. Computes the distance using the
- * summed squared dimensions of each point in combination with a matrix multiplication of the
- * points.
+/** Finds all pairs of query and candidate points within epsilon. Computes the distance using
+ * the summed squared dimensions of each point in combination with a matrix multiplication of
+ * the points.
  *
  * \param params See struct documentation.
  *
@@ -369,12 +369,12 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     // MMA Useful for performing final inspection of results
     Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
 
-    // Start transferring squared candidates over
+    // Start transferring sums of squared points over
     auto group = cooperative_groups::this_thread_block();
     LoadSumSquaredAsync(group, params.sumSqQueries, squaredQueries, baseBlockCoord.row,
-                        BlockTileDims().m);
+                        GetBlockTileDims().m);
     LoadSumSquaredAsync(group, params.sumSqCandidates, squaredCandidates, baseBlockCoord.col,
-                        BlockTileDims().n);
+                        GetBlockTileDims().n);
 
     // Create numWarps warpTiles to process what this block is responsible for
     WarpMma::WarpTile warpTile;
@@ -415,8 +415,8 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     // Async pipeline direct global->shared
     else {
         // Fill pipeline
-        // Keep track of which k index to load next since it's different than the next k we need to
-        // compute with
+        // Keep track of which k index to load next since it's different than the next k we need
+        // to compute with
         int nextKToLoad = 0;
         // Handles situation where pipeline is deeper than we can fill with input data
         int numStagesToBuffer = min(pipelineDepth, params.searchShape.k / blockTileDims.k);
@@ -482,8 +482,16 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     }
     // Wait for sums of squared terms to complete transferring
     cooperative_groups::wait(group);
+    if (threadIdx.x == 0 && Debug == true) {
+        for (int i = 0; i < blockTileDims.n; ++i) {
+            printf("Shared Query Sums %d: %f\n", i, squaredQueries[i]);
+            printf("Shared Candidate Sums %d: %f\n", i, squaredCandidates[i]);
+        }
+    }
+
     // Number within epsilon in each thread
-    count += warpTile.inspectResults(baseWarpCoord, 10.0f);
+    count += warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries,
+                                     squaredCandidates, params.epsilonSquared);
 
     // Simple reduction in shared memory
     atomicAdd(&blockCount, count);
@@ -493,8 +501,8 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     }
 }
 
-/** Finds all pairs of points in the query and candidate points. Launches the required kernels to do
- * so.
+/** Finds all pairs of points in the query and candidate points. Launches the required kernels
+ * to do so.
  *
  * \param params See struct documentation.
  *

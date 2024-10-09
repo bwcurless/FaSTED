@@ -18,7 +18,7 @@ using InPrec = Mma::InPrec;
 __device__ uint get_smid(void);
 
 // ---------- Search Parameters ----------
-constexpr float epsilon = 0.1;
+constexpr float epsilonSquared = 0.1;
 constexpr int numPoints = 1024 * 16;
 constexpr Mma::mmaShape searchShape{numPoints, numPoints, 64 * 64};
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
 
     cudaEventRecord(start, 0);
 
-    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilon, searchShape, d_iterationCount,
+    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilonSquared, searchShape, d_iterationCount,
                                                     d_AValues, d_BValues, d_ASqSums, d_BSqSums});
 
     gpuErrchk(cudaEventRecord(stop, 0));

@@ -194,8 +194,6 @@ __device__ void mma_16_8_16(const FragmentA_16x16& A, const FragmentB_16x8& B,
 
 /** Compute the global coordinates of a specific output register.
  *
- *
- *
  * \param baseCoord Upper left global coordinate of a single Mma operation's output matrix D
  * \param threadInWarp Warp lane (0..31)
  * \param dIndex Index of output element (0..4)
