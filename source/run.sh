@@ -1,55 +1,28 @@
 #!/bin/bash
 # Script to compile .cu files and run sbatch
-source ~/helpers/slurm_funcs.sh
+
+# You will need to copy these helper routines to this location to run this script.
+source ~/helpers/helper_slurm_funcs.sh
 
 # Exit if any part fails
 set -e
 
 # Input Arguments
-target=$1
-jobName=$2
+jobName=$1
+CC=80
+gpu=a100
 
 # Add a dash on if we are customizing the filename
 if [[ -n $jobName ]]; then
 	jobPrefix=$jobName-
 fi
 
-outputFile="Euclid"
-
-# Determine what target to build and run on
-case $target in
-	a100 | *)
-		echo "Running on a100"
-		CC=80
-		cudaModule=12.3.2
-		gpu=a100
-		;;
-
-	v100)
-		echo "Running on v100"
-		CC=70
-		cudaModule=12.3.2
-		gpu=v100
-		;;
-
-	p100)
-		echo "Running on p100"
-		CC=60
-		cudaModule=12.3.2
-		gpu=p100
-		;;
-
-	k80)
-		echo "Running on k80"
-		CC=37
-		cudaModule=11.7 # k80's only run on this
-		gpu=k80
-		;;
-esac
+outputFile="MMAPTXTest"
 
 # Do a test build locally to make sure there aren't errors before waiting in queue
 echo "Building executable to $outputFile"
-module load "cuda/$cudaModule"
+module load cuda
+make clean
 make
 
 # Define where outputs go
@@ -66,21 +39,26 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --output=$outputPath$jobPrefix$outputFile-%j.out
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
-#SBATCH --time=03:00:00
+#SBATCH --time=00:10:00
 #SBATCH --mem=10000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
+#SBATCH --account=gowanlock_condo
+#SBATCH --partition=gowanlock
 
 # Code will not compile if we don't load the module
-module load "cuda/$cudaModule"
+module load cuda
 
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-srun "./debug/main ~/datasets/expo_16D_200000.txt" 0.1 42
-#compute-sanitizer --tool=memcheck ././debug/main ~/datasets/expo_16D_200000.txt 0.1 42
+srun ./release/main
+#compute-sanitizer --tool=memcheck ./release/main
+#compute-sanitizer --tool=racecheck ./release/main
 # -f overwrite profile if it exists
-#srun ncu -f -o "Euclid_profile_%i" --import-source yes --source-folder . --clock-control=none --set full "././debug/main" ~/datasets/expo_16D_200000.txt 0.1 4
+# --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
+#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
+#srun nsys profile ./main
 
 
 echo "----------------- JOB FINISHED -------------"
