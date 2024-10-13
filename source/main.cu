@@ -15,12 +15,62 @@
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
 
-__device__ uint get_smid(void);
-
 // ---------- Search Parameters ----------
 constexpr float epsilonSquared = 0.1;
 constexpr int numPoints = 1024 * 16;
 constexpr Mma::mmaShape searchShape{numPoints, numPoints, 64 * 64};
+
+/** Create a set of points with monatomically increasing values. Increments by 1 for every point.
+ * Note that half values can only count up to about 64000, so the max value is
+ * capped at 32768.
+ *
+ * \param values The vector to push the values onto.
+ *
+ */
+void GenerateIncreasingPoints(std::vector<half2>& values, int numPoints, int numDimensions) {
+    // Kind of a hack but we go to NaN if we let it keep incrementing
+    int maxFloat = 32768;
+    // Fill the vector with increasing half-precision values
+    // Note that this gets funny > 2048 because of imprecision of half values
+    for (int m = 0; m < numPoints; m++) {
+        for (int k = 0; k < numDimensions; k += 2) {
+            half2 val{};
+            val.x = static_cast<half>(min(maxFloat, m * numDimensions + k));
+            val.y = static_cast<half>(min(maxFloat, m * numDimensions + k + 1));
+            values.push_back(val);
+        }
+    }
+
+    if (Debug) {
+        PrintMatrix<half>("Global A", reinterpret_cast<half*>(values.data()), numPoints,
+                          numDimensions);
+    }
+}
+
+/** Create a set of points that is similar to an identity matrix. Will be all 0's except for
+ * diagonal values.
+ *
+ * \param values The vector to push values onto.
+ *
+ */
+void GenerateIdentityMatrixPoints(std::vector<half2>& values, int numPoints, int numDimensions) {
+    // Create identity matrix
+    for (int row = 0; row < numPoints; row++) {
+        for (int col = 0; col < numDimensions; col += 2) {
+            half2 val{0, 0};
+            if (col == row)
+                val.x = 1;
+            else if (col + 1 == row)
+                val.y = 1;
+            values.push_back(val);
+        }
+    }
+
+    if (Debug) {
+        PrintMatrix<half>("Global B", reinterpret_cast<half*>(values.data()), numPoints,
+                          numDimensions);
+    }
+}
 
 /** Allocates space for and transfers query and candidate points stored in host memory to global
  * memory. You must free the memory allocated by this method when you are done using it.
@@ -62,42 +112,11 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(d_iterationCount, &h_iterationCount, sizeof(unsigned long long),
                cudaMemcpyHostToDevice);
 
-    // Kind of a hack but we go to NaN if we let it keep incrementing
-    int maxFloat = 32768;
     std::vector<half2> h_AValues{};
-    // Fill the vector with increasing half-precision values
-    // Note that this gets funny > 2048 because of imprecision of half values
-    for (int m = 0; m < searchShape.m; m++) {
-        for (int k = 0; k < searchShape.k; k += 2) {
-            half2 val{};
-            val.x = static_cast<half>(min(maxFloat, m * searchShape.k + k));
-            val.y = static_cast<half>(min(maxFloat, m * searchShape.k + k + 1));
-            h_AValues.push_back(val);
-        }
-    }
-
-    if (Debug) {
-        PrintMatrix<half>("Global A", reinterpret_cast<half*>(h_AValues.data()), searchShape.m,
-                          searchShape.k);
-    }
+    GenerateIncreasingPoints(h_AValues, searchShape.m, searchShape.k);
 
     std::vector<half2> h_BValues{};
-    // Create identity matrix
-    for (int row = 0; row < searchShape.n; row++) {
-        for (int col = 0; col < searchShape.k; col += 2) {
-            half2 val{0, 0};
-            if (col == row)
-                val.x = 1;
-            else if (col + 1 == row)
-                val.y = 1;
-            h_BValues.push_back(val);
-        }
-    }
-
-    if (Debug) {
-        PrintMatrix<half>("Global B", reinterpret_cast<half*>(h_BValues.data()), searchShape.n,
-                          searchShape.k);
-    }
+    GenerateIdentityMatrixPoints(h_BValues, searchShape.n, searchShape.k);
 
     half2 *d_AValues, *d_BValues;
     TransferPointsToGMem(h_AValues, h_BValues, &d_AValues, &d_BValues);
