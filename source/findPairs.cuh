@@ -43,19 +43,13 @@ struct FindPairsParams {
     float* sumSqCandidates;              // Summed up squared dimensions of Candidates points.
 };
 
-struct BlockTileDims {
-    int m{};
-    int n{};
-    int k{};
-};
-
-__host__ __device__ constexpr BlockTileDims GetBlockTileDims() {
+__host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
     WarpMma::WarpTileDims warpDims = WarpMma::GetWarpTileDims();
     int m = numWarpRows * warpDims.m;
     int n = numWarpCols * warpDims.n;
     // Can buffer multiple k slices into shared memory at a time
     int k = kSlices * warpDims.k;
-    return BlockTileDims{m, n, k};
+    return Mma::mmaShape{m, n, k};
 }
 
 constexpr BlockTileDims blockTileDims = GetBlockTileDims();

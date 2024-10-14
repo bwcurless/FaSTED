@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
-    auto bDims = BlockTile::GetBlockTileDims();
+    Mma::mmaShape bDims = BlockTile::GetBlockTileDims();
     Points::PointList<half_float::half> pointList =
         Points::PointListBuilder<half_float::half>().buildFromAsciiFile(filename, ',', bDims.k,
                                                                         bDims.m);
