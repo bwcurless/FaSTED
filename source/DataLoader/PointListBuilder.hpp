@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "PointList.h"
+#include "PointList.hpp"
 #include "half.hpp"
 
 namespace Points {
@@ -34,11 +34,33 @@ class PointListBuilder {
         }
     }
 
+    // Dumb method to return 0 and handle the case where we are using half precision.
+    T getZero() {
+        if constexpr (std::is_same<T, half>::value) {
+            return half(0);
+        } else
+            return 0.0;
+    }
+
    public:
     // Constructor to initialize the builder
     PointListBuilder() {}
 
-    PointList<T> buildFromAsciiFile(const std::string& filename, char delimeter) {
+    // PointListBuilder& withMaxPoints(int maxNumber) {}
+
+    /**
+     * brief Reads a point list in from file. Pads its dimensions to the next multiple of
+     * strideFactor, and the number of points up to numPointsFactor with 0's.
+     *
+     * \param filename The name of the file to read in.
+     * \param delimeter The delimeter used between two points
+     * \param strideFactor The factor to increase the dimensionality to
+     * \param numPointsFactor The factor to increase the number of points to.
+     *
+     * \returns The list of points, padded according to the input.
+     * */
+    PointList<T> buildFromAsciiFile(const std::string& filename, char delimeter, int strideFactor,
+                                    int numPointsFactor) {
         std::vector<T> points;
         if (filename.empty()) {
             throw std::invalid_argument("Filename must be set.");
@@ -66,8 +88,24 @@ class PointListBuilder {
                 points.push_back(dimension);
                 ++count;
             }
-
+            // Pad up to the next multiple of dimensions
+            while (count % strideFactor != 0) {
+                T dimension = getZero();
+                points.push_back(dimension);
+                ++count;
+            }
             ++numPoints;
+        }
+        int paddedDimensions = count;
+        count = 0;
+        // Pad up to the next multiple of numPoints Factor
+        while (numPoints % numPointsFactor != 0) {
+            while (count < paddedDimensions) {
+                T dimension = getZero();
+                points.push_back(dimension);
+                count++;
+            }
+            numPoints++;
         }
 
         file.close();

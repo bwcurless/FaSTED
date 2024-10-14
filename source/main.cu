@@ -8,6 +8,7 @@
 #include <iostream>
 #include <vector>
 
+#include "DataLoader/PointListBuilder.hpp"
 #include "findPairs.cuh"
 #include "sumSquared.cuh"
 #include "utils.cuh"
@@ -17,8 +18,6 @@ using InPrec = Mma::InPrec;
 
 // ---------- Search Parameters ----------
 constexpr float epsilonSquared = 0.1;
-constexpr int numPoints = 1024 * 16;
-constexpr Mma::mmaShape searchShape{numPoints, numPoints, 64 * 64};
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every point.
  * Note that half values can only count up to about 64000, so the max value is
@@ -98,6 +97,29 @@ void TransferPointsToGMem(std::vector<Precision>& h_Query, std::vector<Precision
 }
 
 int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+        return 1;  // Exit with error if the number of arguments is incorrect
+    }
+
+    std::string filename = argv[1];  // Get the filename from the command-line argument
+
+    half2 *d_AValues, *d_BValues;
+    // Attempt to build the PointList using the provided filename
+    auto bDims = BlockTile::GetBlockTileDims();
+    Points::PointList<half_float::half> pointList =
+        Points::PointListBuilder<half_float::half>().buildFromAsciiFile(filename, ',', bDims.k,
+                                                                        bDims.m);
+
+    Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
+                              pointList.getDimensions()};
+
+    std::cout << "M: " << searchShape.m << std::endl;
+    std::cout << "N: " << searchShape.n << std::endl;
+    std::cout << "K: " << searchShape.k << std::endl;
+
+    TransferPointsToGMem(pointList.values, pointList.values, &d_AValues, &d_BValues);
+
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
@@ -111,15 +133,6 @@ int main(int argc, char* argv[]) {
     cudaMalloc(&d_iterationCount, sizeof(unsigned long long));
     cudaMemcpy(d_iterationCount, &h_iterationCount, sizeof(unsigned long long),
                cudaMemcpyHostToDevice);
-
-    std::vector<half2> h_AValues{};
-    GenerateIncreasingPoints(h_AValues, searchShape.m, searchShape.k);
-
-    std::vector<half2> h_BValues{};
-    GenerateIdentityMatrixPoints(h_BValues, searchShape.n, searchShape.k);
-
-    half2 *d_AValues, *d_BValues;
-    TransferPointsToGMem(h_AValues, h_BValues, &d_AValues, &d_BValues);
 
     printf("Running kernel\n");
 

@@ -1,8 +1,8 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "PointList.h"
-#include "PointListBuilder.h"
+#include "PointList.hpp"
+#include "PointListBuilder.hpp"
 #include "half.hpp"
 
 int main(int argc, char* argv[]) {
@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     try {
         // Attempt to build the PointList using the provided filename
         Points::PointList<half_float::half> pointList =
-            Points::PointListBuilder<half_float::half>().buildFromAsciiFile(filename, ',');
+            Points::PointListBuilder<half_float::half>().buildFromAsciiFile(filename, ',', 64, 128);
         std::cout << pointList.getNumPoints() << std::endl;
 
     } catch (const std::exception& e) {

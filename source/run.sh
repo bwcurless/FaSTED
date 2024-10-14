@@ -52,7 +52,7 @@ module load cuda
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-srun ./release/main
+srun ./release/main "$HOME/datasets/expo_16D_200000.txt"
 #compute-sanitizer --tool=memcheck ./release/main
 #compute-sanitizer --tool=racecheck ./release/main
 # -f overwrite profile if it exists
