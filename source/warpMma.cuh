@@ -230,10 +230,12 @@ struct WarpTile {
                                         (static_cast<float>(2.0) * Dfrag.Registers[d]);
 
                     if (Debug) {
-                        printf("OElement %d, %d query^2=%f can^2=%f eps=%f\n", elemCoord.row,
-                               elemCoord.col, querySquared, candidateSquared, distanceSqd);
+                        printf("OElement %d, %d q^2=%f c^2=%f d=%f d^2=%f\n", elemCoord.row,
+                               elemCoord.col, querySquared, candidateSquared, Dfrag.Registers[d],
+                               distanceSqd);
                     }
 
+                    // TODO make sure we are within the actual search bounds.
                     if (distanceSqd < epsilonSqd) {
                         count++;
                     }

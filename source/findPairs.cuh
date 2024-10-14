@@ -36,11 +36,13 @@ struct FindPairsParams {
     float epsilonSquared;       // The maximum distance between points to be considered a pair.
     Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
                                 // candidate points, and dimensions of each point.
-    unsigned long long* iterationCount;  // TODO Delete this
-    half2* queryPoints;                  // Global memory array containing all query points.
-    half2* candidatePoints;              // Global memory array containing all candidate points.
-    float* sumSqQueries;                 // Summed up squared dimensions of query points.
-    float* sumSqCandidates;              // Summed up squared dimensions of Candidates points.
+    Mma::mmaShape actualSearchShape;  // The actual dimensions of the search data. Not including
+                                      // padded values.
+    unsigned long long* numPairs;     // How many pairs were found within epsilon.
+    half2* queryPoints;               // Global memory array containing all query points.
+    half2* candidatePoints;           // Global memory array containing all candidate points.
+    float* sumSqQueries;              // Summed up squared dimensions of query points.
+    float* sumSqCandidates;           // Summed up squared dimensions of Candidates points.
 };
 
 __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
@@ -52,7 +54,7 @@ __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
     return Mma::mmaShape{m, n, k};
 }
 
-constexpr BlockTileDims blockTileDims = GetBlockTileDims();
+constexpr Mma::mmaShape blockTileDims = GetBlockTileDims();
 
 // Compute how much shared memory to allocate when we launch the kernel
 constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimPerInt4;
@@ -312,8 +314,6 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  */
 __global__ void FindPairsKernel(FindPairsParams params) {
     int warpId = threadIdx.x / 32;
-    // Kind of a useless count to get compiler to not optimize away my code
-    unsigned int count = 0;
 
     __align__(128) __shared__ float squaredQueries[blockTileDims.m];
     __align__(128) __shared__ float squaredCandidates[blockTileDims.n];
@@ -412,31 +412,26 @@ __global__ void FindPairsKernel(FindPairsParams params) {
         // Keep track of which k index to load next since it's different than the next k we need
         // to compute with
         int nextKToLoad = 0;
-        // Handles situation where pipeline is deeper than we can fill with input data
-        int numStagesToBuffer = min(pipelineDepth, params.searchShape.k / blockTileDims.k);
-        for (int i = 0; i < numStagesToBuffer; ++i) {
+        for (int i = 0; i < pipelineDepth; ++i) {
+            // Always acquire and commit since wait_prior< > takes in a constant.
             pipeline.producer_acquire();
-            if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
-                printf("Next k to load %d\n", nextKToLoad);
-            }
-            // Page A in
-            LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i], baseBlockCoord.row,
-                                    blockTileDims.m, nextKToLoad, params.searchShape.k);
 
-            // Page B in
-            LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i], baseBlockCoord.col,
-                                    blockTileDims.n, nextKToLoad, params.searchShape.k);
-            nextKToLoad += blockTileDims.k;
+            if (nextKToLoad < params.searchShape.k) {
+                // Page A in
+                LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i], baseBlockCoord.row,
+                                        blockTileDims.m, nextKToLoad, params.searchShape.k);
+
+                // Page B in
+                LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i],
+                                        baseBlockCoord.col, blockTileDims.n, nextKToLoad,
+                                        params.searchShape.k);
+                nextKToLoad += blockTileDims.k;
+            }
             pipeline.producer_commit();
         }
         // Pipeline stage to consume next
         int pipelineIndex = 0;
         for (int kStart = 0; kStart < params.searchShape.k; kStart += blockTileDims.k) {
-            if (blockIdx.x == 0 && threadIdx.x == 0 && Debug) {
-                printf("Waiting for pipeline to compute k chunk %d\n", kStart);
-                printf("Pipeline Index %d\n", pipelineIndex);
-                printf("Next k to load %d\n", nextKToLoad);
-            }
             SharedSize *nextATile, *nextBTile;
             GetNextSharedTile(pipelineIndex, ATile, BTile, &nextATile, &nextBTile);
 
@@ -484,14 +479,14 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     }
 
     // Number within epsilon in each thread
-    count += warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries,
-                                     squaredCandidates, params.epsilonSquared);
+    unsigned int count = warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries,
+                                                 squaredCandidates, params.epsilonSquared);
 
     // Simple reduction in shared memory
     atomicAdd(&blockCount, count);
     __syncthreads();
     if (threadIdx.x == 0) {
-        atomicAdd(params.iterationCount, blockCount);
+        atomicAdd(params.numPairs, blockCount);
     }
 }
 

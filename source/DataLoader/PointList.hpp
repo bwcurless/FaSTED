@@ -8,27 +8,34 @@ namespace Points {
 template <typename T>
 class PointList {
    private:
-    int numPoints;   // Number of points
-    int dimensions;  // Number of dimensions per point
+    int numPoints;         // Number of points, including padded ones
+    int numActualPoints;   // Number of actual points read in.
+    int dimensions;        // Number of dimensions per point
+    int actualDimensions;  // Number of actual dimensions per point.
 
    public:
     std::vector<T> values;  // Array of values (point data)
     // Constructor
-    PointList(std::vector<T>&& values, int numPoints, int dimensions)
-        : numPoints(numPoints), dimensions(dimensions), values(std::move(values)) {
-        std::cout << "PointList created" << std::endl;
-    }
+    PointList(std::vector<T>&& values, int numPoints, int numActualPoints, int dimensions,
+              int actualDimensions)
+        : numPoints(numPoints),
+          numActualPoints(numActualPoints),
+          dimensions(dimensions),
+          actualDimensions(actualDimensions),
+          values(std::move(values)) {}
 
-    // Destructor to free allocated memory
-    ~PointList() { std::cout << "PointList destroyed" << std::endl; }
+    PointList() {}
 
-    // Getter for number of points
+    ~PointList() {}
+
     int getNumPoints() const { return numPoints; }
 
-    // Getter for dimensions per point
+    int getActualNumPoints() const { return numActualPoints; }
+
     int getDimensions() const { return dimensions; }
 
-    // Getter for the values
+    int getActualDimensions() const { return actualDimensions; }
+
     std::vector<T> getValues() const { return values; }
 };
 }  // namespace Points

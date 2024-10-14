@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector_types.h>
 
+#include <cstdlib>
 #include <iostream>
 #include <vector>
 
@@ -15,9 +16,6 @@
 
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
-
-// ---------- Search Parameters ----------
-constexpr float epsilonSquared = 0.1;
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every point.
  * Note that half values can only count up to about 64000, so the max value is
@@ -96,30 +94,64 @@ void TransferPointsToGMem(std::vector<Precision>& h_Query, std::vector<Precision
     cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice);
 }
 
+double parseDouble(std::string str) {
+    try {
+        return std::stod(str);
+    } catch (const std::invalid_argument& e) {
+        throw std::invalid_argument("Invalid argument: unable to parse double");
+    } catch (const std::out_of_range& e) {
+        throw std::out_of_range("Out of range: the number is too large or too small for a double");
+    }
+}
+
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <filename> <epsilon>" << std::endl;
         return 1;  // Exit with error if the number of arguments is incorrect
     }
 
-    std::string filename = argv[1];  // Get the filename from the command-line argument
+    // Set the global locale to the default locale (which should use commas for thousands separator
+    // in the US)
+    std::cout.imbue(std::locale("en_US.UTF-8"));
+
+    std::string filename = argv[1];       // Get the filename from the command-line argument
+    std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
+    double epsilon = parseDouble(epsilonString);
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
     Mma::mmaShape bDims = BlockTile::GetBlockTileDims();
-    Points::PointList<half_float::half> pointList =
-        Points::PointListBuilder<half_float::half>().buildFromAsciiFile(filename, ',', bDims.k,
-                                                                        bDims.m);
+    Points::PointList<half_float::half> pointList;
+    if (Debug) {
+        pointList =
+            Points::PointListBuilder<half_float::half>().withMaxPoints(2000).buildFromAsciiFile(
+                filename, ',', bDims.k, bDims.m);
+    } else {
+        pointList = Points::PointListBuilder<half_float::half>().buildFromAsciiFile(
+            filename, ',', bDims.k, bDims.m);
+    }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
                               pointList.getDimensions()};
+    Mma::mmaShape actualSearchShape{pointList.getActualNumPoints(), pointList.getActualNumPoints(),
+                                    pointList.getActualDimensions()};
 
+    std::cout << "Padded Search Dimensions:" << std::endl;
     std::cout << "M: " << searchShape.m << std::endl;
     std::cout << "N: " << searchShape.n << std::endl;
     std::cout << "K: " << searchShape.k << std::endl;
 
-    TransferPointsToGMem(pointList.values, pointList.values, &d_AValues, &d_BValues);
+    std::cout << "Actual Search Dimensions:" << std::endl;
+    std::cout << "M: " << actualSearchShape.m << std::endl;
+    std::cout << "N: " << actualSearchShape.n << std::endl;
+    std::cout << "K: " << actualSearchShape.k << std::endl;
 
+    if (Debug) {
+        PrintMatrix<half>("Dataset A", reinterpret_cast<half*>(pointList.values.data()),
+                          searchShape.m, searchShape.k);
+    }
+
+    TransferPointsToGMem(pointList.values, pointList.values, &d_AValues, &d_BValues);
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
@@ -127,12 +159,11 @@ int main(int argc, char* argv[]) {
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // Allocate this just so kernel actually does something
-    unsigned long long* d_iterationCount;
-    unsigned long long h_iterationCount = 0;
-    cudaMalloc(&d_iterationCount, sizeof(unsigned long long));
-    cudaMemcpy(d_iterationCount, &h_iterationCount, sizeof(unsigned long long),
-               cudaMemcpyHostToDevice);
+    // Keep track of how many pairs we found that are within epsilon of each other
+    unsigned long long* d_numPairs;
+    unsigned long long h_numPairs = 0;
+    cudaMalloc(&d_numPairs, sizeof(unsigned long long));
+    cudaMemcpy(d_numPairs, &h_numPairs, sizeof(unsigned long long), cudaMemcpyHostToDevice);
 
     printf("Running kernel\n");
 
@@ -144,16 +175,17 @@ int main(int argc, char* argv[]) {
 
     cudaEventRecord(start, 0);
 
-    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilonSquared, searchShape, d_iterationCount,
-                                                    d_AValues, d_BValues, d_ASqSums, d_BSqSums});
+    float epsilonSquared = epsilon * epsilon;
+    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
+                                                    d_numPairs, d_AValues, d_BValues, d_ASqSums,
+                                                    d_BSqSums});
 
     gpuErrchk(cudaEventRecord(stop, 0));
 
     gpuErrchk(cudaEventSynchronize(stop));
 
-    cudaMemcpy(&h_iterationCount, d_iterationCount, sizeof(unsigned long long),
-               cudaMemcpyDeviceToHost);
-    printf("Number of total iterations: %lld\n", h_iterationCount);
+    cudaMemcpy(&h_numPairs, d_numPairs, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+    std::cout << "Number of total pairs: " << h_numPairs << std::endl;
 
     float elapsedTime;
     cudaEventElapsedTime(&elapsedTime, start, stop);
@@ -168,7 +200,7 @@ int main(int argc, char* argv[]) {
     // Cleanup
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
-    cudaFree(d_iterationCount);
+    cudaFree(d_numPairs);
     cudaFree(d_AValues);
     cudaFree(d_BValues);
     cudaFree(d_ASqSums);

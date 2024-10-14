@@ -15,7 +15,7 @@ using half = half_float::half;
 template <typename T>
 class PointListBuilder {
    private:
-    int maxPoints;
+    int maxPoints{};
 
     T stringToNumber(const std::string& str) {
         try {
@@ -102,6 +102,8 @@ class PointListBuilder {
         std::string line;
         int numPoints = 0;
         int count = 0;
+        int actualDimensions = 0;
+        int actualPoints = 0;
 
         // Read the file line by line
         while (std::getline(file, line) && maxPointsNotExceeded(numPoints)) {
@@ -115,6 +117,8 @@ class PointListBuilder {
                 points.push_back(dimension);
                 ++count;
             }
+            // Save actual number of dimensions parsed
+            actualDimensions = count;
             // Pad up to the next multiple of dimensions
             while (count % strideFactor != 0) {
                 T dimension = getZero();
@@ -123,6 +127,8 @@ class PointListBuilder {
             }
             ++numPoints;
         }
+        // Save actual number of points before padding
+        actualPoints = numPoints;
         int paddedDimensions = count;
         count = 0;
         // Pad up to the next multiple of numPoints Factor
@@ -142,7 +148,8 @@ class PointListBuilder {
         }
 
         // Return a PointList object constructed with the read data
-        return PointList<T>(std::move(points), numPoints, count);
+        return PointList<T>(std::move(points), numPoints, actualPoints, paddedDimensions,
+                            actualDimensions);
     }
 
     PointList<T> buildFromBinaryFile(const std::string& fname) {

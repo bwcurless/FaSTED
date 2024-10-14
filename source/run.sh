@@ -52,9 +52,9 @@ module load cuda
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-srun ./release/main "$HOME/datasets/expo_16D_200000.txt"
+srun ./release/main "$HOME/datasets/expo_16D_2000000.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main
-#compute-sanitizer --tool=racecheck ./release/main
+#compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
 #srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
