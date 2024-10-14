@@ -15,7 +15,8 @@ using half = half_float::half;
 template <typename T>
 class PointListBuilder {
    private:
-    // Private method to convert string to float, double, or half
+    int maxPoints;
+
     T stringToNumber(const std::string& str) {
         try {
             if constexpr (std::is_same<T, float>::value) {
@@ -35,21 +36,47 @@ class PointListBuilder {
     }
 
     // Dumb method to return 0 and handle the case where we are using half precision.
-    T getZero() {
+    T getZero() const {
         if constexpr (std::is_same<T, half>::value) {
             return half(0);
         } else
             return 0.0;
     }
 
+    /**
+     * Check if there are more points to process.
+     *
+     * \param numPoints The current number of points loaded
+     *
+     * \returns True if the maximum number of points specified has not been exceeded.
+     *
+     * */
+    bool maxPointsNotExceeded(const int numPoints) const {
+        return (maxPoints == 0 || numPoints < maxPoints);
+    }
+
    public:
     // Constructor to initialize the builder
-    PointListBuilder() {}
-
-    // PointListBuilder& withMaxPoints(int maxNumber) {}
+    PointListBuilder() : maxPoints{0} {}
 
     /**
-     * brief Reads a point list in from file. Pads its dimensions to the next multiple of
+     * Limit the builder to only reading a certain number of points.
+     *
+     * \param maxNumber How many points to read.
+     *
+     * \return The PointListBuilder configured with a max number of points.
+     * */
+    PointListBuilder& withMaxPoints(int maxNumber) {
+        if (maxNumber > 0) {
+            maxPoints = maxNumber;
+            return *this;
+        } else {
+            throw std::invalid_argument("Max number of points must be greater than 0");
+        }
+    }
+
+    /**
+     * Reads a point list in from file. Pads its dimensions to the next multiple of
      * strideFactor, and the number of points up to numPointsFactor with 0's.
      *
      * \param filename The name of the file to read in.
@@ -77,7 +104,7 @@ class PointListBuilder {
         int count = 0;
 
         // Read the file line by line
-        while (std::getline(file, line)) {
+        while (std::getline(file, line) && maxPointsNotExceeded(numPoints)) {
             std::stringstream lineStream(line);
             count = 0;
 

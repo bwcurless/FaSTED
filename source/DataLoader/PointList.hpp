@@ -15,7 +15,7 @@ class PointList {
     std::vector<T> values;  // Array of values (point data)
     // Constructor
     PointList(std::vector<T>&& values, int numPoints, int dimensions)
-        : values(std::move(values)), numPoints(numPoints), dimensions(dimensions) {
+        : numPoints(numPoints), dimensions(dimensions), values(std::move(values)) {
         std::cout << "PointList created" << std::endl;
     }
 
