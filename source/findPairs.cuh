@@ -96,7 +96,8 @@ __device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
  *
  * \return The global coordinates of upper left element
  */
-__device__ Mma::Coordinate GetBaseWarpCoordinate(Mma::Coordinate baseBlockCoord, int warpId) {
+__device__ Mma::Coordinate GetBaseWarpCoordinate(const Mma::Coordinate& baseBlockCoord,
+                                                 int warpId) {
     Mma::Coordinate baseLocal = GetBaseLocalWarpCoordinate(warpId);
     int baseRow = baseBlockCoord.row + baseLocal.row;
     int baseCol = baseBlockCoord.col + baseLocal.col;
@@ -222,17 +223,16 @@ __device__ void LoadGlobalToShared(half2* globalArray, SharedSize* sharedArray,
  *
  *
  * \param warpTile The warp tile to accumulate into
- * \param baseLocalWarpCoord The upper left coordinate this warp is responsible for. Scoped to the
- * block (not global matrix).
- * \param kBlockTile k dimension of the block tile.
  * \param ATile Pointer to start of shared memory array containing A
  * \param BTile Pointer to start of shared memory array containing B
+ * \param baseLocalWarpCoord The upper left coordinate this warp is responsible for. Scoped to the
+ * block (not global matrix).
  *
  * \return
  */
 __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize* ATile,
-                                         SharedSize* BTile, Mma::Coordinate& baseLocalWarpCoord,
-                                         int kBlockTile) {
+                                         SharedSize* BTile,
+                                         const Mma::Coordinate& baseLocalWarpCoord) {
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < kSlices; kslice++) {
         warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
@@ -402,8 +402,7 @@ __global__ void FindPairsKernel(FindPairsParams params) {
                 __syncthreads();
             }
 
-            AccumulateKSliceWarpTile(warpTile, ATile[0], BTile[0], baseLocalWarpCoord,
-                                     blockTileDims.k);
+            AccumulateKSliceWarpTile(warpTile, ATile[0], BTile[0], baseLocalWarpCoord);
         }
     }
     // Async pipeline direct global->shared
@@ -440,8 +439,7 @@ __global__ void FindPairsKernel(FindPairsParams params) {
             // Thread scoped pipeline so must sync so we can read other thread's data
             __syncthreads();
 
-            AccumulateKSliceWarpTile(warpTile, nextATile, nextBTile, baseLocalWarpCoord,
-                                     blockTileDims.k);
+            AccumulateKSliceWarpTile(warpTile, nextATile, nextBTile, baseLocalWarpCoord);
 
             __syncthreads();
 
@@ -479,8 +477,9 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     }
 
     // Number within epsilon in each thread
-    unsigned int count = warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries,
-                                                 squaredCandidates, params.epsilonSquared);
+    unsigned int count =
+        warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
+                                params.epsilonSquared, params.actualSearchShape);
 
     // Simple reduction in shared memory
     atomicAdd(&blockCount, count);
@@ -497,7 +496,7 @@ __global__ void FindPairsKernel(FindPairsParams params) {
  *
  * \return
  */
-__host__ void FindPairs(FindPairsParams params) {
+__host__ void FindPairs(const FindPairsParams& params) {
     dim3 gridDim(ceil(1.0 * params.searchShape.n / GetBlockTileDims().n),
                  ceil(1.0 * params.searchShape.m / GetBlockTileDims().m), 1);
     dim3 blockDim(numWarps * WARPSIZE, 1, 1);

@@ -22,6 +22,8 @@ using InPrec = Mma::InPrec;
  * capped at 32768.
  *
  * \param values The vector to push the values onto.
+ * \param numPoints How many points to create.
+ * \param numDimensions How many dimensions per point.
  *
  */
 void GenerateIncreasingPoints(std::vector<half2>& values, int numPoints, int numDimensions) {
@@ -48,6 +50,8 @@ void GenerateIncreasingPoints(std::vector<half2>& values, int numPoints, int num
  * diagonal values.
  *
  * \param values The vector to push values onto.
+ * \param numPoints How many points to create.
+ * \param numDimensions How many dimensions per point.
  *
  */
 void GenerateIdentityMatrixPoints(std::vector<half2>& values, int numPoints, int numDimensions) {
@@ -82,8 +86,8 @@ void GenerateIdentityMatrixPoints(std::vector<half2>& values, int numPoints, int
  * \return
  */
 template <typename Precision, typename T>
-void TransferPointsToGMem(std::vector<Precision>& h_Query, std::vector<Precision>& h_Candidate,
-                          T** d_Query, T** d_Candidate) {
+void TransferPointsToGMem(const std::vector<Precision>& h_Query,
+                          const std::vector<Precision>& h_Candidate, T** d_Query, T** d_Candidate) {
     size_t querySize = h_Query.size() * sizeof(h_Query[0]);
     size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
 

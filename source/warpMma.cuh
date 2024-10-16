@@ -71,7 +71,9 @@ struct WarpTile {
      *
      * \return Which chunk of 8 dimensions a given thread should load
      */
-    __device__ static int computeADimChunk(int laneId) { return (laneId < Mma::dims.m ? 0 : 1); }
+    __device__ static int computeADimChunk(const int laneId) {
+        return (laneId < Mma::dims.m ? 0 : 1);
+    }
 
     /** Determine which chunk of dimensions to load for B. First n threads all read first 8
      * dimensions. The next 8 threads read the last 8 dimensions. Threads 16-31 must read the same
@@ -81,7 +83,7 @@ struct WarpTile {
      *
      * \return Which chunk of 8 dimensions a given thread should load
      */
-    __device__ static int computeBDimChunk(int laneId) {
+    __device__ static int computeBDimChunk(const int laneId) {
         return (laneId % 16 < Mma::dims.n ? 0 : 1);
     }
 
@@ -99,8 +101,8 @@ struct WarpTile {
      *
      * \return The swizzled shared memory address in an int4 array
      */
-    __device__ int computeSwizzledIndex(int kSlice, int kStride, int fragmentRow, int outerDims,
-                                        ColOffset colOffset) {
+    __device__ int computeSwizzledIndex(const int kSlice, const int kStride, const int fragmentRow,
+                                        const int outerDims, const ColOffset colOffset) {
         int laneId = threadIdx.x % WARPSIZE;
         int kStrideInt4 = kStride / dimPerInt4;
         int threadRow = fragmentRow + (laneId % outerDims);
@@ -123,7 +125,8 @@ struct WarpTile {
      * \param warpRow First row of A to load
      *
      */
-    __device__ void warpTileLoadA(SharedSize* aSharedAddr, int kslice, int kStride, int warpRow) {
+    __device__ void warpTileLoadA(SharedSize* aSharedAddr, const int kslice, const int kStride,
+                                  const int warpRow) {
         // Page fragment into A.
         Mma::Coordinate warpBase{warpRow, 0};
         for (int i = 0; i < numAFragments; i++) {
@@ -144,7 +147,8 @@ struct WarpTile {
      * \param warpCol First Col of B to load
      *
      */
-    __device__ void warpTileLoadB(SharedSize* bSharedAddr, int kslice, int kStride, int warpCol) {
+    __device__ void warpTileLoadB(SharedSize* bSharedAddr, const int kslice, const int kStride,
+                                  const int warpCol) {
         // Page fragment into B.
         Mma::Coordinate warpBase{0, warpCol};
         for (int i = 0; i < numBFragments; i++) {
@@ -190,7 +194,7 @@ struct WarpTile {
      *
      * \return The upper left coordinate of the specified output fragment D.
      */
-    __device__ Mma::Coordinate GetBaseFragmentCoordinate(Mma::Coordinate& warpBaseCoord,
+    __device__ Mma::Coordinate GetBaseFragmentCoordinate(const Mma::Coordinate& warpBaseCoord,
                                                          const int aFragIndex,
                                                          const int bFragIndex) {
         int fragRow = warpBaseCoord.row + (aFragIndex * Mma::dims.m);
@@ -207,11 +211,14 @@ struct WarpTile {
      * \param epsilonSqd The maximum distance two points can be apart to be considered a pair.
      * \param squaredQueries Array of sums of squared query points for the warp.
      * \param squaredCandidates Array of sums of squared candidate points for the warp.
+     * \param searchShape The actual size of the similarity search. Extra points are padded on outer
+     * dimensions of the search.
      *
      */
-    __device__ int inspectResults(Mma::Coordinate& blockBaseCoord, Mma::Coordinate& warpBaseCoord,
-                                  float* squaredQueries, float* squaredCandidates,
-                                  float epsilonSqd) {
+    __device__ int inspectResults(const Mma::Coordinate& blockBaseCoord,
+                                  const Mma::Coordinate& warpBaseCoord, const float* squaredQueries,
+                                  const float* squaredCandidates, const float epsilonSqd,
+                                  const Mma::mmaShape& searchShape) {
         int count = 0;
         for (int a = 0; a < numAFragments; a++) {
             for (int b = 0; b < numBFragments; b++) {
