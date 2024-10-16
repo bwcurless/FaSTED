@@ -9,9 +9,6 @@ CC = nvcc
 # Builds SASS for all architectures into one executable
 ARCHS = -arch=compute_80 -code=sm_80
 
-# Need to download cuda samples to here from github
-LIBS="$(HOME)/cuda-samples/Common"
-
 #
 ## Debug build settings
 #
@@ -52,17 +49,17 @@ clean:
 debug: $(DBGEXE)
 
 $(DBGEXE): $(DBGOBJS)
-	$(CC) $(DBGFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
+	$(CC) $(DBGFLAGS) $(ARCHS) $^ -o $@
 
 $(DBGDIR)/%.o: %.cu
-	$(CC) $(DBGFLAGS) $(ARCHS) -I$(LIBS) $< -c -o $@
+	$(CC) $(DBGFLAGS) $(ARCHS) $< -c -o $@
 
 # Release rules
 
 release: $(RELEXE)
 
 $(RELEXE): $(RELOBJS)
-	$(CC) $(RELFLAGS) $(ARCHS) -I$(LIBS) $^ -o $@
+	$(CC) $(RELFLAGS) $(ARCHS) $^ -o $@
 
 $(RELDIR)/%.o: %.cu
-	$(CC) $(RELFLAGS) $(ARCHS) -I$(LIBS) $< -c -o $@
+	$(CC) $(RELFLAGS) $(ARCHS) $< -c -o $@
