@@ -242,9 +242,11 @@ struct WarpTile {
                                distanceSqd);
                     }
 
-                    // TODO make sure we are within the actual search bounds.
                     if (distanceSqd < epsilonSqd) {
-                        count++;
+                        // Ignore 0 padded points on boundaries
+                        if (elemCoord.row < searchShape.m && elemCoord.col < searchShape.n) {
+                            count++;
+                        }
                     }
                 }
             }

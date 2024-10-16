@@ -57,7 +57,7 @@ srun ./release/main "$HOME/datasets/expo_16D_2000000.txt" 0.03
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
-#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main
+#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #srun nsys profile ./main
 
 
