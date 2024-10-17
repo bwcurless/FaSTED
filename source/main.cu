@@ -171,13 +171,13 @@ int main(int argc, char* argv[]) {
 
     printf("Running kernel\n");
 
+    cudaEventRecord(start, 0);
+
     // Compute sums of squared dimensions
     using sumSize = float;
     sumSize *d_ASqSums, *d_BSqSums;
     d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, searchShape.m, searchShape.k);
     d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, searchShape.n, searchShape.k);
-
-    cudaEventRecord(start, 0);
 
     float epsilonSquared = epsilon * epsilon;
     BlockTile::FindPairs(BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
