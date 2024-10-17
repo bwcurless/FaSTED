@@ -341,10 +341,9 @@ __global__ void FindPairsKernel(FindPairsParams params) {
         }
     }
 
-    __shared__ unsigned long long blockCount;
-    if (threadIdx.x == 0) {
-        blockCount = 0;
-    }
+    // Give each thread it's own count so we can reduce this later
+    __shared__ int blockCount[WARPSIZE * numWarps];
+    blockCount[threadIdx.x] = 0;
     __syncthreads();
 
     // Global MMA Scoped
@@ -477,15 +476,21 @@ __global__ void FindPairsKernel(FindPairsParams params) {
     }
 
     // Number within epsilon in each thread
-    unsigned int count =
+    blockCount[threadIdx.x] =
         warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
                                 params.epsilonSquared, params.actualSearchShape);
 
     // Simple reduction in shared memory
-    atomicAdd(&blockCount, count);
-    __syncthreads();
+    // This isn't actually faster than atomicAdd in shared memory!
+    unsigned int i = threadIdx.x;
+    for (unsigned int stride = blockDim.x / 2; stride >= 1; stride /= 2) {
+        __syncthreads();
+        if (threadIdx.x < stride) {
+            blockCount[i] += blockCount[i + stride];
+        }
+    }
     if (threadIdx.x == 0) {
-        atomicAdd(params.numPairs, blockCount);
+        atomicAdd(params.numPairs, blockCount[0]);
     }
 }
 
