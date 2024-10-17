@@ -220,10 +220,13 @@ struct WarpTile {
                                   const float* squaredCandidates, const float epsilonSqd,
                                   const Mma::mmaShape& searchShape) {
         int count = 0;
+#pragma unroll
         for (int a = 0; a < numAFragments; a++) {
+#pragma unroll
             for (int b = 0; b < numBFragments; b++) {
                 Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(warpBaseCoord, a, b);
                 Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
+#pragma unroll
                 for (int d = 0; d < numRegistersD; d++) {
                     int threadInWarp = threadIdx.x % WARPSIZE;
                     Mma::Coordinate elemCoord =
