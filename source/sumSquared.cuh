@@ -21,11 +21,30 @@
 
 namespace SumSqd {
 
+/** Compute the sum of the squares of a half2 value. There are two values, square each one, then
+ * compute the sum of them in the specified precision.
+ *
+ * \param value The value to square and sum.
+ *
+ * \return The resulting sum in the specified precision.
+ */
+template <typename Out>
+__device__ Out SumSquareHalf2(half2 value);
+
+template <>
+__device__ float SumSquareHalf2(half2 value) {
+    float2 squares = __half22float2(value * value);
+    float sum = 0;
+    sum += squares.x;
+    sum += squares.y;
+    return sum;
+}
+
 /** Compute the sum of the squared dimensions for each point. Store results back to global memory.
  *
  *
  * \param points The input points.
- * \param numPoints How many points to compute the sum of.
+ * \param numPoints How many points to compute the sum of across the entire grid.
  * \param numDimensions How many dimensions each point has.
  * \param sums Where to store the sums back to.
  *
@@ -39,6 +58,7 @@ __global__ void SquaredSumsKernel(half2* points, const int numPoints, const int 
     __shared__ Out sum;
 
     int pointIndex = blockIdx.x;
+    Out localSum = 0;
 
     if (threadIdx.x == 0) {
         sum = 0.0;
@@ -46,18 +66,15 @@ __global__ void SquaredSumsKernel(half2* points, const int numPoints, const int 
 
     __syncthreads();
 
-    // TODO make this a proper reduction
     // Reads two half values at a time
     int normalizedDimensions = numDimensions / 2;
     int firstDimension = pointIndex * normalizedDimensions;
     for (int i = threadIdx.x; i < normalizedDimensions; i += blockDim.x) {
         half2 dims = points[firstDimension + i];
-        float upCast1 = __half2float(dims.x);
-        float upCast2 = __half2float(dims.y);
-        Out squared = upCast1 * upCast1;
-        squared += upCast2 * upCast2;
-        atomicAdd(&sum, squared);
+        localSum += SumSquareHalf2<Out>(dims);
     }
+
+    atomicAdd(&sum, localSum);
 
     __syncthreads();
 
