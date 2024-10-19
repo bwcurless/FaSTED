@@ -36,13 +36,14 @@ struct FindPairsParams {
     float epsilonSquared;       // The maximum distance between points to be considered a pair.
     Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
                                 // candidate points, and dimensions of each point.
-    Mma::mmaShape actualSearchShape;  // The actual dimensions of the search data. Not including
-                                      // padded values.
-    unsigned long long* numPairs;     // How many pairs were found within epsilon.
-    half2* queryPoints;               // Global memory array containing all query points.
-    half2* candidatePoints;           // Global memory array containing all candidate points.
-    float* sumSqQueries;              // Summed up squared dimensions of query points.
-    float* sumSqCandidates;           // Summed up squared dimensions of Candidates points.
+    Mma::mmaShape actualSearchShape;    // The actual dimensions of the search data. Not including
+                                        // padded values.
+    unsigned long long* numPairs;       // How many pairs were found within epsilon.
+    half2* queryPoints;                 // Global memory array containing all query points.
+    half2* candidatePoints;             // Global memory array containing all candidate points.
+    float* sumSqQueries;                // Summed up squared dimensions of query points.
+    float* sumSqCandidates;             // Summed up squared dimensions of Candidates points.
+    Mma::Coordinate* rasterizedCoords;  // What coordinates each block is responsible for.
 };
 
 __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
@@ -63,11 +64,15 @@ constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
 
 /** Get global coordinates of upper left element this block is responsible for.
  *
+ * \param rasterizedCoords Array ofcoordinates each block in the grid is responsible for.
+ *
  * \return Global coordinates of upper left element
  */
-__device__ Mma::Coordinate GetBaseBlockCoordinate() {
-    int baseRow = blockIdx.y * GetBlockTileDims().m;
-    int baseCol = blockIdx.x * GetBlockTileDims().n;
+__device__ Mma::Coordinate GetBaseBlockCoordinate(Mma::Coordinate* rasterizedCoords) {
+    // Rasterize up the blocks so that we have better cache locality within waves.
+    auto coords = rasterizedCoords[blockIdx.x];
+    int baseRow = coords.row;
+    int baseCol = coords.col;
     return {baseRow, baseCol};
 }
 
@@ -348,7 +353,7 @@ __global__ void FindPairsKernel(FindPairsParams params) {
 
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
-    Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate();
+    Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate(params.rasterizedCoords);
     if (Debug && threadIdx.x == 0) {
         printf("baseBlockCoord.row T%d is %d\n", threadIdx.x, baseBlockCoord.row);
         printf("baseBlockCoord.col T%d is %d\n", threadIdx.x, baseBlockCoord.col);
@@ -502,10 +507,14 @@ __global__ void FindPairsKernel(FindPairsParams params) {
  * \return
  */
 __host__ void FindPairs(const FindPairsParams& params) {
-    dim3 gridDim(ceil(1.0 * params.searchShape.n / GetBlockTileDims().n),
-                 ceil(1.0 * params.searchShape.m / GetBlockTileDims().m), 1);
+    size_t numBlocksRow = ceil(1.0 * params.searchShape.n / GetBlockTileDims().n);
+    size_t numBlocksCol = ceil(1.0 * params.searchShape.m / GetBlockTileDims().m);
+    dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
     dim3 blockDim(numWarps * WARPSIZE, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
+
+    // Rasterize thread block layout for better cache locality
+    auto rastCoords = RasterizeLayout(10, 10, numBlocksRow, numBlocksCol);
 
     if (Debug) {
         printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
