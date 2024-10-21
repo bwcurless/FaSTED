@@ -138,6 +138,7 @@ class PointListBuilder {
                 points.push_back(dimension);
                 count++;
             }
+            count = 0;
             numPoints++;
         }
 
