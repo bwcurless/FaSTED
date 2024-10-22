@@ -91,6 +91,13 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
     size_t querySize = h_Query.size() * sizeof(h_Query[0]);
     size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
 
+    if (Debug) {
+        printf("Query vector has %lu elements\n", h_Query.size());
+        printf("Candidate vector has %lu elements\n", h_Candidate.size());
+        printf("Allocating %lu bytes for query points\n", querySize);
+        printf("Allocating %lu bytes for candidate points\n", candidateSize);
+    }
+
     cudaMalloc(d_Query, querySize);
     cudaMalloc(d_Candidate, candidateSize);
 
@@ -132,7 +139,7 @@ int main(int argc, char* argv[]) {
                 filename, ',', bDims.k, bDims.m);
     } else {
         pointList = Points::PointListBuilder<half_float::half>().buildFromAsciiFile(
-            filename, ',', bDims.k, bDims.m);
+            filename, ',', 16 * bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
@@ -180,9 +187,10 @@ int main(int argc, char* argv[]) {
     d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, searchShape.n, searchShape.k);
 
     float epsilonSquared = epsilon * epsilon;
-    BlockTile::FindPairs(BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
-                                                    d_numPairs, d_AValues, d_BValues, d_ASqSums,
-                                                    d_BSqSums});
+    auto params =
+        BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape, d_numPairs,
+                                   d_AValues,      d_BValues,   d_ASqSums,         d_BSqSums};
+    BlockTile::FindPairs(params);
 
     gpuErrchk(cudaEventRecord(stop, 0));
 

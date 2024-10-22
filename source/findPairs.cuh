@@ -10,14 +10,19 @@
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
+#include <driver_types.h>
 
 #include <cuda/pipeline>
 
+#include "matrix.cuh"
 #include "ptxMma.cuh"
+#include "rasterizer/rasterizer.hpp"
 #include "utils.cuh"
 #include "warpMma.cuh"
 
 namespace BlockTile {
+
+using Coordinate = matrix::Coordinate;
 
 // Block Parameters
 constexpr int numWarpCols = 2;
@@ -36,14 +41,13 @@ struct FindPairsParams {
     float epsilonSquared;       // The maximum distance between points to be considered a pair.
     Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
                                 // candidate points, and dimensions of each point.
-    Mma::mmaShape actualSearchShape;    // The actual dimensions of the search data. Not including
-                                        // padded values.
-    unsigned long long* numPairs;       // How many pairs were found within epsilon.
-    half2* queryPoints;                 // Global memory array containing all query points.
-    half2* candidatePoints;             // Global memory array containing all candidate points.
-    float* sumSqQueries;                // Summed up squared dimensions of query points.
-    float* sumSqCandidates;             // Summed up squared dimensions of Candidates points.
-    Mma::Coordinate* rasterizedCoords;  // What coordinates each block is responsible for.
+    Mma::mmaShape actualSearchShape;  // The actual dimensions of the search data. Not including
+                                      // padded values.
+    unsigned long long* numPairs;     // How many pairs were found within epsilon.
+    half2* queryPoints;               // Global memory array containing all query points.
+    half2* candidatePoints;           // Global memory array containing all candidate points.
+    float* sumSqQueries;              // Summed up squared dimensions of query points.
+    float* sumSqCandidates;           // Summed up squared dimensions of Candidates points.
 };
 
 __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
@@ -62,17 +66,20 @@ constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimP
 constexpr int BElemsPerStage = blockTileDims.n * blockTileDims.k / WarpMma::dimPerInt4;
 constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
 
-/** Get global coordinates of upper left element this block is responsible for.
+/** Get global coordinates of upper left element this block is responsible for. Converts a 1D block
+ * index to a 2D coordinate that this block is responsible for computing.
  *
- * \param rasterizedCoords Array ofcoordinates each block in the grid is responsible for.
+ * \param blockCoords 1D Array of coordinates each block in the grid is responsible for.
  *
  * \return Global coordinates of upper left element
  */
-__device__ Mma::Coordinate GetBaseBlockCoordinate(Mma::Coordinate* rasterizedCoords) {
-    // Rasterize up the blocks so that we have better cache locality within waves.
-    auto coords = rasterizedCoords[blockIdx.x];
-    int baseRow = coords.row;
-    int baseCol = coords.col;
+__device__ Coordinate GetBaseBlockCoordinate(Coordinate* blockCoords) {
+    // Extract this block's 2D index from the 1D launch index.
+    Coordinate coords = blockCoords[blockIdx.x];
+
+    int baseRow = coords.row * GetBlockTileDims().m;
+    int baseCol = coords.col * GetBlockTileDims().n;
+
     return {baseRow, baseCol};
 }
 
@@ -84,7 +91,7 @@ __device__ Mma::Coordinate GetBaseBlockCoordinate(Mma::Coordinate* rasterizedCoo
  * \return The local coordinates (relative to this block) of upper left
  * element
  */
-__device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
+__device__ Coordinate GetBaseLocalWarpCoordinate(int warpId) {
     int warpRow = warpId / numWarpCols;
     int warpCol = warpId % numWarpCols;
     int baseRow = warpRow * WarpMma::GetWarpTileDims().m;
@@ -101,9 +108,8 @@ __device__ Mma::Coordinate GetBaseLocalWarpCoordinate(int warpId) {
  *
  * \return The global coordinates of upper left element
  */
-__device__ Mma::Coordinate GetBaseWarpCoordinate(const Mma::Coordinate& baseBlockCoord,
-                                                 int warpId) {
-    Mma::Coordinate baseLocal = GetBaseLocalWarpCoordinate(warpId);
+__device__ Coordinate GetBaseWarpCoordinate(const Coordinate& baseBlockCoord, int warpId) {
+    Coordinate baseLocal = GetBaseLocalWarpCoordinate(warpId);
     int baseRow = baseBlockCoord.row + baseLocal.row;
     int baseCol = baseBlockCoord.col + baseLocal.col;
     return {baseRow, baseCol};
@@ -236,8 +242,7 @@ __device__ void LoadGlobalToShared(half2* globalArray, SharedSize* sharedArray,
  * \return
  */
 __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize* ATile,
-                                         SharedSize* BTile,
-                                         const Mma::Coordinate& baseLocalWarpCoord) {
+                                         SharedSize* BTile, const Coordinate& baseLocalWarpCoord) {
     // Accumulate into D as many times as we need to
     for (int kslice = 0; kslice < kSlices; kslice++) {
         warpTile.warpTileLoadA(ATile, kslice, blockTileDims.k, baseLocalWarpCoord.row);
@@ -315,9 +320,11 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  * the points.
  *
  * \param params See struct documentation.
+ * \param blockCoords Array of coordinates specifying which chunk of the output matrix each block is
+ * responsible for.
  *
  */
-__global__ void FindPairsKernel(FindPairsParams params) {
+__global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords) {
     int warpId = threadIdx.x / 32;
 
     __align__(128) __shared__ float squaredQueries[blockTileDims.m];
@@ -353,19 +360,19 @@ __global__ void FindPairsKernel(FindPairsParams params) {
 
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
-    Mma::Coordinate baseBlockCoord = GetBaseBlockCoordinate(params.rasterizedCoords);
+    Coordinate baseBlockCoord = GetBaseBlockCoordinate(blockCoords);
     if (Debug && threadIdx.x == 0) {
-        printf("baseBlockCoord.row T%d is %d\n", threadIdx.x, baseBlockCoord.row);
-        printf("baseBlockCoord.col T%d is %d\n", threadIdx.x, baseBlockCoord.col);
+        printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
+               baseBlockCoord.col);
     }
     // Block MMA Scoped
     // Compute local warpBase Coordinates relative to this block. Useful for extracting the
     // appropriate values from shared memory
-    Mma::Coordinate baseLocalWarpCoord = GetBaseLocalWarpCoordinate(warpId);
+    Coordinate baseLocalWarpCoord = GetBaseLocalWarpCoordinate(warpId);
     // Global MMA Scoped
     // Compute the Upper left coordinate that each warp is responsible for
     // MMA Useful for performing final inspection of results
-    Mma::Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
+    Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
 
     // Start transferring sums of squared points over
     auto group = cooperative_groups::this_thread_block();
@@ -514,7 +521,12 @@ __host__ void FindPairs(const FindPairsParams& params) {
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
     // Rasterize thread block layout for better cache locality
-    auto rastCoords = RasterizeLayout(10, 10, numBlocksRow, numBlocksCol);
+    std::vector<Coordinate> h_blockCoords =
+        Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol);
+    Coordinate* d_blockCoords;
+    size_t size = sizeof(Coordinate) * h_blockCoords.size();
+    gpuErrchk(cudaMalloc(&d_blockCoords, size));
+    gpuErrchk(cudaMemcpy(d_blockCoords, h_blockCoords.data(), size, cudaMemcpyHostToDevice));
 
     if (Debug) {
         printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
@@ -523,7 +535,7 @@ __host__ void FindPairs(const FindPairsParams& params) {
     gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
                                    sharedMemBytes));
 
-    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params);
+    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params, d_blockCoords);
 }
 };  // namespace BlockTile
 

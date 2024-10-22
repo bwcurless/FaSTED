@@ -3,39 +3,26 @@
 #include <iostream>
 #include <vector>
 
+#include "../matrix.cuh"
+#include "../utils.cuh"
+
 namespace Raster {
 
-struct Coordinate {
-    int x;
-    int y;
+using Coordinate = matrix::Coordinate;
 
-    // Default constructor
-    Coordinate(int x = 0, int y = 0) : x(x), y(y) {}
-
-    // Overload the + operator to add two 2D points
-    Coordinate operator+(const Coordinate& other) const {
-        return Coordinate(x + other.x, y + other.y);
-    }
-
-    // Overload the output stream operator to print the Coordinate
-    friend std::ostream& operator<<(std::ostream& os, const Coordinate& p) {
-        os << "(" << p.x << ", " << p.y << ")";
-        return os;
-    }
-};
-
-/** Rasterize a single chunk of a specified shape, and based off a given upper left base coordinate.
+/** Rasterize a single chunk of a specified shape, based off a given upper left base coordinate.
+ * Apply this chunk to the end of the input.
  *
  * \param baseCoord The upper left coordinate of this chunk.
  * \param rastered The vector to append the rastered results to.
  * \param chunkWidth How many elements wide the chunk is.
  * \param chunkHeight How many elements high the chunk is.
  */
-void RasterizeChunk(Coordinate baseCoord, std::vector<Coordinate>& rastered, int chunkWidth,
-                    int chunkHeight) {
+void RasterizeChunk(const Coordinate baseCoord, std::vector<Coordinate>& rastered,
+                    const int chunkWidth, const int chunkHeight) {
     for (int row = 0; row < chunkHeight; row++) {
         for (int col = 0; col < chunkWidth; col++) {
-            rastered.push_back(baseCoord + Coordinate(col, row));
+            rastered.push_back(baseCoord + Coordinate(row, col));
         }
     }
 }
@@ -45,56 +32,48 @@ void RasterizeChunk(Coordinate baseCoord, std::vector<Coordinate>& rastered, int
  *
  * \param waveWidth The width of the rasterized chunks.
  * \param waveHeight The height of the rasterized chunks.
- * \param numBlocksRows How many rows there are total in the computation.
- * \param numBlocksCols How many cols there are total in the computation.
+ * \param numBlocksRows How many rows of blocks there are total in the computation.
+ * \param numBlocksCols How many cols of blocks there are total in the computation.
  *
  * \return The rasterized layout.
  */
 std::vector<Coordinate> RasterizeLayout(int waveWidth, int waveHeight, int numBlocksRows,
                                         int numBlocksCols) {
     std::vector<Coordinate> coords;
+    coords.reserve(numBlocksRows * numBlocksCols);
+
     Coordinate currentCoordinate(0, 0);
 
     int columnsLeft = numBlocksCols;
     int rowsLeft = numBlocksRows;
     // While there are still coordinates left to raster
     while (columnsLeft && rowsLeft) {
-        // Make sure we aren't at the ends...
+        // Shrink the chunk dimensions at the boundaries
         int chunkWidth = std::min(waveWidth, columnsLeft);
         int chunkHeight = std::min(waveHeight, rowsLeft);
 
         // Rasterize this segment, push onto vector
         RasterizeChunk(currentCoordinate, coords, chunkWidth, chunkHeight);
 
-        columnsLeft = numBlocksCols - currentCoordinate.x - chunkWidth;
-        // Compute the base coordinate for the next rasterized section
+        columnsLeft -= chunkWidth;
 
         // Go to next column
         if (columnsLeft != 0) {
-            currentCoordinate.x += chunkWidth;
+            currentCoordinate.col += chunkWidth;
         }
         // No more columns left, go to next row
         else {
-            rowsLeft = numBlocksRows - currentCoordinate.y - chunkHeight;
-            currentCoordinate.y += chunkHeight;
-            // Don't reset columnsLeft unless there are actually rows left
+            rowsLeft -= chunkHeight;
+            currentCoordinate.row += chunkHeight;
+            // Make sure we aren't completed before proceeding to next line
             if (rowsLeft) {
                 // Reset to first column
                 columnsLeft = numBlocksCols;
-                currentCoordinate.x = 0;
+                currentCoordinate.col = 0;
             }
         }
     }
 
-    if (true) {
-        for (int row = 0; row < numBlocksRows; ++row) {
-            for (int col = 0; col < numBlocksCols; ++col) {
-                int index = row * numBlocksCols + col;
-                std::cout << coords[index] << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
     return coords;
 }
 }  // namespace Raster

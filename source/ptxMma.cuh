@@ -14,10 +14,13 @@
 
 #include <iostream>
 
+#include "matrix.cuh"
+
 namespace Mma {
 
 inline constexpr bool Debug = false;
 
+using Coordinate = matrix::Coordinate;
 using InPrec = half;
 using OutPrec = float;
 
@@ -25,11 +28,6 @@ struct mmaShape {
     int m{};
     int n{};
     int k{};
-};
-
-struct Coordinate {
-    int row{};
-    int col{};
 };
 
 // Declare a constant for reference elsewhere

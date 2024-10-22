@@ -9,11 +9,13 @@
 #ifndef WARPMMA_CUH_OL9KOX7Y
 #define WARPMMA_CUH_OL9KOX7Y
 
+#include "matrix.cuh"
 #include "ptxMma.cuh"
 #include "utils.cuh"
 
 // A single warp operation made up of many fragments of A, B, and D
 namespace WarpMma {
+using Coordinate = matrix::Coordinate;
 using InPrec = Mma::InPrec;
 
 // Warp  Parameters
@@ -128,7 +130,7 @@ struct WarpTile {
     __device__ void warpTileLoadA(SharedSize* aSharedAddr, const int kslice, const int kStride,
                                   const int warpRow) {
         // Page fragment into A.
-        Mma::Coordinate warpBase{warpRow, 0};
+        Coordinate warpBase{warpRow, 0};
         for (int i = 0; i < numAFragments; i++) {
             // Determine which row we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
@@ -150,7 +152,7 @@ struct WarpTile {
     __device__ void warpTileLoadB(SharedSize* bSharedAddr, const int kslice, const int kStride,
                                   const int warpCol) {
         // Page fragment into B.
-        Mma::Coordinate warpBase{0, warpCol};
+        Coordinate warpBase{0, warpCol};
         for (int i = 0; i < numBFragments; i++) {
             // Determine which col we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, 0, i).col;
@@ -194,9 +196,8 @@ struct WarpTile {
      *
      * \return The upper left coordinate of the specified output fragment D.
      */
-    __device__ Mma::Coordinate GetBaseFragmentCoordinate(const Mma::Coordinate& warpBaseCoord,
-                                                         const int aFragIndex,
-                                                         const int bFragIndex) {
+    __device__ Coordinate GetBaseFragmentCoordinate(const Coordinate& warpBaseCoord,
+                                                    const int aFragIndex, const int bFragIndex) {
         int fragRow = warpBaseCoord.row + (aFragIndex * Mma::dims.m);
         int fragCol = warpBaseCoord.col + (bFragIndex * Mma::dims.n);
         return {fragRow, fragCol};
@@ -215,21 +216,20 @@ struct WarpTile {
      * dimensions of the search.
      *
      */
-    __device__ int inspectResults(const Mma::Coordinate& blockBaseCoord,
-                                  const Mma::Coordinate& warpBaseCoord, const float* squaredQueries,
-                                  const float* squaredCandidates, const float epsilonSqd,
-                                  const Mma::mmaShape& searchShape) {
+    __device__ int inspectResults(const Coordinate& blockBaseCoord, const Coordinate& warpBaseCoord,
+                                  const float* squaredQueries, const float* squaredCandidates,
+                                  const float epsilonSqd, const Mma::mmaShape& searchShape) {
         int count = 0;
 #pragma unroll
         for (int a = 0; a < numAFragments; a++) {
 #pragma unroll
             for (int b = 0; b < numBFragments; b++) {
-                Mma::Coordinate fragCoords = GetBaseFragmentCoordinate(warpBaseCoord, a, b);
+                Coordinate fragCoords = GetBaseFragmentCoordinate(warpBaseCoord, a, b);
                 Mma::FragmentD_16x8& Dfrag = D[GetDIndex(a, b)];
 #pragma unroll
                 for (int d = 0; d < numRegistersD; d++) {
                     int threadInWarp = threadIdx.x % WARPSIZE;
-                    Mma::Coordinate elemCoord =
+                    Coordinate elemCoord =
                         Mma::GetDElementCoordinate_16_8_float(fragCoords, threadInWarp, d);
 
                     int relativeQueryIndex = elemCoord.row - blockBaseCoord.row;
