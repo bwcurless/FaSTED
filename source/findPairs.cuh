@@ -32,6 +32,7 @@ constexpr int kSlices = 4;
 constexpr int coarseFactor = 1;
 // To to global memory copies asynchronously or synchronously
 constexpr bool sync = false;
+constexpr bool rasterized = true;
 
 using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
@@ -522,7 +523,8 @@ __host__ void FindPairs(const FindPairsParams& params) {
 
     // Rasterize thread block layout for better cache locality
     std::vector<Coordinate> h_blockCoords =
-        Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol);
+        rasterized ? Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol)
+                   : Raster::ConventionalLayout(numBlocksRow, numBlocksCol);
     Coordinate* d_blockCoords;
     size_t size = sizeof(Coordinate) * h_blockCoords.size();
     gpuErrchk(cudaMalloc(&d_blockCoords, size));

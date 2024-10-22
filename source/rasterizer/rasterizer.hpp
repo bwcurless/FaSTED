@@ -76,4 +76,25 @@ std::vector<Coordinate> RasterizeLayout(int waveWidth, int waveHeight, int numBl
 
     return coords;
 }
+
+/** Generate the conventional layout rasterizing entire rows at a time. Have each block compute a
+ * piece of the output matrix row by row by row, working their way left to right.
+ *
+ * \param numBlocksRows How many rows of blocks there are total in the computation.
+ * \param numBlocksCols How many cols of blocks there are total in the computation.
+ *
+ * \returns The layout
+ */
+std::vector<Coordinate> ConventionalLayout(int numBlocksRows, int numBlocksCols) {
+    std::vector<Coordinate> coords;
+    coords.reserve(numBlocksRows * numBlocksCols);
+
+    for (int row = 0; row < numBlocksRows; ++row) {
+        for (int col = 0; col < numBlocksCols; ++col) {
+            coords.push_back({row, col});
+        }
+    }
+
+    return coords;
+}
 }  // namespace Raster
