@@ -12,11 +12,19 @@ namespace Points {
 
 using half = half_float::half;
 
+/** A way to create a PointList. Can read a series of n-dimensional points from a file, and
+ * optionally apply padding to them.
+ *
+ */
 template <typename T>
 class PointListBuilder {
    private:
     int maxPoints{};
 
+    /** Convert a string to the specified precision value.
+     *
+     * \param str The string to convert to a numeric.
+     */
     T stringToNumber(const std::string& str) {
         try {
             if constexpr (std::is_same<T, float>::value) {
@@ -35,7 +43,8 @@ class PointListBuilder {
         }
     }
 
-    // Dumb method to return 0 and handle the case where we are using half precision.
+    /** Dumb method to return 0 and handle the case where we are using half precision.
+     */
     T getZero() const {
         if constexpr (std::is_same<T, half>::value) {
             return half(0);
@@ -86,8 +95,8 @@ class PointListBuilder {
      *
      * \returns The list of points, padded according to the input.
      * */
-    PointList<T> buildFromAsciiFile(const std::string& filename, char delimeter, int strideFactor,
-                                    int numPointsFactor) {
+    PointList<T> buildFromAsciiFile(const std::string& filename, char delimeter = ',',
+                                    int strideFactor = 0, int numPointsFactor = 0) {
         std::vector<T> points;
         if (filename.empty()) {
             throw std::invalid_argument("Filename must be set.");
@@ -100,61 +109,63 @@ class PointListBuilder {
 
         // Temporary variables for reading points
         std::string line;
-        int numPoints = 0;
-        int count = 0;
+        int pointIndex = 0;
+        int dimIndex = 0;
         int actualDimensions = 0;
-        int actualPoints = 0;
+        bool firstIter = true;
 
         // Read the file line by line
-        while (std::getline(file, line) && maxPointsNotExceeded(numPoints)) {
+        while (std::getline(file, line) && maxPointsNotExceeded(pointIndex)) {
             std::stringstream lineStream(line);
-            count = 0;
+            dimIndex = 0;
 
             std::string value;
             // Parse each value on the current line
             while (std::getline(lineStream, value, delimeter)) {
                 T dimension = stringToNumber(value);
                 points.push_back(dimension);
-                ++count;
+                ++dimIndex;
             }
-            // Save actual number of dimensions parsed
-            actualDimensions = count;
+            // Save/check actual number of dimensions parsed
+            if (firstIter) {
+                actualDimensions = dimIndex;
+                firstIter = false;
+            } else if (dimIndex != actualDimensions) {
+                throw std::runtime_error(
+                    "Dimensions on subsequent lines didn't match the first line");
+            }
             // Pad up to the next multiple of dimensions
-            while (count % strideFactor != 0) {
+            while (dimIndex % strideFactor != 0) {
                 T dimension = getZero();
                 points.push_back(dimension);
-                ++count;
+                ++dimIndex;
             }
-            ++numPoints;
+            ++pointIndex;
         }
         // Save actual number of points before padding
-        actualPoints = numPoints;
-        int paddedDimensions = count;
-        count = 0;
+        int actualPoints = pointIndex;
+        int paddedDimensions = dimIndex;
+        dimIndex = 0;
         // Pad up to the next multiple of numPoints Factor
-        while (numPoints % numPointsFactor != 0) {
-            while (count < paddedDimensions) {
+        while (pointIndex % numPointsFactor != 0) {
+            while (dimIndex < paddedDimensions) {
                 T dimension = getZero();
                 points.push_back(dimension);
-                count++;
+                dimIndex++;
             }
-            count = 0;
-            numPoints++;
+            dimIndex = 0;
+            pointIndex++;
         }
 
         file.close();
 
-        if (numPoints == 0) {
+        if (pointIndex == 0) {
             throw std::runtime_error("No points found in file.");
         }
 
         // Return a PointList object constructed with the read data
-        return PointList<T>(std::move(points), numPoints, actualPoints, paddedDimensions,
+        return PointList<T>(std::move(points), pointIndex, actualPoints, paddedDimensions,
                             actualDimensions);
-    }
-
-    PointList<T> buildFromBinaryFile(const std::string& fname) {
-        throw std::runtime_error("Not implemented");
     }
 };
 }  // namespace Points
