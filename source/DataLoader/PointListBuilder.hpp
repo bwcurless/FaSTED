@@ -84,19 +84,63 @@ class PointListBuilder {
         }
     }
 
+    /** Parse an entire line of a file. Append each dimension to points vector.
+     *
+     *
+     * \returns How many dimensions were read
+     */
+    int parseLine(std::string line, char delimeter, std::vector<T>& points) {
+        int dimCount = 0;
+        std::stringstream lineStream(line);
+        std::string value;
+
+        // Parse each value on the current line
+        while (std::getline(lineStream, value, delimeter)) {
+            T dimension = stringToNumber(value);
+            points.push_back(dimension);
+            ++dimCount;
+        }
+
+        return dimCount;
+    }
+
+    /** Append a certain number of zeros to points.
+     *
+     * \param points Where to append the zeros to.
+     * \param numValues How many zeros to append.
+     */
+    void zeroPadPoint(std::vector<T>& points, int numValues) {
+        for (int i = 0; i < numValues; ++i) {
+            T dimension = getZero();
+            points.push_back(dimension);
+        }
+    }
+
+    /** Given a value, round it up to the next nearest multiple of the given multiple. Useful for
+     * rounding integers up.
+     *
+     * \param value The value to round up.
+     * \param multiple The multiple to round up to.
+     *
+     * \returns The rounded value.
+     */
+    int roundToNearestMultiple(int value, int multiple) {
+        return ceil(1.0 * value / multiple) * multiple;
+    }
+
     /**
      * Reads a point list in from file. Pads its dimensions to the next multiple of
      * strideFactor, and the number of points up to numPointsFactor with 0's.
      *
      * \param filename The name of the file to read in.
      * \param delimeter The delimeter used between two points
-     * \param strideFactor The factor to increase the dimensionality to
+     * \param dimensionFactor The factor to increase the dimensionality to
      * \param numPointsFactor The factor to increase the number of points to.
      *
      * \returns The list of points, padded according to the input.
      * */
     PointList<T> buildFromAsciiFile(const std::string& filename, char delimeter = ',',
-                                    int strideFactor = 0, int numPointsFactor = 0) {
+                                    int dimensionFactor = 1, int numPointsFactor = 1) {
         std::vector<T> points;
         if (filename.empty()) {
             throw std::invalid_argument("Filename must be set.");
@@ -107,65 +151,46 @@ class PointListBuilder {
             throw std::ios_base::failure("Failed to open file: " + filename);
         }
 
-        // Temporary variables for reading points
-        std::string line;
-        int pointIndex = 0;
-        int dimIndex = 0;
-        int actualDimensions = 0;
         bool firstIter = true;
+        int numDimensions;
+        int paddedDimensions;
 
         // Read the file line by line
-        while (std::getline(file, line) && maxPointsNotExceeded(pointIndex)) {
-            std::stringstream lineStream(line);
-            dimIndex = 0;
+        int pointCount = 0;
+        std::string line;
+        while (std::getline(file, line) && maxPointsNotExceeded(pointCount)) {
+            int dimCount = parseLine(line, delimeter, points);
 
-            std::string value;
-            // Parse each value on the current line
-            while (std::getline(lineStream, value, delimeter)) {
-                T dimension = stringToNumber(value);
-                points.push_back(dimension);
-                ++dimIndex;
-            }
-            // Save/check actual number of dimensions parsed
+            // Check actual number of dimensions parsed
             if (firstIter) {
-                actualDimensions = dimIndex;
                 firstIter = false;
-            } else if (dimIndex != actualDimensions) {
+                // First row in file defines how many dimemsions to expect on subsequent rows
+                numDimensions = dimCount;
+                // Compute the total dimensions needed with padding
+                paddedDimensions = roundToNearestMultiple(numDimensions, dimensionFactor);
+            } else if (dimCount != numDimensions) {
                 throw std::runtime_error(
                     "Dimensions on subsequent lines didn't match the first line");
             }
-            // Pad up to the next multiple of dimensions
-            while (dimIndex % strideFactor != 0) {
-                T dimension = getZero();
-                points.push_back(dimension);
-                ++dimIndex;
-            }
-            ++pointIndex;
+
+            zeroPadPoint(points, paddedDimensions - numDimensions);
+
+            ++pointCount;
         }
-        // Save actual number of points before padding
-        int actualPoints = pointIndex;
-        int paddedDimensions = dimIndex;
-        dimIndex = 0;
-        // Pad up to the next multiple of numPoints Factor
-        while (pointIndex % numPointsFactor != 0) {
-            while (dimIndex < paddedDimensions) {
-                T dimension = getZero();
-                points.push_back(dimension);
-                dimIndex++;
-            }
-            dimIndex = 0;
-            pointIndex++;
-        }
+        // Add extra points of all 0's
+        int paddedPoints = roundToNearestMultiple(pointCount, numPointsFactor);
+        int numZerosToAppend = paddedPoints * paddedDimensions;
+        zeroPadPoint(points, numZerosToAppend);
 
         file.close();
 
-        if (pointIndex == 0) {
+        if (pointCount == 0) {
             throw std::runtime_error("No points found in file.");
         }
 
         // Return a PointList object constructed with the read data
-        return PointList<T>(std::move(points), pointIndex, actualPoints, paddedDimensions,
-                            actualDimensions);
+        return PointList<T>(std::move(points), paddedPoints, pointCount, paddedDimensions,
+                            numDimensions);
     }
 };
 }  // namespace Points
