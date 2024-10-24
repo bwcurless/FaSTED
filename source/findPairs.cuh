@@ -28,8 +28,9 @@ using Coordinate = matrix::Coordinate;
 constexpr int numWarpCols = 2;
 constexpr int numWarpRows = 2;
 constexpr int numWarps = numWarpCols * numWarpRows;
+constexpr int blockSize = numWarps * WARPSIZE;
+// Has to be 4 because of shared memory swizzling...could make it 2 with different swizzling
 constexpr int kSlices = 4;
-constexpr int coarseFactor = 1;
 // To to global memory copies asynchronously or synchronously
 constexpr bool sync = false;
 constexpr bool rasterized = true;
@@ -164,7 +165,7 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
     int firstPoint = threadIdx.x / int4PerPoint;
     int firstDim = threadIdx.x % int4PerPoint;
     int globalLeadingDim = globalKStride / WarpMma::dimPerInt4;
-    int pointStride = blockDim.x / int4PerPoint;  // Block copies 16 points/iteration
+    int pointStride = blockSize / int4PerPoint;  // Block copies 16 points/iteration
 
     // First 8 threads copy over point 1, next 8 point 2, so on until all points are paged over
     for (int point = firstPoint; point < numPoints; point += pointStride) {
@@ -355,7 +356,7 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords)
     }
 
     // Give each thread it's own count so we can reduce this later
-    __shared__ int blockCount[WARPSIZE * numWarps];
+    __shared__ int blockCount[blockSize];
     blockCount[threadIdx.x] = 0;
     __syncthreads();
 
@@ -496,7 +497,7 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords)
     // Simple reduction in shared memory
     // This isn't actually faster than atomicAdd in shared memory!
     unsigned int i = threadIdx.x;
-    for (unsigned int stride = blockDim.x / 2; stride >= 1; stride /= 2) {
+    for (unsigned int stride = blockSize / 2; stride >= 1; stride /= 2) {
         __syncthreads();
         if (threadIdx.x < stride) {
             blockCount[i] += blockCount[i + stride];
@@ -518,7 +519,7 @@ __host__ void FindPairs(const FindPairsParams& params) {
     size_t numBlocksRow = ceil(1.0 * params.searchShape.n / GetBlockTileDims().n);
     size_t numBlocksCol = ceil(1.0 * params.searchShape.m / GetBlockTileDims().m);
     dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
-    dim3 blockDim(numWarps * WARPSIZE, 1, 1);
+    dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
     // Rasterize thread block layout for better cache locality
