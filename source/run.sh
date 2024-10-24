@@ -43,8 +43,13 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --mem=10000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
+
+# Gowanlock Partition
 #SBATCH --account=gowanlock_condo
 #SBATCH --partition=gowanlock
+
+# Main partition
+###SBATCH --account=gowanlock
 
 # Code will not compile if we don't load the module
 module load cuda
