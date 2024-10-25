@@ -19,8 +19,8 @@ using Coordinate = matrix::Coordinate;
 using InPrec = Mma::InPrec;
 
 // Warp  Parameters
-constexpr int numAFragments = 4;
-constexpr int numBFragments = 8;
+constexpr int numAFragments = 5;
+constexpr int numBFragments = 9;
 constexpr int numDFragments = numAFragments * numBFragments;
 // Swizzle the 8 columns of shared memory
 constexpr int swizzleFactor = 8;
@@ -170,7 +170,7 @@ struct WarpTile {
      *
      * \return Row-major linearized index of D fragment of WarpTile
      */
-    __device__ int GetDIndex(const int aFragIndex, const int bFragIndex) {
+    __device__ constexpr int GetDIndex(const int aFragIndex, const int bFragIndex) {
         return aFragIndex * numBFragments + bFragIndex;
     }
 

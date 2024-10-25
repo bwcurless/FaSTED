@@ -516,8 +516,8 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords)
  * \return
  */
 __host__ void FindPairs(const FindPairsParams& params) {
-    size_t numBlocksRow = ceil(1.0 * params.searchShape.n / GetBlockTileDims().n);
-    size_t numBlocksCol = ceil(1.0 * params.searchShape.m / GetBlockTileDims().m);
+    size_t numBlocksRow = ceil(1.0 * params.searchShape.m / GetBlockTileDims().m);
+    size_t numBlocksCol = ceil(1.0 * params.searchShape.n / GetBlockTileDims().n);
     dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
@@ -533,6 +533,7 @@ __host__ void FindPairs(const FindPairsParams& params) {
 
     if (Debug) {
         printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
+        printf("Block Size is %d x %d x %d\n", blockTileDims.m, blockTileDims.n, blockTileDims.k);
     }
 
     gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
