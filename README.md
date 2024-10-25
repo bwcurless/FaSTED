@@ -2,10 +2,10 @@
 
 ## Overview
 This is a FP16-FP32 mixed precision vector similarity search that is written for the A100 GPU. It operates in mixed precision with FP16 input data, and computes FP32 distances. Given two sets of vectors of N-dimensions and a distance epsilon $$\epsilon$$,
-this routine computes the euclidian distance between every point. If two points are within $$\epsilon$$ of each other, their coordinates are output back to global memory and classified as a "Pair".
+this routine computes the euclidian distance between every point. If two points are within $$\epsilon$$ of each other, their coordinates are output back to global memory and classified as a "Pair". The algorithm computes the distance between two vectors by performing a giant matrix multiplication of the candidate points times the query points. The summation of the squared dimensions of each point are added to the matrix product to compute the euclidian distance. 
 
 ## Optimizations
-On high dimensional datasets (> 2048D) with enough points to saturate the GPU, this algorithm is operating at 66% (200 TFLOPS) of peak utilization of the theoretical mixed-precision Tensor Core throughput (300 TFLOPS). Some of the optimizations made to achieve this performance are listed here:
+As the primary component of the algorithm is a large matrix multiplication, many of the optimizations were inspired by CUTLASS. On high dimensional datasets (> 2048D) with enough points to saturate the GPU, this algorithm is operating at 66% (200 TFLOPS) of peak utilization of the theoretical mixed-precision Tensor Core throughput (300 TFLOPS). Some of the optimizations made to achieve this performance are listed here:
 - Inline PTX Tensor Core instructions for complete control over registers and shared memory.
 - Warp Tiling.
   - Reuse of data paged from shared memory -> registers.
