@@ -10,6 +10,7 @@
 #define WARPMMA_CUH_OL9KOX7Y
 
 #include "matrix.cuh"
+// #include "pair.cuh"
 #include "ptxMma.cuh"
 #include "utils.cuh"
 
@@ -19,8 +20,8 @@ using Coordinate = matrix::Coordinate;
 using InPrec = Mma::InPrec;
 
 // Warp  Parameters
-constexpr int numAFragments = 5;
-constexpr int numBFragments = 9;
+constexpr int numAFragments = 4;
+constexpr int numBFragments = 8;
 constexpr int numDFragments = numAFragments * numBFragments;
 // Swizzle the 8 columns of shared memory
 constexpr int swizzleFactor = 8;
@@ -218,7 +219,8 @@ struct WarpTile {
      */
     __device__ int inspectResults(const Coordinate& blockBaseCoord, const Coordinate& warpBaseCoord,
                                   const float* squaredQueries, const float* squaredCandidates,
-                                  const float epsilonSqd, const Mma::mmaShape& searchShape) {
+                                  const float epsilonSqd, const Mma::mmaShape& searchShape,
+                                  Pairs::Pairs& pairs) {
         int count = 0;
 #pragma unroll
         for (int a = 0; a < numAFragments; a++) {
@@ -249,6 +251,12 @@ struct WarpTile {
                         // Ignore 0 padded points on boundaries
                         if (elemCoord.row < searchShape.m && elemCoord.col < searchShape.n) {
                             count++;
+                            // Page the coordinates up
+                            Pairs::Pair* pair = pairs.getSpace(1);
+                            if (pair) {
+                                pair->QueryPoint = elemCoord.row;
+                                pair->CandidatePoint = elemCoord.col;
+                            }
                         }
                     }
                 }

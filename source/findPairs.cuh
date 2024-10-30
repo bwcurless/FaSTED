@@ -10,11 +10,13 @@
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
+#include <cuda_runtime_api.h>
 #include <driver_types.h>
 
 #include <cuda/pipeline>
 
 #include "matrix.cuh"
+#include "pair.cuh"
 #include "ptxMma.cuh"
 #include "rasterizer/rasterizer.hpp"
 #include "utils.cuh"
@@ -326,7 +328,8 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  * responsible for.
  *
  */
-__global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords) {
+__global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
+                                Pairs::Pairs pairs) {
     int warpId = threadIdx.x / 32;
 
     __align__(128) __shared__ float squaredQueries[blockTileDims.m];
@@ -492,7 +495,7 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords)
     // Number within epsilon in each thread
     blockCount[threadIdx.x] =
         warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
-                                params.epsilonSquared, params.actualSearchShape);
+                                params.epsilonSquared, params.actualSearchShape, pairs);
 
     // Simple reduction in shared memory
     // This isn't actually faster than atomicAdd in shared memory!
@@ -522,6 +525,11 @@ __host__ void FindPairs(const FindPairsParams& params) {
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
+    // Assume a certain percentage of pairs will be found
+    size_t expectedPairs = params.actualSearchShape.m * 2;
+    Pairs::Pairs pairs(expectedPairs);
+    pairs.init();
+
     // Rasterize thread block layout for better cache locality
     std::vector<Coordinate> h_blockCoords =
         rasterized ? Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol)
@@ -539,7 +547,10 @@ __host__ void FindPairs(const FindPairsParams& params) {
     gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
                                    sharedMemBytes));
 
-    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params, d_blockCoords);
+    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params, d_blockCoords, pairs);
+
+    pairs.print();
+    pairs.release();
 }
 };  // namespace BlockTile
 

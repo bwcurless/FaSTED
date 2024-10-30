@@ -135,11 +135,11 @@ int main(int argc, char* argv[]) {
     Points::PointList<half_float::half> pointList;
     if (Debug) {
         pointList =
-            Points::PointListBuilder<half_float::half>().withMaxPoints(2000).buildFromAsciiFile(
+            Points::PointListBuilder<half_float::half>().withMaxPoints(128).buildFromAsciiFile(
                 filename, ',', bDims.k, bDims.m);
     } else {
         pointList = Points::PointListBuilder<half_float::half>().buildFromAsciiFile(
-            filename, ',', 16 * bDims.k, bDims.m);
+            filename, ',', 2 * 16 * bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
