@@ -63,10 +63,6 @@ class Pairs {
             cudaFree(d_numPairs);
             d_numPairs = nullptr;
         }
-        if (h_pairs) {
-            delete[] h_pairs;
-            h_pairs = nullptr;
-        }
     }
 
     /** Request a place to store pairs to. Checks if there is space in the array. If there
@@ -87,18 +83,15 @@ class Pairs {
         }
     }
 
-    /** Gets the array of pairs from the GPU. Transfer the pairs off the device and into host memory
-     * if necessary.
+    /** Gets the array of pairs from the GPU. Transfer the pairs off the device and returns them.
      *
      */
-    __host__ Pair* getPairs() {
-        if (!h_pairs) {
-            h_pairs = new Pair[maxSize];
+    __host__ std::vector<Pair> getPairs() {
+        int h_numPairs;
+        cudaMemcpy(&h_numPairs, d_numPairs, sizeof(int), cudaMemcpyDeviceToHost);
+        std::vector<Pair> h_pairs(h_numPairs);
 
-            cudaMemcpy(&h_numPairs, d_numPairs, sizeof(int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(h_pairs, d_pairs, sizeof(Pair) * maxSize, cudaMemcpyDeviceToHost);
-            printf("Pairs Max Size: %d, Current Size: %d\n", maxSize, h_numPairs);
-        }
+        cudaMemcpy(h_pairs.data(), d_pairs, sizeof(Pair) * h_numPairs, cudaMemcpyDeviceToHost);
 
         return h_pairs;
     }
@@ -107,17 +100,16 @@ class Pairs {
      *
      */
     __host__ void print() {
-        Pair* pairs = getPairs();
-        for (int i = 0; i < h_numPairs; ++i) {
-            pairs[i].print();
+        auto pairs = getPairs();
+        for (const Pair& pair : pairs) {
+            pair.print();
         }
+        printf("Pairs Max Size: %d, Current Size: %d\n", maxSize, pairs.size());
     }
 
    private:
     const int maxSize{};  // The max number of pairs that can be stored.
     Pair* d_pairs{};      // The actual pairs on the device.
     int* d_numPairs{};    // How many pairs have been stored.
-    int h_numPairs{};     // How many pairs have been stored.
-    Pair* h_pairs{};      // The actual pairs stored on the host.
 };
 }  // namespace Pairs
