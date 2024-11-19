@@ -166,9 +166,10 @@ int main(int argc, char* argv[]) {
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    cudaEvent_t squaredSumsStart, squaredSumsStop, findPairsStop;
+    cudaEventCreate(&squaredSumsStart);
+    cudaEventCreate(&squaredSumsStop);
+    cudaEventCreate(&findPairsStop);
 
     // Keep track of how many pairs we found that are within epsilon of each other
     unsigned long long* d_numPairs;
@@ -178,7 +179,7 @@ int main(int argc, char* argv[]) {
 
     printf("Running kernel\n");
 
-    cudaEventRecord(start, 0);
+    cudaEventRecord(squaredSumsStart, 0);
 
     // Compute sums of squared dimensions
     using sumSize = float;
@@ -186,32 +187,41 @@ int main(int argc, char* argv[]) {
     d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, searchShape.m, searchShape.k);
     d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, searchShape.n, searchShape.k);
 
+    cudaEventRecord(squaredSumsStop, 0);
+
     float epsilonSquared = epsilon * epsilon;
     auto params =
         BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape, d_numPairs,
                                    d_AValues,      d_BValues,   d_ASqSums,         d_BSqSums};
     BlockTile::FindPairs(params);
 
-    gpuErrchk(cudaEventRecord(stop, 0));
+    gpuErrchk(cudaEventRecord(findPairsStop, 0));
 
-    gpuErrchk(cudaEventSynchronize(stop));
+    gpuErrchk(cudaEventSynchronize(findPairsStop));
 
     cudaMemcpy(&h_numPairs, d_numPairs, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
     std::cout << "Number of total pairs: " << h_numPairs << std::endl;
 
-    float elapsedTime;
-    cudaEventElapsedTime(&elapsedTime, start, stop);
+    float elapsedTime, sumSquaredTime, findPairsTime;
+    cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);
+    cudaEventElapsedTime(&sumSquaredTime, squaredSumsStart, squaredSumsStop);
+    cudaEventElapsedTime(&findPairsTime, squaredSumsStop, findPairsStop);
     elapsedTime /= 1000;
+    sumSquaredTime /= 1000;
+    findPairsTime /= 1000;
 
-    printf("Kernel Elapsed time: %f seconds\n", elapsedTime);
+    printf("Total Kernel Elapsed time: %f seconds\n", elapsedTime);
+    printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
+    printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
     // Estimated TFLOPS that we computed
     const float tflops =
         static_cast<float>(searchShape.m) * searchShape.n * searchShape.k * 2 / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
+    cudaEventDestroy(squaredSumsStart);
+    cudaEventDestroy(squaredSumsStop);
+    cudaEventDestroy(findPairsStop);
     cudaFree(d_numPairs);
     cudaFree(d_AValues);
     cudaFree(d_BValues);
