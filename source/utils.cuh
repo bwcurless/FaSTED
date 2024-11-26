@@ -9,6 +9,8 @@
 #ifndef UTILS_CUH_JAUS2UK0
 #define UTILS_CUH_JAUS2UK0
 
+#include <iostream>
+
 #define WARPSIZE 32
 constexpr int SharedMemWidth = 128;  // 128 bytes, 32 lanes of 4 bytes each
 constexpr bool Debug = false;
@@ -21,6 +23,13 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
     if (code != cudaSuccess) {
         fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
         if (abort) exit(code);
+    }
+}
+
+void checkLastCudaError() {
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
     }
 }
 

@@ -123,11 +123,18 @@ int main(int argc, char* argv[]) {
 
     // Set the global locale to the default locale (which should use commas for thousands separator
     // in the US)
-    std::cout.imbue(std::locale("en_US.UTF-8"));
+    // std::cout.imbue(std::locale("en_US.UTF-8"));
+    // // Set std::cout to use the "C" locale (which does not include thousands separators)
+    //     std::cout.imbue(std::locale("C"));
 
     std::string filename = argv[1];       // Get the filename from the command-line argument
     std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
     double epsilon = parseDouble(epsilonString);
+
+    // Output filename generation
+    std::string outputPath = filename + "_" + epsilonString;
+    std::ofstream outFile(outputPath);
+    std::cout << "Writing output file to: " << outputPath std::endl;
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
@@ -139,7 +146,7 @@ int main(int argc, char* argv[]) {
                 filename, ',', bDims.k, bDims.m);
     } else {
         pointList = Points::PointListBuilder<half_float::half>().buildFromAsciiFile(
-            filename, ',', 2 * 16 * bDims.k, bDims.m);
+            filename, ',', 16 * bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
@@ -190,17 +197,16 @@ int main(int argc, char* argv[]) {
     cudaEventRecord(squaredSumsStop, 0);
 
     float epsilonSquared = epsilon * epsilon;
-    auto params =
-        BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape, d_numPairs,
-                                   d_AValues,      d_BValues,   d_ASqSums,         d_BSqSums};
+    auto params = BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
+                                             d_numPairs,     d_AValues,   d_BValues,
+                                             d_ASqSums,      d_BSqSums,   outFile};
     BlockTile::FindPairs(params);
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
 
-    cudaMemcpy(&h_numPairs, d_numPairs, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
-    std::cout << "Number of total pairs: " << h_numPairs << std::endl;
+    // Release device memory resources
 
     float elapsedTime, sumSquaredTime, findPairsTime;
     cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);

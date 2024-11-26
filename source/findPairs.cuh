@@ -52,6 +52,7 @@ struct FindPairsParams {
     half2* candidatePoints;           // Global memory array containing all candidate points.
     float* sumSqQueries;              // Summed up squared dimensions of query points.
     float* sumSqCandidates;           // Summed up squared dimensions of Candidates points.
+    std::ostream& os;                 // Place to write pairs to
 };
 
 __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
@@ -549,7 +550,11 @@ __host__ void FindPairs(const FindPairsParams& params) {
 
     FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params, d_blockCoords, pairs);
 
-    pairs.print();
+    // Synchronize then sort pairs and save them of
+    cudaDeviceSynchronize();
+    pairs.sort();
+    // Write pairs to whatever stream was passed in
+    params.os << pairs;
     pairs.release();
 }
 };  // namespace BlockTile

@@ -8,7 +8,9 @@
  *****************************************************************************/
 #pragma once
 
+#include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <thrust/sort.h>
 
 #include <iostream>
 
@@ -25,15 +27,32 @@ struct Pair {
     int QueryPoint{};
     int CandidatePoint{};
 
-    Pair() : QueryPoint{-1}, CandidatePoint{-1} {};
+    __device__ Pair() : QueryPoint{-1}, CandidatePoint{-1} {};
 
-    Pair(int query, int candidate) : QueryPoint{query}, CandidatePoint{candidate} {};
+    __device__ Pair(int query, int candidate) : QueryPoint{query}, CandidatePoint{candidate} {};
 
-    void print() const { printf("%d, %d\n", QueryPoint, CandidatePoint); }
+    /** Compare in row-major order.
+     *
+     */
+    __device__ bool operator<(const Pair& other) const {
+        if (this->QueryPoint == other.QueryPoint) {
+            return this->CandidatePoint < other.CandidatePoint;
+        } else {
+            return this->QueryPoint < other.QueryPoint;
+        }
+    }
 };
 
-/** A set containing all the pairs on the device. Multiple threads can safely request space to store
- * their pairs as they find them.
+/** Prints the pair to the output stream
+ *
+ */
+__host__ std::ostream& operator<<(std::ostream& os, const Pair& obj) {
+    os << obj.QueryPoint << ", " << obj.CandidatePoint << std::endl;
+    return os;
+}
+
+/** A set containing all the pairs on the device. Multiple threads can safely request space to
+ * store their pairs as they find them.
  *
  *
  */
@@ -83,11 +102,11 @@ class Pairs {
         }
     }
 
-    /** Gets the array of pairs from the GPU. Transfer the pairs off the device and returns them.
+    /** Gets the array of pairs from the GPU. Transfer the pairs off the device and returns
+     * them.
      *
      */
     __host__ std::vector<Pair> getPairs() {
-        int h_numPairs;
         cudaMemcpy(&h_numPairs, d_numPairs, sizeof(int), cudaMemcpyDeviceToHost);
         std::vector<Pair> h_pairs(h_numPairs);
 
@@ -96,20 +115,33 @@ class Pairs {
         return h_pairs;
     }
 
-    /** Print the pairs out.
+    /** Sort the pairs in ascending order.
      *
      */
-    __host__ void print() {
-        auto pairs = getPairs();
-        for (const Pair& pair : pairs) {
-            pair.print();
-        }
-        printf("Pairs Max Size: %d, Current Size: %d\n", maxSize, pairs.size());
+    __host__ void sort() {
+        cudaMemcpy(&h_numPairs, d_numPairs, sizeof(int), cudaMemcpyDeviceToHost);
+        printf("Number of pairs found %d\n", h_numPairs);
+        thrust::sort(thrust::device, d_pairs, d_pairs + h_numPairs);
+        cudaGetLastError();
     }
 
    private:
     const int maxSize{};  // The max number of pairs that can be stored.
+    int h_numPairs{};     // How many pairs have been stored (on host).
     Pair* d_pairs{};      // The actual pairs on the device.
     int* d_numPairs{};    // How many pairs have been stored.
 };
+
+/** Print all the pairs to the output stream. Copies all data off of device and puts them into the
+ * output stream.
+ *
+ */
+__host__ std::ostream& operator<<(std::ostream& os, Pairs& pairsObj) {
+    auto pairs = pairsObj.getPairs();
+    for (const Pair& pair : pairs) {
+        os << pair;
+    }
+    return os;
+}
+
 }  // namespace Pairs
