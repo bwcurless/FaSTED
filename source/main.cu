@@ -33,7 +33,7 @@ using InPrec = Mma::InPrec;
  * \param epsilon The epsilon to use.
  *
  */
-BlockTile::Results runFromFile(std::string filename, double epsilon);
+SimSearch::Results runFromFile(std::string filename, double epsilon);
 
 /** Generate an exponentially distributed dataset and compute the search results.
  *
@@ -44,7 +44,7 @@ BlockTile::Results runFromFile(std::string filename, double epsilon);
  * \param epsilon The epsilon to use.
  *
  * */
-BlockTile::Results runFromGenExpoSet(int numberOfPoints, int dimensionality, double scale,
+SimSearch::Results runFromGenExpoSet(int numberOfPoints, int dimensionality, double scale,
                                      double offset, double epsilon);
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every point.
@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
     runFromFile(filename, epsilon);
 }
 
-BlockTile::Results runFromFile(std::string filename, double epsilon) {
+SimSearch::Results runFromFile(std::string filename, double epsilon) {
     // Output filename generation
     std::string outputPath = filename + "_" + std::to_string(epsilon);
     std::ofstream outFile(outputPath);
@@ -172,7 +172,7 @@ BlockTile::Results runFromFile(std::string filename, double epsilon) {
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
-    Mma::mmaShape bDims = BlockTile::GetBlockTileDims();
+    Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
     Points::PointList<half_float::half> pointList;
     if (Debug) {
         pointList =
@@ -231,10 +231,10 @@ BlockTile::Results runFromFile(std::string filename, double epsilon) {
     cudaEventRecord(squaredSumsStop, 0);
 
     float epsilonSquared = epsilon * epsilon;
-    auto params = BlockTile::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
+    auto params = SimSearch::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
                                              d_numPairs,     d_AValues,   d_BValues,
                                              d_ASqSums,      d_BSqSums,   outFile};
-    BlockTile::FindPairs(params);
+    SimSearch::FindPairs(params);
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
 
@@ -268,5 +268,5 @@ BlockTile::Results runFromFile(std::string filename, double epsilon) {
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
 
-    return BlockTile::Results{elapsedTime, actualSearchShape};
+    return SimSearch::Results{elapsedTime, actualSearchShape};
 }

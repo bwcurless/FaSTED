@@ -6,8 +6,8 @@
 a dataset already loaded into host memory.
  *****************************************************************************/
 
-#ifndef BLOCKMMA_CUH_KP5RAZNA
-#define BLOCKMMA_CUH_KP5RAZNA
+#ifndef FINDPAIRS_CUH_KP5RAZNA
+#define FINDPAIRS_CUH_KP5RAZNA
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
@@ -23,8 +23,7 @@ a dataset already loaded into host memory.
 #include "utils.cuh"
 #include "warpMma.cuh"
 
-namespace BlockTile {
-
+namespace SimSearch {
 struct Results {
     double totalExecutionTime;   // How long it took to execute the routine
     Mma::mmaShape problemShape;  // The actual shape of the problem, m x n x k
@@ -563,6 +562,6 @@ __host__ void FindPairs(const FindPairsParams& params) {
     params.os << pairs;
     pairs.release();
 }
-};  // namespace BlockTile
+};  // namespace SimSearch
 
-#endif /* end of include guard: BLOCKMMA_CUH_KP5RAZNA */
+#endif /* end of include guard: FINDPAIRS_CUH_KP5RAZNA */
