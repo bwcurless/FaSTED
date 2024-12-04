@@ -1,3 +1,12 @@
+/******************************************************************************
+ * File:             main.cu
+ *
+ * Author:           Brian Curless
+ * Created:          12/04/24
+ * Description:      Responsible for parsing command line arguments, delegating to the correct
+ *datasetLoader, and finding the pairs.
+ *****************************************************************************/
+
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
@@ -11,11 +20,32 @@
 
 #include "DataLoader/PointListBuilder.hpp"
 #include "findPairs.cuh"
+#include "ptxMma.cuh"
 #include "sumSquared.cuh"
 #include "utils.cuh"
 
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
+
+/** Load a dataset from file and compute the results.
+ *
+ * \param filename The name of the file that contains the dataset.
+ * \param epsilon The epsilon to use.
+ *
+ */
+BlockTile::Results runFromFile(std::string filename, double epsilon);
+
+/** Generate an exponentially distributed dataset and compute the search results.
+ *
+ * \param numberOfPoints How many points to generate.
+ * \param epsilon The dimensionality of each point.
+ * \param epsilon The scale of each dimension.
+ * \param epsilon The offset of each dimension (The mean value).
+ * \param epsilon The epsilon to use.
+ *
+ * */
+BlockTile::Results runFromGenExpoSet(int numberOfPoints, int dimensionality, double scale,
+                                     double offset, double epsilon);
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every point.
  * Note that half values can only count up to about 64000, so the max value is
@@ -131,10 +161,14 @@ int main(int argc, char* argv[]) {
     std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
     double epsilon = parseDouble(epsilonString);
 
+    runFromFile(filename, epsilon);
+}
+
+BlockTile::Results runFromFile(std::string filename, double epsilon) {
     // Output filename generation
-    std::string outputPath = filename + "_" + epsilonString;
+    std::string outputPath = filename + "_" + std::to_string(epsilon);
     std::ofstream outFile(outputPath);
-    std::cout << "Writing output file to: " << outputPath std::endl;
+    std::cout << "Writing output file to: " << outputPath << std::endl;
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
@@ -233,4 +267,6 @@ int main(int argc, char* argv[]) {
     cudaFree(d_BValues);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
+
+    return BlockTile::Results{elapsedTime, actualSearchShape};
 }

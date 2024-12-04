@@ -2,7 +2,8 @@
 1* File:             findPairs.cuh
  * * Author:           Brian Curless
  * Created:          08/23/24
- * Description:      All the functionality to compute a single blockTile
+ * Description:      Responsible for finding all points that are within epsilon of each other, given
+a dataset already loaded into host memory.
  *****************************************************************************/
 
 #ifndef BLOCKMMA_CUH_KP5RAZNA
@@ -23,6 +24,11 @@
 #include "warpMma.cuh"
 
 namespace BlockTile {
+
+struct Results {
+    double totalExecutionTime;   // How long it took to execute the routine
+    Mma::mmaShape problemShape;  // The actual shape of the problem, m x n x k
+};
 
 using Coordinate = matrix::Coordinate;
 
