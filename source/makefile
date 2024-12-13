@@ -63,3 +63,8 @@ $(RELEXE): $(RELOBJS)
 
 $(RELDIR)/%.o: %.cu
 	$(CC) $(RELFLAGS) $(ARCHS) $< -c -o $@
+
+# Shared library rules
+
+shared:
+	$(CC) $(RELFLAGS) --shared --compiler-options '-fPIC' $(ARCHS) main.cu -o main.so
