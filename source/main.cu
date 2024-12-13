@@ -37,21 +37,22 @@ using InPrec = Mma::InPrec;
  */
 SimSearch::Results runFromFile(std::string filename, double epsilon);
 
-/** Generate an exponentially distributed dataset and compute the search results.
+/** Run pair finding routine from a generated exponentially distributed dataset.
+ * \param size The number of points in the dataset.
+ * \param dimensionality The dimensionality of each point.
+ * \param lambda The lambda of the dataset.
+ * \param mean The mean value of the dataset.
+ * \param epsilon The search radius.
  *
- * \param numberOfPoints How many points to generate.
- * \param epsilon The dimensionality of each point.
- * \param epsilon The scale of each dimension.
- * \param epsilon The offset of each dimension (The mean value).
- * \param epsilon The epsilon to use.
+ * \returns The search results
  *
- * */
-SimSearch::Results runFromGenExpoSet(int numberOfPoints, int dimensionality, double scale,
-                                     double offset, double epsilon);
+ */
+SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
+                                             double mean, double epsilon);
 
-/** Create a set of points with monatomically increasing values. Increments by 1 for every point.
- * Note that half values can only count up to about 64000, so the max value is
- * capped at 32768.
+/** Create a set of points with monatomically increasing values. Increments by 1 for every
+ * point. Note that half values can only count up to about 64000, so the max value is capped at
+ * 32768.
  *
  * \param values The vector to push the values onto.
  * \param numPoints How many points to create.
@@ -153,9 +154,8 @@ int main(int argc, char* argv[]) {
         return 1;  // Exit with error if the number of arguments is incorrect
     }
 
-    // Set the global locale to the default locale (which should use commas for thousands separator
-    // in the US)
-    // std::cout.imbue(std::locale("en_US.UTF-8"));
+    // Set the global locale to the default locale (which should use commas for thousands
+    // separator in the US) std::cout.imbue(std::locale("en_US.UTF-8"));
     // // Set std::cout to use the "C" locale (which does not include thousands separators)
     //     std::cout.imbue(std::locale("C"));
 
@@ -166,25 +166,19 @@ int main(int argc, char* argv[]) {
     runFromFile(filename, epsilon);
 }
 
-/** Run pair finding routine from a generated exponentially distributed dataset.
- * \param size The number of points in the dataset.
- * \param dimensionality The dimensionality of each point.
- * \param lambda The lambda of the dataset.
- * \param mean The mean value of the dataset.
+/** Runs the pair finding routine on a dataset that is passed in. The dataset could come from
+ * anywhere.
+ *
+ * \param builder The PointListBuilder that will return the dataset.
  * \param epsilon The search radius.
+ *
+ * \returns The search results
+ *
  */
-SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double mean, double epsilon) {
-    // Dynamically generate the dataset
-    SimSearch::ExponentialPointGenerator pointGen(200000, 16, 0, 40);
-    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
-
-    // Run routine
-}
-
-SimSearch::Results runFromFile(std::string filename, double epsilon) {
+SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
     // Output filename generation
-    std::string outputPath = filename + "_" + std::to_string(epsilon);
+    // TODO add in an appropraitely named output
+    std::string outputPath = "_" + std::to_string(epsilon);
     std::ofstream outFile(outputPath);
     std::cout << "Writing output file to: " << outputPath << std::endl;
 
@@ -192,14 +186,11 @@ SimSearch::Results runFromFile(std::string filename, double epsilon) {
     // Attempt to build the PointList using the provided filename
     Points::PointList<half_float::half> pointList;
 
-    SimSearch::FilePointGenerator pointGen(filename, ',');
-    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
-
     Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
     if (Debug) {
-        pointList = pointListBuilder.withMaxPoints(128).build(bDims.k, bDims.m);
+        pointList = builder.withMaxPoints(128).build(bDims.k, bDims.m);
     } else {
-        pointList = pointListBuilder.build(16 * bDims.k, bDims.m);
+        pointList = builder.build(16 * bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
@@ -288,4 +279,22 @@ SimSearch::Results runFromFile(std::string filename, double epsilon) {
     cudaFree(d_BSqSums);
 
     return SimSearch::Results{elapsedTime, actualSearchShape};
+}
+
+SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
+                                             double mean, double epsilon) {
+    // Dynamically generate the dataset
+    SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, mean, lambda);
+    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
+
+    // Run routine
+    return run(pointListBuilder, epsilon);
+}
+
+SimSearch::Results runFromFile(std::string filename, double epsilon) {
+    // Read dataset from file
+    SimSearch::FilePointGenerator pointGen(filename, ',');
+    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
+
+    return run(pointListBuilder, epsilon);
 }
