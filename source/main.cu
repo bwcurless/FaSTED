@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 
+#include "DataLoader/FilePointGenerator.hpp"
 #include "DataLoader/PointListBuilder.hpp"
 #include "findPairs.cuh"
 #include "ptxMma.cuh"
@@ -164,6 +165,20 @@ int main(int argc, char* argv[]) {
     runFromFile(filename, epsilon);
 }
 
+/** Run pair finding routine from a generated exponentially distributed dataset.
+ * \param size The number of points in the dataset.
+ * \param dimensionality The dimensionality of each point.
+ * \param lambda The lambda of the dataset.
+ * \param mean The mean value of the dataset.
+ * \param epsilon The search radius.
+ */
+SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
+                                             double mean, double epsilon) {
+    // Dynamically generate the dataset
+
+    // Run routine
+}
+
 SimSearch::Results runFromFile(std::string filename, double epsilon) {
     // Output filename generation
     std::string outputPath = filename + "_" + std::to_string(epsilon);
@@ -172,15 +187,16 @@ SimSearch::Results runFromFile(std::string filename, double epsilon) {
 
     half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
-    Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
     Points::PointList<half_float::half> pointList;
+
+    SimSearch::FilePointGenerator pointGen(filename, ',');
+    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
+
+    Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
     if (Debug) {
-        pointList =
-            Points::PointListBuilder<half_float::half>().withMaxPoints(128).buildFromAsciiFile(
-                filename, ',', bDims.k, bDims.m);
+        pointList = pointListBuilder.withMaxPoints(128).build(bDims.k, bDims.m);
     } else {
-        pointList = Points::PointListBuilder<half_float::half>().buildFromAsciiFile(
-            filename, ',', 16 * bDims.k, bDims.m);
+        pointList = pointListBuilder.build(16 * bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
