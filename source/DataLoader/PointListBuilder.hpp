@@ -153,7 +153,7 @@ class PointListBuilder {
                 paddedDimensions = roundToNearestMultiple(numDimensions, dimensionFactor);
             } else if (dimCount != numDimensions) {
                 throw std::runtime_error(
-                    "Dimensions on subsequent lines didn't match the first line");
+                    "Dimensions of subsequent points didn't match the first point");
             }
 
             zeroPadPoint(points, paddedDimensions - numDimensions);
@@ -166,7 +166,7 @@ class PointListBuilder {
         zeroPadPoint(points, numZerosToAppend);
 
         if (pointCount == 0) {
-            throw std::runtime_error("No points found in file.");
+            throw std::runtime_error("No points were generated.");
         }
 
         // Return a PointList object constructed with the read data
