@@ -57,7 +57,8 @@ module load cuda
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make
 
-srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
+#srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
+srun ./release/main -e 200000 17 0.03
 #compute-sanitizer --tool=memcheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists

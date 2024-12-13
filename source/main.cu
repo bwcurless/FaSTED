@@ -149,21 +149,51 @@ double parseDouble(std::string str) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <filename> <epsilon>" << std::endl;
-        return 1;  // Exit with error if the number of arguments is incorrect
+    bool foundOptionE = false;  // Flag to track if "-e" is found
+
+    // Loop through all command-line arguments
+    for (int i = 1; i < argc; ++i) {  // Start at 1 to skip the program name
+        if (strcmp(argv[i], "-e") == 0) {
+            foundOptionE = true;
+            break;  // No need to check further, we found "-e"
+        }
     }
 
-    // Set the global locale to the default locale (which should use commas for thousands
-    // separator in the US) std::cout.imbue(std::locale("en_US.UTF-8"));
-    // // Set std::cout to use the "C" locale (which does not include thousands separators)
-    //     std::cout.imbue(std::locale("C"));
+    if (foundOptionE) {
+        if (argc != 5) {
+            std::cerr << "Usage: " << argv[0] << " -e <numPoints> <numDimensions> <epsilon>"
+                      << std::endl;
+            return 1;  // Exit with error if the number of arguments is incorrect
+        }
+        // Run exponential dataset
+        std::cout << "Running from a generated exponential dataset";
 
-    std::string filename = argv[1];       // Get the filename from the command-line argument
-    std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
-    double epsilon = parseDouble(epsilonString);
+        std::string numPointsString = argv[2];
+        std::string numDimensionsString = argv[3];
+        std::string epsilonString = argv[4];  // Get epsilon from the command-line argument
+        int numPoints = std::stoi(numPointsString);
+        int numDimensions = std::stoi(numDimensionsString);
+        double epsilon = parseDouble(epsilonString);
 
-    runFromFile(filename, epsilon);
+        auto results = runFromExponentialDataset(numPoints, numDimensions, 40, 0, epsilon);
+        std::cout << "Total Execution Time: " << results.totalExecutionTime << std::endl;
+    } else {
+        if (argc != 3) {
+            std::cerr << "Usage: " << argv[0] << " <filename> <epsilon>" << std::endl;
+            return 1;  // Exit with error if the number of arguments is incorrect
+        }
+
+        // Set the global locale to the default locale (which should use commas for thousands
+        // separator in the US) std::cout.imbue(std::locale("en_US.UTF-8"));
+        // // Set std::cout to use the "C" locale (which does not include thousands separators)
+        //     std::cout.imbue(std::locale("C"));
+
+        std::string filename = argv[1];       // Get the filename from the command-line argument
+        std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
+        double epsilon = parseDouble(epsilonString);
+
+        runFromFile(filename, epsilon);
+    }
 }
 
 /** Runs the pair finding routine on a dataset that is passed in. The dataset could come from
