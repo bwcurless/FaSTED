@@ -17,7 +17,7 @@ namespace SimSearch {
 class FilePointGenerator : public PointGenerator {
    public:
     FilePointGenerator(const std::string filename, char delimeter = ',')
-        : file(filename), delimeter(delimeter) {
+        : filename(filename), file(filename), delimeter(delimeter) {
         if (filename.empty()) {
             throw std::invalid_argument("Filename must be set.");
         }
@@ -50,7 +50,10 @@ class FilePointGenerator : public PointGenerator {
         return point;
     }
 
+    std::string getName() override { return filename; }
+
    private:
+    std::string filename;
     std::ifstream file;
     char delimeter;
 };

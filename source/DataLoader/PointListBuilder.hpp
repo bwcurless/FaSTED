@@ -114,6 +114,10 @@ class PointListBuilder {
         }
     }
 
+    /** Return the name of the dataset.
+     */
+    std::string getDatasetName() { return generator->getName(); }
+
     /**
      * Creates a point list. Pads its dimensions to the next multiple of
      * strideFactor, and the number of points up to numPointsFactor with 0's.

@@ -177,8 +177,7 @@ int main(int argc, char* argv[]) {
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
     // Output filename generation
-    // TODO add in an appropraitely named output
-    std::string outputPath = "_" + std::to_string(epsilon);
+    std::string outputPath = builder.getDatasetName() + "_" + std::to_string(epsilon);
     std::ofstream outFile(outputPath);
     std::cout << "Writing output file to: " << outputPath << std::endl;
 

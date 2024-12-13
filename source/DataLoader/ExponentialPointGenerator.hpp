@@ -55,6 +55,11 @@ class ExponentialPointGenerator : public SimSearch::PointGenerator {
         return point;
     }
 
+    std::string getName() override {
+        return "Exponential_" + std::to_string(numPoints) + "_" + std::to_string(numDim) + "_" +
+               std::to_string(lambda);
+    }
+
    private:
     int numPoints;
     int generatedPoints;

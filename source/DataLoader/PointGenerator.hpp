@@ -22,6 +22,11 @@ class PointGenerator {
     /** Return the next point in the sequence. If there are no more points, returns null.
      */
     virtual std::optional<std::vector<double>> next() = 0;
+
+    /** Returns the name of the generator. Useful for knowing what kind of a dataset we might be
+     * working with.
+     */
+    virtual std::string getName() = 0;
 };
 
 }  // namespace SimSearch
