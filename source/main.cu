@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 
+#include "DataLoader/ExponentialPointGenerator.hpp"
 #include "DataLoader/FilePointGenerator.hpp"
 #include "DataLoader/PointListBuilder.hpp"
 #include "findPairs.cuh"
@@ -175,6 +176,8 @@ int main(int argc, char* argv[]) {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
                                              double mean, double epsilon) {
     // Dynamically generate the dataset
+    SimSearch::ExponentialPointGenerator pointGen(200000, 16, 0, 40);
+    Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     // Run routine
 }
