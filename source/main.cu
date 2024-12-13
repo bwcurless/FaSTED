@@ -29,6 +29,7 @@
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
 
+extern "C" {
 /** Load a dataset from file and compute the results.
  *
  * \param filename The name of the file that contains the dataset.
@@ -49,6 +50,7 @@ SimSearch::Results runFromFile(std::string filename, double epsilon);
  */
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
                                              double mean, double epsilon);
+}
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every
  * point. Note that half values can only count up to about 64000, so the max value is capped at
@@ -310,6 +312,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     return SimSearch::Results{elapsedTime, actualSearchShape};
 }
 
+extern "C" {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
                                              double mean, double epsilon) {
     // Dynamically generate the dataset
@@ -326,4 +329,5 @@ SimSearch::Results runFromFile(std::string filename, double epsilon) {
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     return run(pointListBuilder, epsilon);
+}
 }
