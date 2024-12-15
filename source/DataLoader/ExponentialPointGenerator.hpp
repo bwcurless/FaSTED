@@ -19,16 +19,17 @@ namespace SimSearch {
 
 class ExponentialPointGenerator : public SimSearch::PointGenerator {
    public:
-    ExponentialPointGenerator(int numPoints, int dimensionality, double mean = 0,
-                              double lambda = 40)
+    ExponentialPointGenerator(int numPoints, int dimensionality, double lambda = 40,
+                              double maxValue = 1.0)
         : numPoints{numPoints},
           generatedPoints{0},
           numDim{dimensionality},
-          mean{mean},
           lambda{lambda},
+          maxValue{maxValue},
           gen(SEED),
           dis(lambda),
           total{0} {}
+
     ~ExponentialPointGenerator() {}
 
     std::optional<std::vector<double> > next() override {
@@ -40,10 +41,10 @@ class ExponentialPointGenerator : public SimSearch::PointGenerator {
 
         for (int j = 0; j < numDim; j++) {
             double val = 0;
-            // generate value until its in the range 0-1
+            // generate value until its in the range specified
             do {
                 val = dis(gen);
-            } while (val < 0 || val > 1);
+            } while (val < 0.0 || val > maxValue);
 
             total += val;
 
@@ -64,8 +65,8 @@ class ExponentialPointGenerator : public SimSearch::PointGenerator {
     int numPoints;
     int generatedPoints;
     int numDim;
-    double mean;
     double lambda;
+    double maxValue;
     std::mt19937 gen;
     std::exponential_distribution<double> dis;
     double total;

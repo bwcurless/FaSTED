@@ -69,13 +69,13 @@ class Results(ctypes.Structure):
 
 # Run epsilon sweep to see if it effects TFLOPS significantly. Do this on it's own.
 def runEpsilonSweep():
-    epsilons = np.linspace(0.0001, 0.1, 5)
-    inputSize = 20000
-    dimensionality = 17
+    epsilons = np.linspace(0.001, 1, 5)
+    inputSize = 200
+    dimensionality = 8000
     epsSweepResults = {}
     for eps in epsilons:
         epsSweepResults[eps] = findPairs.runFromExponentialDataset(
-            inputSize, dimensionality, 40, 0, eps
+            inputSize, dimensionality, 1, 10.0, eps
         )
 
     print(epsSweepResults)
@@ -95,6 +95,8 @@ findPairs.runFromExponentialDataset.argtypes = [
 ]
 
 runEpsilonSweep()
+
+# Run scaling sweep.
 
 # Run 3x time trials for each final epsilon.
 

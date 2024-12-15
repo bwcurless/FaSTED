@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
         int numDimensions = std::stoi(numDimensionsString);
         double epsilon = parseDouble(epsilonString);
 
-        auto results = runFromExponentialDataset(numPoints, numDimensions, 40, 0, epsilon);
+        auto results = runFromExponentialDataset(numPoints, numDimensions, 40, 10.0, epsilon);
     } else {
         if (argc != 3) {
             std::cerr << "Usage: " << argv[0] << " <filename> <epsilon>" << std::endl;
@@ -219,9 +219,9 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 
 extern "C" {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double mean, double epsilon) {
+                                             double max, double epsilon) {
     // Dynamically generate the dataset
-    SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, mean, lambda);
+    SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, lambda, max);
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     // Run routine
