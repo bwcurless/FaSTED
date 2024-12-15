@@ -16,10 +16,12 @@ a dataset already loaded into host memory.
 
 #include <cuda/pipeline>
 
+#include "DataLoader/PointList.hpp"
 #include "matrix.cuh"
 #include "pair.cuh"
 #include "ptxMma.cuh"
 #include "rasterizer/rasterizer.hpp"
+#include "sumSquared.cuh"
 #include "utils.cuh"
 #include "warpMma.cuh"
 
@@ -51,7 +53,21 @@ using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
 constexpr int maxPipelineDepth = 4;
 
-struct FindPairsParams {
+/** The parameters required to run a search on the host.
+ */
+struct FindPairsParamsHost {
+    double epsilon;  // The maximum distance between points to be considered a pair.
+    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query points,
+                                      // candidate points, and dimensions of each point.
+    Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
+                                      // padded values.
+    Points::PointList<half_float::half> pointList;  // Host memory containing all points.
+    std::ostream& os;                               // Stream to write pairs to
+};
+
+/** The parameters required to run a search on the device.
+ */
+struct FindPairsParamsDevice {
     float epsilonSquared;  // The maximum distance between points to be considered a pair.
     Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query points,
                                       // candidate points, and dimensions of each point.
@@ -61,7 +77,6 @@ struct FindPairsParams {
     half2* candidatePoints;           // Global memory array containing all candidate points.
     float* sumSqQueries;              // Summed up squared dimensions of query points.
     float* sumSqCandidates;           // Summed up squared dimensions of Candidates points.
-    std::ostream& os;                 // Place to write pairs to
 };
 
 __host__ __device__ constexpr Mma::mmaShape GetBlockTileDims() {
@@ -338,7 +353,7 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  * responsible for.
  *
  */
-__global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
+__global__ void FindPairsKernel(FindPairsParamsDevice params, Coordinate* blockCoords,
                                 Pairs::Pairs pairs) {
     int warpId = threadIdx.x / 32;
 
@@ -502,26 +517,85 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
                             params.epsilonSquared, params.inputSearchShape, pairs);
 }
 
-/** Finds all pairs of points in the query and candidate points. Launches the required kernels
- * to do so.
+/** Allocates space for and transfers query and candidate points stored in host memory to global
+ * memory. You must free the memory allocated by this method when you are done using it.
  *
- * \param params See struct documentation.
+ *
+ * \param Precision The data type of each dimension.
+ * \param h_Query The actual query points stored on the host.
+ * \param h_Candidate The actual candidate points stored on the host.
+ * \param d_Query Pointer to query points array on device.
+ * \param d_Candidate Pointer to the candidate points array on device.
  *
  * \return
  */
-__host__ Results FindPairs(const FindPairsParams& params) {
-    size_t numBlocksRow = ceil(1.0 * params.paddedSearchShape.m / GetBlockTileDims().m);
-    size_t numBlocksCol = ceil(1.0 * params.paddedSearchShape.n / GetBlockTileDims().n);
+template <typename Precision, typename T>
+void TransferPointsToGMem(const std::vector<Precision>& h_Query,
+                          const std::vector<Precision>& h_Candidate, T** d_Query, T** d_Candidate) {
+    size_t querySize = h_Query.size() * sizeof(h_Query[0]);
+    size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
+
+    if (Debug) {
+        printf("Query vector has %lu elements\n", h_Query.size());
+        printf("Candidate vector has %lu elements\n", h_Candidate.size());
+        printf("Allocating %lu bytes for query points\n", querySize);
+        printf("Allocating %lu bytes for candidate points\n", candidateSize);
+    }
+
+    cudaMalloc(d_Query, querySize);
+    cudaMalloc(d_Candidate, candidateSize);
+
+    cudaMemcpy(*d_Query, h_Query.data(), querySize, cudaMemcpyHostToDevice);
+    cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice);
+}
+
+/** Given a set of input points, finds all pairs of points in the query and candidate points.
+ * Launches the required kernels to do so.
+ *
+ * \param hostParams See struct documentation.
+ *
+ * \return The results of the search.
+ */
+__host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
+    // Push points from host to the GPU.
+    half2 *d_AValues, *d_BValues;
+    TransferPointsToGMem(hostParams.pointList.values, hostParams.pointList.values, &d_AValues,
+                         &d_BValues);
+    cudaSetDevice(0);
+    cudaDeviceSynchronize();
+
+    cudaEvent_t squaredSumsStart, squaredSumsStop, findPairsStop;
+    cudaEventCreate(&squaredSumsStart);
+    cudaEventCreate(&squaredSumsStop);
+    cudaEventCreate(&findPairsStop);
+
+    cudaEventRecord(squaredSumsStart, 0);
+
+    // Compute sums of squared dimensions
+    using sumSize = float;
+    sumSize *d_ASqSums, *d_BSqSums;
+    d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, hostParams.paddedSearchShape.m,
+                                                    hostParams.paddedSearchShape.k);
+    d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, hostParams.paddedSearchShape.n,
+                                                    hostParams.paddedSearchShape.k);
+
+    cudaEventRecord(squaredSumsStop, 0);
+
+    // Allocate place to store pairs to.
+    // Assume a certain amount of pairs will be found, 1000 is a fair guess without overflowing
+    // memory.
+    size_t expectedPairs = hostParams.inputSearchShape.m * 1000;
+    Pairs::Pairs pairs(expectedPairs);
+    pairs.init();
+
+    // Determine thread block launch parameters
+    size_t numBlocksRow = ceil(1.0 * hostParams.paddedSearchShape.m / GetBlockTileDims().m);
+    size_t numBlocksCol = ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
     dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
-    // Assume a certain percentage of pairs will be found, 1000 is a fair guess.
-    size_t expectedPairs = params.inputSearchShape.m * 1000;
-    Pairs::Pairs pairs(expectedPairs);
-    pairs.init();
-
-    // Rasterize thread block layout for better cache locality
+    // Generate rasterized thread block layout for better cache locality
     std::vector<Coordinate> h_blockCoords =
         rasterized ? Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol)
                    : Raster::ConventionalLayout(numBlocksRow, numBlocksCol);
@@ -538,17 +612,58 @@ __host__ Results FindPairs(const FindPairsParams& params) {
     gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
                                    sharedMemBytes));
 
-    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(params, d_blockCoords, pairs);
+    // Build up parameters to run on the device.
+    float epsilonSquared = hostParams.epsilon * hostParams.epsilon;
+    auto deviceParams = SimSearch::FindPairsParamsDevice{epsilonSquared,
+                                                         hostParams.paddedSearchShape,
+                                                         hostParams.inputSearchShape,
+                                                         d_AValues,
+                                                         d_BValues,
+                                                         d_ASqSums,
+                                                         d_BSqSums};
+    // Run the actual search kernel
+    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(deviceParams, d_blockCoords, pairs);
 
     // Synchronize then sort pairs and save them of
     cudaDeviceSynchronize();
     pairs.sort();
     // Write pairs to whatever stream was passed in
-    params.os << pairs;
+    hostParams.os << pairs;
     pairs.release();
 
-    return Results{0.0, pairs.getPairsFound(), pairs.getPairsStored(), params.inputSearchShape,
-                   params.paddedSearchShape};
+    gpuErrchk(cudaEventRecord(findPairsStop, 0));
+
+    gpuErrchk(cudaEventSynchronize(findPairsStop));
+
+    // Compute result statistics
+    float elapsedTime, sumSquaredTime, findPairsTime;
+    cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);
+    cudaEventElapsedTime(&sumSquaredTime, squaredSumsStart, squaredSumsStop);
+    cudaEventElapsedTime(&findPairsTime, squaredSumsStop, findPairsStop);
+    elapsedTime /= 1000;
+    sumSquaredTime /= 1000;
+    findPairsTime /= 1000;
+
+    printf("Total Kernel Elapsed time: %f seconds\n", elapsedTime);
+    printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
+    printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
+    // Estimated TFLOPS that we computed. Don't count padded 0's as useful computation.
+    const float tflops = static_cast<float>(hostParams.inputSearchShape.m) *
+                         hostParams.inputSearchShape.n * hostParams.inputSearchShape.k * 2 /
+                         elapsedTime / 1e12;
+    printf("Estimated TFLOPS %.3f\n", tflops);
+
+    // Release device memory resources
+    cudaEventDestroy(squaredSumsStart);
+    cudaEventDestroy(squaredSumsStop);
+    cudaEventDestroy(findPairsStop);
+    cudaFree(d_AValues);
+    cudaFree(d_BValues);
+    cudaFree(d_ASqSums);
+    cudaFree(d_BSqSums);
+
+    return Results{tflops, pairs.getPairsFound(), pairs.getPairsStored(),
+                   hostParams.inputSearchShape, hostParams.paddedSearchShape};
 }
 };  // namespace SimSearch
 

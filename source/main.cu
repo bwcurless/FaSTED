@@ -108,38 +108,6 @@ void GenerateIdentityMatrixPoints(std::vector<half2>& values, int numPoints, int
     }
 }
 
-/** Allocates space for and transfers query and candidate points stored in host memory to global
- * memory. You must free the memory allocated by this method when you are done using it.
- *
- *
- * \param Precision The data type of each dimension.
- * \param h_Query The actual query points stored on the host.
- * \param h_Candidate The actual candidate points stored on the host.
- * \param d_Query Pointer to query points array on device.
- * \param d_Candidate Pointer to the candidate points array on device.
- *
- * \return
- */
-template <typename Precision, typename T>
-void TransferPointsToGMem(const std::vector<Precision>& h_Query,
-                          const std::vector<Precision>& h_Candidate, T** d_Query, T** d_Candidate) {
-    size_t querySize = h_Query.size() * sizeof(h_Query[0]);
-    size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
-
-    if (Debug) {
-        printf("Query vector has %lu elements\n", h_Query.size());
-        printf("Candidate vector has %lu elements\n", h_Candidate.size());
-        printf("Allocating %lu bytes for query points\n", querySize);
-        printf("Allocating %lu bytes for candidate points\n", candidateSize);
-    }
-
-    cudaMalloc(d_Query, querySize);
-    cudaMalloc(d_Candidate, candidateSize);
-
-    cudaMemcpy(*d_Query, h_Query.data(), querySize, cudaMemcpyHostToDevice);
-    cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice);
-}
-
 double parseDouble(std::string str) {
     try {
         return std::stod(str);
@@ -204,7 +172,6 @@ int main(int argc, char* argv[]) {
  * \param epsilon The search radius.
  *
  * \returns The search results
- *
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
     // Output filename generation
@@ -213,7 +180,6 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     std::ofstream outFile(outputPath);
     std::cout << "Writing output file to: " << outputPath << std::endl;
 
-    half2 *d_AValues, *d_BValues;
     // Attempt to build the PointList using the provided filename
     Points::PointList<half_float::half> pointList;
 
@@ -244,68 +210,9 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
                           paddedSearchShape.m, paddedSearchShape.k);
     }
 
-    TransferPointsToGMem(pointList.values, pointList.values, &d_AValues, &d_BValues);
-    cudaSetDevice(0);
-    cudaDeviceSynchronize();
-
-    cudaEvent_t squaredSumsStart, squaredSumsStop, findPairsStop;
-    cudaEventCreate(&squaredSumsStart);
-    cudaEventCreate(&squaredSumsStop);
-    cudaEventCreate(&findPairsStop);
-
-    printf("Running kernel\n");
-
-    cudaEventRecord(squaredSumsStart, 0);
-
-    // Compute sums of squared dimensions
-    using sumSize = float;
-    sumSize *d_ASqSums, *d_BSqSums;
-    d_ASqSums =
-        SumSqd::ComputeSquaredSums<sumSize>(d_AValues, paddedSearchShape.m, paddedSearchShape.k);
-    d_BSqSums =
-        SumSqd::ComputeSquaredSums<sumSize>(d_BValues, paddedSearchShape.n, paddedSearchShape.k);
-
-    cudaEventRecord(squaredSumsStop, 0);
-
-    float epsilonSquared = epsilon * epsilon;
-    auto params =
-        SimSearch::FindPairsParams{epsilonSquared, paddedSearchShape, inputSearchShape, d_AValues,
-                                   d_BValues,      d_ASqSums,         d_BSqSums,        outFile};
-    SimSearch::Results results = SimSearch::FindPairs(params);
-
-    gpuErrchk(cudaEventRecord(findPairsStop, 0));
-
-    gpuErrchk(cudaEventSynchronize(findPairsStop));
-
-    // Release device memory resources
-
-    float elapsedTime, sumSquaredTime, findPairsTime;
-    cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);
-    cudaEventElapsedTime(&sumSquaredTime, squaredSumsStart, squaredSumsStop);
-    cudaEventElapsedTime(&findPairsTime, squaredSumsStop, findPairsStop);
-    elapsedTime /= 1000;
-    sumSquaredTime /= 1000;
-    findPairsTime /= 1000;
-
-    printf("Total Kernel Elapsed time: %f seconds\n", elapsedTime);
-    printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
-    printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
-    // Estimated TFLOPS that we computed
-    const float tflops = static_cast<float>(paddedSearchShape.m) * paddedSearchShape.n *
-                         paddedSearchShape.k * 2 / elapsedTime / 1e12;
-    printf("Estimated TFLOPS %.3f\n", tflops);
-
-    // Cleanup
-    cudaEventDestroy(squaredSumsStart);
-    cudaEventDestroy(squaredSumsStop);
-    cudaEventDestroy(findPairsStop);
-    cudaFree(d_AValues);
-    cudaFree(d_BValues);
-    cudaFree(d_ASqSums);
-    cudaFree(d_BSqSums);
-
-    // TODO this is kind of a hack for now
-    results.TFLOPS = tflops;
+    auto hostParams = SimSearch::FindPairsParamsHost{epsilon, paddedSearchShape, inputSearchShape,
+                                                     pointList, outFile};
+    SimSearch::Results results = SimSearch::FindPairs(hostParams);
 
     return results;
 }
