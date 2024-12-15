@@ -208,7 +208,8 @@ int main(int argc, char* argv[]) {
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
     // Output filename generation
-    std::string outputPath = builder.getDatasetName() + "_" + std::to_string(epsilon) + ".pairs";
+    std::string outputPath = "/scratch/bc2497/pairsData/" + builder.getDatasetName() + "_" +
+                             std::to_string(epsilon) + ".pairs";
     std::ofstream outFile(outputPath);
     std::cout << "Writing output file to: " << outputPath << std::endl;
 
@@ -223,24 +224,24 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
         pointList = builder.build(bDims.k, bDims.m);
     }
 
-    Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
-                              pointList.getDimensions()};
-    Mma::mmaShape actualSearchShape{pointList.getActualNumPoints(), pointList.getActualNumPoints(),
-                                    pointList.getActualDimensions()};
+    Mma::mmaShape paddedSearchShape{pointList.getNumPoints(), pointList.getNumPoints(),
+                                    pointList.getDimensions()};
+    Mma::mmaShape inputSearchShape{pointList.getActualNumPoints(), pointList.getActualNumPoints(),
+                                   pointList.getActualDimensions()};
 
     std::cout << "Padded Search Dimensions:" << std::endl;
-    std::cout << "M: " << searchShape.m << std::endl;
-    std::cout << "N: " << searchShape.n << std::endl;
-    std::cout << "K: " << searchShape.k << std::endl;
+    std::cout << "M: " << paddedSearchShape.m << std::endl;
+    std::cout << "N: " << paddedSearchShape.n << std::endl;
+    std::cout << "K: " << paddedSearchShape.k << std::endl;
 
-    std::cout << "Actual Search Dimensions:" << std::endl;
-    std::cout << "M: " << actualSearchShape.m << std::endl;
-    std::cout << "N: " << actualSearchShape.n << std::endl;
-    std::cout << "K: " << actualSearchShape.k << std::endl;
+    std::cout << "Input Search Dimensions:" << std::endl;
+    std::cout << "M: " << inputSearchShape.m << std::endl;
+    std::cout << "N: " << inputSearchShape.n << std::endl;
+    std::cout << "K: " << inputSearchShape.k << std::endl;
 
     if (Debug) {
         PrintMatrix<half>("Dataset A", reinterpret_cast<half*>(pointList.values.data()),
-                          searchShape.m, searchShape.k);
+                          paddedSearchShape.m, paddedSearchShape.k);
     }
 
     TransferPointsToGMem(pointList.values, pointList.values, &d_AValues, &d_BValues);
@@ -252,12 +253,6 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     cudaEventCreate(&squaredSumsStop);
     cudaEventCreate(&findPairsStop);
 
-    // Keep track of how many pairs we found that are within epsilon of each other
-    unsigned long long* d_numPairs;
-    unsigned long long h_numPairs = 0;
-    cudaMalloc(&d_numPairs, sizeof(unsigned long long));
-    cudaMemcpy(d_numPairs, &h_numPairs, sizeof(unsigned long long), cudaMemcpyHostToDevice);
-
     printf("Running kernel\n");
 
     cudaEventRecord(squaredSumsStart, 0);
@@ -265,22 +260,22 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     // Compute sums of squared dimensions
     using sumSize = float;
     sumSize *d_ASqSums, *d_BSqSums;
-    d_ASqSums = SumSqd::ComputeSquaredSums<sumSize>(d_AValues, searchShape.m, searchShape.k);
-    d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, searchShape.n, searchShape.k);
+    d_ASqSums =
+        SumSqd::ComputeSquaredSums<sumSize>(d_AValues, paddedSearchShape.m, paddedSearchShape.k);
+    d_BSqSums =
+        SumSqd::ComputeSquaredSums<sumSize>(d_BValues, paddedSearchShape.n, paddedSearchShape.k);
 
     cudaEventRecord(squaredSumsStop, 0);
 
     float epsilonSquared = epsilon * epsilon;
-    auto params = SimSearch::FindPairsParams{epsilonSquared, searchShape, actualSearchShape,
-                                             d_numPairs,     d_AValues,   d_BValues,
-                                             d_ASqSums,      d_BSqSums,   outFile};
-    SimSearch::FindPairs(params);
+    auto params =
+        SimSearch::FindPairsParams{epsilonSquared, paddedSearchShape, inputSearchShape, d_AValues,
+                                   d_BValues,      d_ASqSums,         d_BSqSums,        outFile};
+    SimSearch::Results results = SimSearch::FindPairs(params);
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
-
-    cudaMemcpy(&h_numPairs, d_numPairs, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
 
     // Release device memory resources
 
@@ -296,21 +291,23 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
     printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
     // Estimated TFLOPS that we computed
-    const float tflops =
-        static_cast<float>(searchShape.m) * searchShape.n * searchShape.k * 2 / elapsedTime / 1e12;
+    const float tflops = static_cast<float>(paddedSearchShape.m) * paddedSearchShape.n *
+                         paddedSearchShape.k * 2 / elapsedTime / 1e12;
     printf("Estimated TFLOPS %.3f\n", tflops);
 
     // Cleanup
     cudaEventDestroy(squaredSumsStart);
     cudaEventDestroy(squaredSumsStop);
     cudaEventDestroy(findPairsStop);
-    cudaFree(d_numPairs);
     cudaFree(d_AValues);
     cudaFree(d_BValues);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
 
-    return SimSearch::Results{tflops, h_numPairs, actualSearchShape};
+    // TODO this is kind of a hack for now
+    results.TFLOPS = tflops;
+
+    return results;
 }
 
 extern "C" {

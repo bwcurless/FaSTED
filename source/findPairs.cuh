@@ -25,9 +25,13 @@ a dataset already loaded into host memory.
 
 namespace SimSearch {
 struct Results {
-    double TFLOPS;               // The estimated teraflops achieved
-    unsigned long long pairs;    // How many pairs were found
-    Mma::mmaShape problemShape;  // The actual shape of the problem, m x n x k
+    double TFLOPS;                  // The estimated teraflops achieved
+    unsigned long long pairsFound;  // How many pairs were found
+    unsigned long long
+        pairsStored;  // How many pairs were actually saved. (Could run out of memory)
+    Mma::mmaShape inputProblemShape;  // The input shape of the problem, m x n x k
+    Mma::mmaShape
+        paddedProblemShape;  // The actual shape of the problem, m x n x k (includes padding of 0's)
 };
 
 using Coordinate = matrix::Coordinate;
@@ -48,12 +52,11 @@ constexpr int pipelineDepth = 2;
 constexpr int maxPipelineDepth = 4;
 
 struct FindPairsParams {
-    float epsilonSquared;       // The maximum distance between points to be considered a pair.
-    Mma::mmaShape searchShape;  // The dimensions of the search data. Number of query points,
-                                // candidate points, and dimensions of each point.
-    Mma::mmaShape actualSearchShape;  // The actual dimensions of the search data. Not including
+    float epsilonSquared;  // The maximum distance between points to be considered a pair.
+    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query points,
+                                      // candidate points, and dimensions of each point.
+    Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
-    unsigned long long* numPairs;     // How many pairs were found within epsilon.
     half2* queryPoints;               // Global memory array containing all query points.
     half2* candidatePoints;           // Global memory array containing all candidate points.
     float* sumSqQueries;              // Summed up squared dimensions of query points.
@@ -365,11 +368,6 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
         }
     }
 
-    // Give each thread it's own count so we can reduce this later
-    __shared__ int blockCount[blockSize];
-    blockCount[threadIdx.x] = 0;
-    __syncthreads();
-
     // Global MMA Scoped
     // Compute Upper left coordinate that this block is responsible for
     Coordinate baseBlockCoord = GetBaseBlockCoordinate(blockCoords);
@@ -403,15 +401,15 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
     // Normal copy global->register, register->shared
     // Single buffered
     if (sync) {
-        for (int kStart = 0; kStart < params.searchShape.k; kStart += GetBlockTileDims().k) {
+        for (int kStart = 0; kStart < params.paddedSearchShape.k; kStart += GetBlockTileDims().k) {
             __syncthreads();  // Wait for all warps to complete using data
             // Page A in
             LoadGlobalToShared(params.queryPoints, ATile[0], baseBlockCoord.row,
-                               GetBlockTileDims().m, kStart, params.searchShape.k);
+                               GetBlockTileDims().m, kStart, params.paddedSearchShape.k);
 
             // Page B in
             LoadGlobalToShared(params.candidatePoints, BTile[0], baseBlockCoord.col,
-                               GetBlockTileDims().n, kStart, params.searchShape.k);
+                               GetBlockTileDims().n, kStart, params.paddedSearchShape.k);
             __syncthreads();  // Wait for all data to be paged before computing
 
             // Debug print statements
@@ -438,22 +436,22 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
             // Always acquire and commit since wait_prior< > takes in a constant.
             pipeline.producer_acquire();
 
-            if (nextKToLoad < params.searchShape.k) {
+            if (nextKToLoad < params.paddedSearchShape.k) {
                 // Page A in
                 LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i], baseBlockCoord.row,
-                                        blockTileDims.m, nextKToLoad, params.searchShape.k);
+                                        blockTileDims.m, nextKToLoad, params.paddedSearchShape.k);
 
                 // Page B in
                 LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i],
                                         baseBlockCoord.col, blockTileDims.n, nextKToLoad,
-                                        params.searchShape.k);
+                                        params.paddedSearchShape.k);
                 nextKToLoad += blockTileDims.k;
             }
             pipeline.producer_commit();
         }
         // Pipeline stage to consume next
         int pipelineIndex = 0;
-        for (int kStart = 0; kStart < params.searchShape.k; kStart += blockTileDims.k) {
+        for (int kStart = 0; kStart < params.paddedSearchShape.k; kStart += blockTileDims.k) {
             SharedSize *nextATile, *nextBTile;
             GetNextSharedTile(pipelineIndex, ATile, BTile, &nextATile, &nextBTile);
 
@@ -472,15 +470,15 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
             pipeline.producer_acquire();
             // Still queue up empty stage if all the data we need is in the pipeline so wait
             // doesn't block indefinitely at the end of the computation
-            if (nextKToLoad < params.searchShape.k) {
+            if (nextKToLoad < params.paddedSearchShape.k) {
                 // Page A in
                 LoadGlobalToSharedAsync(pipeline, params.queryPoints, nextATile, baseBlockCoord.row,
-                                        blockTileDims.m, nextKToLoad, params.searchShape.k);
+                                        blockTileDims.m, nextKToLoad, params.paddedSearchShape.k);
 
                 // Page B in
                 LoadGlobalToSharedAsync(pipeline, params.candidatePoints, nextBTile,
                                         baseBlockCoord.col, blockTileDims.n, nextKToLoad,
-                                        params.searchShape.k);
+                                        params.paddedSearchShape.k);
 
                 nextKToLoad += blockTileDims.k;
             }
@@ -499,23 +497,9 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
         }
     }
 
-    // Number within epsilon in each thread
-    blockCount[threadIdx.x] =
-        warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
-                                params.epsilonSquared, params.actualSearchShape, pairs);
-
-    // Simple reduction in shared memory
-    // This isn't actually faster than atomicAdd in shared memory!
-    unsigned int i = threadIdx.x;
-    for (unsigned int stride = blockSize / 2; stride >= 1; stride /= 2) {
-        __syncthreads();
-        if (threadIdx.x < stride) {
-            blockCount[i] += blockCount[i + stride];
-        }
-    }
-    if (threadIdx.x == 0) {
-        atomicAdd(params.numPairs, blockCount[0]);
-    }
+    // Inspect the final results to see if we are within epsilon
+    warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
+                            params.epsilonSquared, params.inputSearchShape, pairs);
 }
 
 /** Finds all pairs of points in the query and candidate points. Launches the required kernels
@@ -525,15 +509,15 @@ __global__ void FindPairsKernel(FindPairsParams params, Coordinate* blockCoords,
  *
  * \return
  */
-__host__ void FindPairs(const FindPairsParams& params) {
-    size_t numBlocksRow = ceil(1.0 * params.searchShape.m / GetBlockTileDims().m);
-    size_t numBlocksCol = ceil(1.0 * params.searchShape.n / GetBlockTileDims().n);
+__host__ Results FindPairs(const FindPairsParams& params) {
+    size_t numBlocksRow = ceil(1.0 * params.paddedSearchShape.m / GetBlockTileDims().m);
+    size_t numBlocksCol = ceil(1.0 * params.paddedSearchShape.n / GetBlockTileDims().n);
     dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
-    // Assume a certain percentage of pairs will be found
-    size_t expectedPairs = params.actualSearchShape.m * 2;
+    // Assume a certain percentage of pairs will be found, 1000 is a fair guess.
+    size_t expectedPairs = params.inputSearchShape.m * 1000;
     Pairs::Pairs pairs(expectedPairs);
     pairs.init();
 
@@ -562,6 +546,9 @@ __host__ void FindPairs(const FindPairsParams& params) {
     // Write pairs to whatever stream was passed in
     params.os << pairs;
     pairs.release();
+
+    return Results{0.0, pairs.getPairsFound(), pairs.getPairsStored(), params.inputSearchShape,
+                   params.paddedSearchShape};
 }
 };  // namespace SimSearch
 

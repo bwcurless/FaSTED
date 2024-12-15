@@ -57,19 +57,21 @@ class mmaShape(ctypes.Structure):
 class Results(ctypes.Structure):
     _fields_ = [
         ("TFLOPS", ctypes.c_double),
-        ("pairs", ctypes.c_ulonglong),
-        ("problemShape", mmaShape),
+        ("pairsFound", ctypes.c_ulonglong),
+        ("pairsStored", ctypes.c_ulonglong),
+        ("inputProblemShape", mmaShape),
+        ("paddedProblemShape", mmaShape),
     ]
 
     def __repr__(self):
-        return f"Results(TFLOPS={self.TFLOPS}, pairs={self.pairs}, problemShape={self.problemShape})"
+        return f"Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound}, pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape}, paddedProblemShape={self.paddedProblemShape})"
 
 
 # Run epsilon sweep to see if it effects TFLOPS significantly. Do this on it's own.
 def runEpsilonSweep():
-    epsilons = np.linspace(0.001, 0.1, 5)
-    inputSize = 200000
-    dimensionality = 1024
+    epsilons = np.linspace(0.0001, 0.1, 5)
+    inputSize = 20000
+    dimensionality = 17
     epsSweepResults = {}
     for eps in epsilons:
         epsSweepResults[eps] = findPairs.runFromExponentialDataset(
