@@ -178,7 +178,6 @@ int main(int argc, char* argv[]) {
         double epsilon = parseDouble(epsilonString);
 
         auto results = runFromExponentialDataset(numPoints, numDimensions, 40, 0, epsilon);
-        std::cout << "Total Execution Time: " << results.totalExecutionTime << std::endl;
     } else {
         if (argc != 3) {
             std::cerr << "Usage: " << argv[0] << " <filename> <epsilon>" << std::endl;
@@ -209,7 +208,7 @@ int main(int argc, char* argv[]) {
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
     // Output filename generation
-    std::string outputPath = builder.getDatasetName() + "_" + std::to_string(epsilon);
+    std::string outputPath = builder.getDatasetName() + "_" + std::to_string(epsilon) + ".pairs";
     std::ofstream outFile(outputPath);
     std::cout << "Writing output file to: " << outputPath << std::endl;
 
@@ -221,7 +220,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     if (Debug) {
         pointList = builder.withMaxPoints(128).build(bDims.k, bDims.m);
     } else {
-        pointList = builder.build(16 * bDims.k, bDims.m);
+        pointList = builder.build(bDims.k, bDims.m);
     }
 
     Mma::mmaShape searchShape{pointList.getNumPoints(), pointList.getNumPoints(),
@@ -281,6 +280,8 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
 
+    cudaMemcpy(&h_numPairs, d_numPairs, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+
     // Release device memory resources
 
     float elapsedTime, sumSquaredTime, findPairsTime;
@@ -309,7 +310,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
 
-    return SimSearch::Results{elapsedTime, actualSearchShape};
+    return SimSearch::Results{tflops, h_numPairs, actualSearchShape};
 }
 
 extern "C" {

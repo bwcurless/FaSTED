@@ -25,7 +25,8 @@ a dataset already loaded into host memory.
 
 namespace SimSearch {
 struct Results {
-    double totalExecutionTime;   // How long it took to execute the routine
+    double TFLOPS;               // The estimated teraflops achieved
+    unsigned long long pairs;    // How many pairs were found
     Mma::mmaShape problemShape;  // The actual shape of the problem, m x n x k
 };
 
