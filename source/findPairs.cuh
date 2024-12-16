@@ -13,6 +13,7 @@ a dataset already loaded into host memory.
 #include <cooperative_groups/memcpy_async.h>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <omp.h>
 
 #include <cuda/pipeline>
 
@@ -627,18 +628,21 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
     // Synchronize then sort pairs and save them of
     cudaDeviceSynchronize();
+    double sortStartTime = omp_get_wtime();
     pairs.sort();
     // Write pairs to whatever stream was passed in
     hostParams.os << pairs;
     pairs.release();
+    double sortEndTime = omp_get_wtime();
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
 
     // Compute result statistics
-    float elapsedTime, sumSquaredTime, findPairsTime;
+    float elapsedTime, sumSquaredTime, findPairsTime, sortTime;
     cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);
     cudaEventElapsedTime(&sumSquaredTime, squaredSumsStart, squaredSumsStop);
     cudaEventElapsedTime(&findPairsTime, squaredSumsStop, findPairsStop);
+    sortTime = sortEndTime - sortStartTime;
     elapsedTime /= 1000;
     sumSquaredTime /= 1000;
     findPairsTime /= 1000;
@@ -646,6 +650,7 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     printf("Total Kernel Elapsed time: %f seconds\n", elapsedTime);
     printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
     printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
+    printf("Pairs sort Elapsed time: %f seconds\n", sortTime);
     // Estimated TFLOPS that we computed. Don't count padded 0's as useful computation.
     const float tflops = static_cast<float>(hostParams.inputSearchShape.m) *
                          hostParams.inputSearchShape.n * hostParams.inputSearchShape.k * 2 /
