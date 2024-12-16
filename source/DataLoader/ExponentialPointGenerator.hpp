@@ -34,7 +34,7 @@ class ExponentialPointGenerator : public SimSearch::PointGenerator {
 
     std::optional<std::vector<double> > next() override {
         // Start generating random points!!!
-        std::vector<double> point;
+        std::vector<double> points;
         if (generatedPoints >= numPoints) {
             return std::nullopt;
         }
@@ -48,12 +48,12 @@ class ExponentialPointGenerator : public SimSearch::PointGenerator {
 
             total += val;
 
-            point.push_back(val);
+            points.push_back(val);
         }
 
         generatedPoints++;
 
-        return point;
+        return points;
     }
 
     std::string getName() override {
