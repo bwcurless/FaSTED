@@ -624,14 +624,13 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Run the actual search kernel
     FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(deviceParams, d_blockCoords, pairs);
 
+    gpuErrchk(cudaEventRecord(findPairsStop, 0));
     // Synchronize then sort pairs and save them of
     cudaDeviceSynchronize();
     pairs.sort();
     // Write pairs to whatever stream was passed in
     hostParams.os << pairs;
     pairs.release();
-
-    gpuErrchk(cudaEventRecord(findPairsStop, 0));
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
 
