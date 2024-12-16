@@ -247,7 +247,14 @@ struct WarpTile {
                                distanceSqd);
                     }
 
-                    if (distanceSqd < epsilonSqd) {
+                    /*
+                                        if (elemCoord.row == elemCoord.col && distanceSqd >
+                       epsilonSqd) { printf("Failed to match same element: %f/%f, %f, %f, %f\n",
+                       distanceSqd, epsilonSqd, querySquared, candidateSquared, Dfrag.Registers[d]);
+                                        }
+                    */
+
+                    if (distanceSqd <= epsilonSqd) {
                         // Ignore 0 padded points on boundaries
                         if (elemCoord.row < searchShape.m && elemCoord.col < searchShape.n) {
                             count++;

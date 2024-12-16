@@ -33,11 +33,10 @@ __device__ Out SumSquareHalf2(half2 value);
 
 template <>
 __device__ float SumSquareHalf2(half2 value) {
-    float2 squares = __half22float2(value * value);
-    float sum = 0;
-    sum += squares.x;
-    sum += squares.y;
-    return sum;
+    float2 fValues = __half22float2(value);
+    fValues.x = fValues.x * fValues.x;
+    fValues.y = fValues.y * fValues.y;
+    return __fadd_rz(fValues.x, fValues.y);
 }
 
 /** Compute the sum of the squared dimensions for each point. Store results back to global memory.
@@ -71,7 +70,7 @@ __global__ void SquaredSumsKernel(half2* points, const int numPoints, const int 
     int firstDimension = pointIndex * normalizedDimensions;
     for (int i = threadIdx.x; i < normalizedDimensions; i += blockDim.x) {
         half2 dims = points[firstDimension + i];
-        localSum += SumSquareHalf2<Out>(dims);
+        localSum = __fadd_rz(localSum, SumSquareHalf2<Out>(dims));
     }
 
     atomicAdd(&sum, localSum);
@@ -100,7 +99,8 @@ Out* ComputeSquaredSums(half2* points, const int numPoints, const int numDimensi
     cudaMalloc(&sums, sumsSize);
 
     // Determine launch parameters
-    dim3 blockDims(128);
+    dim3 blockDims(
+        1);  // Weird, but can't do an atomicSum reduction here since we need to round to zero.
     dim3 gridDims(numPoints);
 
     // Launch Kernel
