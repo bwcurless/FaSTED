@@ -1,7 +1,7 @@
-#!/usr/bin/python3
-
 import ctypes
 import numpy as np
+import sys
+import math
 
 
 def nthroot(a, n):
@@ -39,7 +39,7 @@ def adjustEpsilon(oldEpsilon, oldSelectivity, targetSelectivity, numDim):
 
 # computes the selectivity as |R|-|D|/|D|
 def computeSelectivity(resultSetSize, datasetSize):
-    return (resultSetSize * 1.0 - datasetSize * 1.0) / datasetSize * 1.0
+    return max(0, resultSetSize * 1.0 - datasetSize * 1.0) / datasetSize * 1.0
 
 
 class mmaShape(ctypes.Structure):
@@ -67,18 +67,34 @@ class Results(ctypes.Structure):
         return f"Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound}, pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape}, paddedProblemShape={self.paddedProblemShape})"
 
 
-# Run epsilon sweep to see if it effects TFLOPS significantly. Do this on it's own.
-def runEpsilonSweep():
-    epsilons = np.linspace(0.001, 1, 5)
-    inputSize = 200
-    dimensionality = 8000
-    epsSweepResults = {}
-    for eps in epsilons:
-        epsSweepResults[eps] = findPairs.runFromExponentialDataset(
-            inputSize, dimensionality, 1, 10.0, eps
+# Determines the proper epsilon value to obtain a specified selectivity
+def findEpsilon(size, dim, selectivity, initialEpsilon=0.01):
+    lda = 1
+    rang = 10.0
+    result = findPairs.runFromExponentialDataset(
+        size, dim, lda, rang, initialEpsilon
+    )
+    epsilon = initialEpsilon
+    while (
+        abs((sel := computeSelectivity(result.pairsFound, size)) - selectivity)
+        > 1
+    ):
+        epsilon = adjustEpsilon(epsilon, sel, selectivity, dim)
+        print(f"Selectivity was {sel}/{selectivity} new epslion: {epsilon}")
+        result = findPairs.runFromExponentialDataset(
+            size, dim, lda, rang, epsilon
         )
+    print(
+        f"Final selectivity was {sel}/{selectivity} with an epsilon of: {epsilon}"
+    )
+    return epsilon
 
-    print(epsSweepResults)
+
+# Run epsilon sweep to see if it effects TFLOPS significantly. Do this on it's own.
+def runSelectivitySweep(selectivities):
+    epsilons = {}
+    for selectivity in selectivities:
+        epsilons[selectivity] = findEpsilon(2000, 64, selectivity, 0.01)
 
 
 # Load the shared library
@@ -94,7 +110,13 @@ findPairs.runFromExponentialDataset.argtypes = [
     ctypes.c_double,
 ]
 
-runEpsilonSweep()
+print("Version in script")
+print(sys.version)
+
+# Search for epsilons that achieve these selectivities
+targetSelectivities = [10]
+
+runSelectivitySweep(targetSelectivities)
 
 # Run scaling sweep.
 

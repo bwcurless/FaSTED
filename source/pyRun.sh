@@ -22,6 +22,7 @@ outputFile="MMAPTXPythonScript"
 # Do a test build locally to make sure there aren't errors before waiting in queue
 echo "Building executable to $outputFile"
 module load cuda
+module load python
 make clean
 make shared
 
@@ -53,11 +54,14 @@ jobid=$(sbatch --parsable <<SHELL
 
 # Code will not compile if we don't load the module
 module load cuda
+module load python/3.10.8
+module load py-pip
+pip install numpy
 
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
 make shared
 
-./exponentialStudy.py
+python -u exponentialStudy.py
 #srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
