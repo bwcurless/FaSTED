@@ -21,10 +21,9 @@ outputFile="MMAPTXPythonScript"
 
 # Do a test build locally to make sure there aren't errors before waiting in queue
 echo "Building executable to $outputFile"
-module load cuda
-module load python
-make clean
-make shared
+#module load cuda
+#make clean
+#make shared
 
 # Define where outputs go
 outputPath="/scratch/$USER/"
@@ -40,7 +39,7 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --output=$outputPath$jobPrefix$outputFile-%j.out
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
-#SBATCH --time=00:10:00
+#SBATCH --time=01:10:00
 #SBATCH --mem=10000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100

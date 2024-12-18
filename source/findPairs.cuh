@@ -63,10 +63,11 @@ struct FindPairsParamsHost {
     Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
     Points::PointList<half_float::half> pointList;  // Host memory containing all points.
+    bool skipSort;                                  // Skip sorting, useful for testing
     std::ostream& os;                               // Stream to write pairs to
 };
 
-/** The parameters required to run a search on the device.
+/**The parameters required to run a search on the device.
  */
 struct FindPairsParamsDevice {
     float epsilonSquared;  // The maximum distance between points to be considered a pair.
@@ -629,7 +630,9 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Synchronize then sort pairs and save them of
     cudaDeviceSynchronize();
     double sortStartTime = omp_get_wtime();
-    pairs.sort();
+    if (!hostParams.skipSort) {
+        pairs.sort();
+    }
     // Write pairs to whatever stream was passed in
     hostParams.os << pairs;
     pairs.release();

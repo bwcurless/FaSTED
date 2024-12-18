@@ -36,7 +36,7 @@ extern "C" {
  * \param epsilon The epsilon to use.
  *
  */
-SimSearch::Results runFromFile(std::string filename, double epsilon);
+SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipSort = false);
 
 /** Run pair finding routine from a generated exponentially distributed dataset.
  * \param size The number of points in the dataset.
@@ -49,7 +49,7 @@ SimSearch::Results runFromFile(std::string filename, double epsilon);
  *
  */
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double mean, double epsilon);
+                                             double mean, double epsilon, bool skipSort = false);
 }
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every
@@ -173,7 +173,8 @@ int main(int argc, char* argv[]) {
  *
  * \returns The search results
  */
-SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon) {
+SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon,
+                       bool skipSort) {
     // Output filename generation
     std::string outputPath = "/scratch/bc2497/pairsData/" + builder.getDatasetName() + "_" +
                              std::to_string(epsilon) + ".pairs";
@@ -210,8 +211,8 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
                           paddedSearchShape.m, paddedSearchShape.k);
     }
 
-    auto hostParams = SimSearch::FindPairsParamsHost{epsilon, paddedSearchShape, inputSearchShape,
-                                                     pointList, outFile};
+    auto hostParams = SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape, inputSearchShape,
+                                                     pointList, skipSort,          outFile};
     SimSearch::Results results = SimSearch::FindPairs(hostParams);
 
     return results;
@@ -219,20 +220,20 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 
 extern "C" {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double max, double epsilon) {
+                                             double max, double epsilon, bool skipSort) {
     // Dynamically generate the dataset
     SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, lambda, max);
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     // Run routine
-    return run(pointListBuilder, epsilon);
+    return run(pointListBuilder, epsilon, skipSort);
 }
 
-SimSearch::Results runFromFile(std::string filename, double epsilon) {
+SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipSort) {
     // Read dataset from file
     SimSearch::FilePointGenerator pointGen(filename, ',');
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
-    return run(pointListBuilder, epsilon);
+    return run(pointListBuilder, epsilon, skipSort);
 }
 }
