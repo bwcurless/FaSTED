@@ -14,6 +14,8 @@
 
 #include <iostream>
 
+#include "utils.cuh"
+
 namespace Pairs {
 
 /** Two points that were found within a distance epsilon of each other.
@@ -65,11 +67,11 @@ class Pairs {
      *
      */
     __host__ void init() {
-        cudaMalloc(&d_pairs, sizeof(Pair) * maxPairs);
-        cudaMalloc(&d_pairsFound, sizeof(unsigned long long));
-        cudaMemset(d_pairsFound, 0, sizeof(unsigned long long));
-        cudaMalloc(&d_pairsStored, sizeof(unsigned long long));
-        cudaMemset(d_pairsStored, 0, sizeof(unsigned long long));
+        gpuErrchk(cudaMalloc(&d_pairs, sizeof(Pair) * maxPairs));
+        gpuErrchk(cudaMalloc(&d_pairsFound, sizeof(unsigned long long)));
+        gpuErrchk(cudaMemset(d_pairsFound, 0, sizeof(unsigned long long)));
+        gpuErrchk(cudaMalloc(&d_pairsStored, sizeof(unsigned long long)));
+        gpuErrchk(cudaMemset(d_pairsStored, 0, sizeof(unsigned long long)));
     }
 
     /** Release resources acquired by object. Must be called before object goes out of scope.
@@ -77,15 +79,15 @@ class Pairs {
      */
     __host__ void release() {
         if (d_pairs) {
-            cudaFree(d_pairs);
+            gpuErrchk(cudaFree(d_pairs));
             d_pairs = nullptr;
         }
         if (d_pairsFound) {
-            cudaFree(d_pairsFound);
+            gpuErrchk(cudaFree(d_pairsFound));
             d_pairsFound = nullptr;
         }
         if (d_pairsStored) {
-            cudaFree(d_pairsStored);
+            gpuErrchk(cudaFree(d_pairsStored));
             d_pairsStored = nullptr;
         }
     }
@@ -98,7 +100,7 @@ class Pairs {
      * \returns The pointer to store your pairs at. nullptr if failed to allocate enough space.
      */
     __device__ Pair* getSpace(unsigned int numPairs = 1) {
-        int old = atomicAdd(d_pairsFound, numPairs);
+        unsigned long long old = atomicAdd(d_pairsFound, numPairs);
         // Failed to allocate enough space
         if (old + numPairs > maxPairs) {
             return nullptr;
