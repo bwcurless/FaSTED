@@ -40,7 +40,7 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
 #SBATCH --time=01:10:00
-#SBATCH --mem=10000         #memory requested in MiB
+#SBATCH --mem=50000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
 
@@ -76,5 +76,5 @@ SHELL
 )
 
 
-waitForJobComplete "$jobid"
-printFile "$outputPath$jobPrefix$outputFile-$jobid.out"
+#waitForJobComplete "$jobid"
+#printFile "$outputPath$jobPrefix$outputFile-$jobid.out"

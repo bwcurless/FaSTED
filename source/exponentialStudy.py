@@ -100,7 +100,7 @@ class Experiment:
 
 
 # Determines the proper epsilon value to obtain a specified selectivity
-def findEpsilon(size, dim, selectivity, expD, initialEpsilon=0.01):
+def findEpsilon(size, dim, selectivity, expD, initialEpsilon=0.1):
     result = findPairs.runFromExponentialDataset(
         size, dim, expD.eLambda, expD.eRange, initialEpsilon, True
     )
@@ -126,7 +126,7 @@ def runSelectivityExperiment(size, dim, selectivities, expD, iterations=3):
     # First find the appropriate epsilons
     epsilons = {}
     for selectivity in selectivities:
-        epsilons[selectivity] = findEpsilon(size, dim, selectivity, expD, 0.01)
+        epsilons[selectivity] = findEpsilon(size, dim, selectivity, expD, 0.1)
 
     # Now run the actual experiments and save the results
     results = []
@@ -159,6 +159,33 @@ class ResultsEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+# Test how changing the selectivity effects the speed of my algorithm
+def runSelectivityVsSpeedExperiment(targetSelectivities, expD):
+    print("Running basic selectivity experiment")
+    # Run a basic experiment to show that increasing selectivity doesn't significantly effect results
+    results = runSelectivityExperiment(1000000, 64, targetSelectivities, expD)
+    with open("selectivityVsSpeed.json", "w") as f:
+        json.dump(results, f, cls=ResultsEncoder)
+
+
+# Test how different dataset sizes and dimensionality effect the speed of my algorithm
+def runSpeedSweepsExponentialDataExperiment(expD):
+    # Run main speed experiment on exponential datasets
+    # Show how problem sizes impacts tensor core utilization
+    # Use a fixed selectivity
+    selectivity = [10]
+    results = []
+    print("Running exponential sweep speed experiment")
+    for size in np.logspace(1, 6, 20):
+        for dim in range(64, 4096, 64):
+            results += runSelectivityExperiment(
+                round(size), round(dim), selectivity, expD
+            )
+
+    with open("ExpoDataSpeedVsSize.json", "w") as f:
+        json.dump(results, f, cls=ResultsEncoder)
+
+
 print(sys.version)
 
 # Targeting selectivities in the range of 10..1000
@@ -167,26 +194,9 @@ targetSelectivities = np.logspace(1, 3, 20)
 # Set up my exponential dataset distribution
 expD = ExponentialDistribution(1.0, 5)
 
-print("Running basic selectivity experiment")
-# Run a basic experiment to show that increasing selectivity doesn't significantly effect results
-results = runSelectivityExperiment(1000000, 64, targetSelectivities, expD)
-with open("selectivityVsSpeed.json", "w") as f:
-    json.dump(results, f, cls=ResultsEncoder)
+runSelectivityVsSpeedExperiment(targetSelectivities, expD)
 
-# Run main speed experiment on exponential datasets
-# Show how problem sizes impacts tensor core utilization
-# Use a fixed selectivity
-selectivity = [10]
-results = []
-print("Running exponential sweep speed experiment")
-for size in np.logspace(1, 6, 20):
-    for dim in range(64, 4096, 64):
-        results += runSelectivityExperiment(
-            round(size), round(dim), selectivity, expD
-        )
-
-with open("ExpoDataSpeedVsSize.json", "w") as f:
-    json.dump(results, f, cls=ResultsEncoder)
+# runSpeedSweepsExponentialData(expD)
 
 
 # Run on real world datasets. Autotune to use the 3x different selectivities. Will have 3x however many datasets I am testing on of output Pair data.

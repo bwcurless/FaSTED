@@ -63,7 +63,7 @@ struct FindPairsParamsHost {
     Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
     Points::PointList<half_float::half> pointList;  // Host memory containing all points.
-    bool skipSort;                                  // Skip sorting, useful for testing
+    bool skipPairs;                                 // Skip writing out pairs, useful for testing
     std::ostream& os;                               // Stream to write pairs to
 };
 
@@ -628,13 +628,13 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
     // Synchronize then sort pairs and save them of
-    cudaDeviceSynchronize();
+    gpuErrchk(cudaDeviceSynchronize());
     double sortStartTime = omp_get_wtime();
-    if (!hostParams.skipSort) {
+    if (!hostParams.skipPairs) {
         pairs.sort();
+        // Write pairs to whatever stream was passed in
+        hostParams.os << pairs;
     }
-    // Write pairs to whatever stream was passed in
-    hostParams.os << pairs;
     pairs.release();
     double sortEndTime = omp_get_wtime();
 
@@ -668,6 +668,7 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaFree(d_BValues);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
+    cudaFree(d_blockCoords);
 
     return Results{tflops, pairs.getPairsFound(), pairs.getPairsStored(),
                    hostParams.inputSearchShape, hostParams.paddedSearchShape};
