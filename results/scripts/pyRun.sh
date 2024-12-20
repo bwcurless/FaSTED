@@ -39,7 +39,7 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --output=$outputPath$jobPrefix$outputFile-%j.out
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
-#SBATCH --time=01:10:00
+#SBATCH --time=11:10:00
 #SBATCH --mem=50000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
@@ -57,9 +57,10 @@ module load python/3.10.8
 module load py-pip
 pip install numpy
 
-# Can do arithmetic interpolation inside of $(( )). Need to escape properly
+cd "../../source"
 make shared
 
+cd "../results/scripts"
 python -u exponentialStudy.py
 #srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03

@@ -31,7 +31,7 @@ class Results(ctypes.Structure):
 
 
 # Load the shared library
-findPairs = ctypes.CDLL("./main.so")
+findPairs = ctypes.CDLL("../../source/main.so")
 
 # Define the function prototype
 findPairs.runFromExponentialDataset.restype = Results
@@ -176,7 +176,7 @@ def runSpeedSweepsExponentialDataExperiment(expD):
     selectivity = [10]
     results = []
     print("Running exponential sweep speed experiment")
-    for size in np.logspace(1, 6, 20):
+    for size in np.logspace(3, 6, 20):
         for dim in range(64, 4096, 64):
             results += runSelectivityExperiment(
                 round(size), round(dim), selectivity, expD
@@ -194,9 +194,9 @@ targetSelectivities = np.logspace(1, 3, 20)
 # Set up my exponential dataset distribution
 expD = ExponentialDistribution(1.0, 5)
 
-runSelectivityVsSpeedExperiment(targetSelectivities, expD)
+# runSelectivityVsSpeedExperiment(targetSelectivities, expD)
 
-# runSpeedSweepsExponentialData(expD)
+runSpeedSweepsExponentialDataExperiment(expD)
 
 
 # Run on real world datasets. Autotune to use the 3x different selectivities. Will have 3x however many datasets I am testing on of output Pair data.
