@@ -54,16 +54,10 @@ template <typename Out>
 __global__ void SquaredSumsKernel(half2* points, const int numPoints, const int numDimensions,
                                   Out* sums) {
     // Each block is responsible for reducing one point in this simple implementation
-    __shared__ Out sum;
-
+    // TODO Investigate if doing a shared memory reduction using round to zero addition would be
+    // faster and yield the same results. Can't use atomicAdd because it rounds to nearest even.
     int pointIndex = blockIdx.x;
     Out localSum = 0;
-
-    if (threadIdx.x == 0) {
-        sum = 0.0;
-    }
-
-    __syncthreads();
 
     // Reads two half values at a time
     int normalizedDimensions = numDimensions / 2;
@@ -73,12 +67,8 @@ __global__ void SquaredSumsKernel(half2* points, const int numPoints, const int 
         localSum = __fadd_rz(localSum, SumSquareHalf2<Out>(dims));
     }
 
-    atomicAdd(&sum, localSum);
-
-    __syncthreads();
-
     if (threadIdx.x == 0) {
-        sums[pointIndex] = sum;
+        sums[pointIndex] = localSum;
     }
 }
 
