@@ -116,42 +116,53 @@ class Pairs {
      *
      */
     __host__ std::vector<Pair> getPairs() {
-        transferPairCounts();
-        std::vector<Pair> h_pairs(h_pairsStored);
+        unsigned long long pairsStored = getPairsStored();
+        std::vector<Pair> pairs(pairsStored);
 
-        cudaMemcpy(h_pairs.data(), d_pairs, sizeof(Pair) * h_pairsStored, cudaMemcpyDeviceToHost);
+        cudaMemcpy(pairs.data(), d_pairs, sizeof(Pair) * pairsStored, cudaMemcpyDeviceToHost);
 
-        return h_pairs;
+        return pairs;
     }
 
     /** Sort the pairs in ascending order.
      *
      */
     __host__ void sort() {
-        transferPairCounts();
-        printf("Number of pairs found %llu\n", h_pairsFound);
-        printf("Number of pairs stored %llu\n", h_pairsStored);
-        thrust::sort(thrust::device, d_pairs, d_pairs + h_pairsStored);
+        unsigned long long pairsFound = getPairsFound();
+        unsigned long long pairsStored = getPairsStored();
+        printf("Number of pairs found %llu\n", pairsFound);
+        printf("Number of pairs stored %llu\n", pairsStored);
+        thrust::sort(thrust::device, d_pairs, d_pairs + pairsStored);
         cudaGetLastError();
     }
 
-    __host__ unsigned long long getPairsFound() { return h_pairsFound; }
-    __host__ unsigned long long getPairsStored() { return h_pairsStored; }
+    /** Get how many pairs the GPU found.
+     *
+     * \returns The number of pairs.
+     */
+    __host__ unsigned long long getPairsFound() {
+        unsigned long long pairsFound;
+        cudaMemcpy(&pairsFound, d_pairsFound, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+        return pairsFound;
+    }
+
+    /** Get how many pairs the GPU was able to store to the buffer. Might have run out of space
+     * while storing pairs. There is only so much GPU memory. This number might be less than the
+     * number of pairs found.
+     *
+     * \returns The number of pairs stored.
+     */
+    __host__ unsigned long long getPairsStored() {
+        unsigned long long pairsStored;
+        cudaMemcpy(&pairsStored, d_pairsStored, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+        return pairsStored;
+    }
 
    private:
     const unsigned long long maxPairs{};  // The max number of pairs that can be stored.
-    unsigned long long
-        h_pairsFound{};  // How many pairs were found (including when we ran out of memory).
-    unsigned long long h_pairsStored{};   // How many pairs have been stored (on host).
     Pair* d_pairs{};                      // The actual pairs on the device.
     unsigned long long* d_pairsFound{};   // How many pairs have been found.
     unsigned long long* d_pairsStored{};  // How many pairs have been stored in memory.
-
-    __host__ void transferPairCounts() {
-        cudaMemcpy(&h_pairsFound, d_pairsFound, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
-        cudaMemcpy(&h_pairsStored, d_pairsStored, sizeof(unsigned long long),
-                   cudaMemcpyDeviceToHost);
-    }
 };
 
 /** Print all the pairs to the output stream. Copies all data off of device and puts them into the

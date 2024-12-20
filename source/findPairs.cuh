@@ -638,6 +638,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
         std::ofstream outFile(pairsPath);
         outFile << pairs;
     }
+    unsigned long long pairsFound = pairs.getPairsFound();
+    unsigned long long pairsStored = pairs.getPairsStored();
     pairs.release();
     double sortEndTime = omp_get_wtime();
 
@@ -657,6 +659,7 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
     printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
     printf("Pairs sort Elapsed time: %f seconds\n", sortTime);
+    std::cout << "Pairs found: " << pairsFound << std::endl;
     // Estimated TFLOPS that we computed. Don't count padded 0's as useful computation.
     const float tflops = static_cast<float>(hostParams.inputSearchShape.m) *
                          hostParams.inputSearchShape.n * hostParams.inputSearchShape.k * 2 /
@@ -673,8 +676,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaFree(d_BSqSums);
     cudaFree(d_blockCoords);
 
-    return Results{tflops, pairs.getPairsFound(), pairs.getPairsStored(),
-                   hostParams.inputSearchShape, hostParams.paddedSearchShape};
+    return Results{tflops, pairsFound, pairsStored, hostParams.inputSearchShape,
+                   hostParams.paddedSearchShape};
 }
 };  // namespace SimSearch
 
