@@ -177,10 +177,8 @@ int main(int argc, char* argv[]) {
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon,
                        bool skipPairs) {
     // Output filename generation
-    std::string outputPath = "/scratch/bc2497/pairsData/" + builder.getDatasetName() + "_" +
-                             std::to_string(epsilon) + ".pairs";
-    std::ofstream outFile(outputPath);
-    std::cout << "Output file is: " << outputPath << std::endl;
+    std::string outputPath =
+        "/scratch/bc2497/pairsData/" + builder.getDatasetName() + "_" + std::to_string(epsilon);
 
     // Attempt to build the PointList using the provided filename
     Points::PointList<half_float::half> pointList;
@@ -213,7 +211,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     }
 
     auto hostParams = SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape, inputSearchShape,
-                                                     pointList, skipPairs,         outFile};
+                                                     pointList, skipPairs,         outputPath};
     SimSearch::Results results = SimSearch::FindPairs(hostParams);
 
     return results;

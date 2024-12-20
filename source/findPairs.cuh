@@ -64,7 +64,7 @@ struct FindPairsParamsHost {
                                       // padded values.
     Points::PointList<half_float::half> pointList;  // Host memory containing all points.
     bool skipPairs;                                 // Skip writing out pairs, useful for testing
-    std::ostream& os;                               // Stream to write pairs to
+    std::string outputPath;                         // Filepath to write data to.
 };
 
 /**The parameters required to run a search on the device.
@@ -632,8 +632,11 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     double sortStartTime = omp_get_wtime();
     if (!hostParams.skipPairs) {
         pairs.sort();
-        // Write pairs to whatever stream was passed in
-        hostParams.os << pairs;
+        // Open file stream and write data to it
+        std::string pairsPath = hostParams.outputPath + ".pairs";
+        std::cout << "Output file is: " << pairsPath << std::endl;
+        std::ofstream outFile(pairsPath);
+        outFile << pairs;
     }
     pairs.release();
     double sortEndTime = omp_get_wtime();
