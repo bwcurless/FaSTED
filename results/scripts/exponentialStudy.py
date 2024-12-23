@@ -3,6 +3,7 @@ from decimal import Decimal
 import ctypes
 from dataclasses import dataclass
 import numpy as np
+import time
 import sys
 import math
 
@@ -10,6 +11,20 @@ import math
 # Define my own print method so I can tell what output comes from C++, and what from Python
 def print(*args, prefix="[PYTHON]", **kwargs):
     __builtins__.print(prefix, *args, **kwargs)
+
+
+# A timing decorator to profile some code
+def timeit(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        print(
+            f"Function '{func.__name__}' executed in {end_time - start_time:.6f} seconds"
+        )
+        return result
+
+    return wrapper
 
 
 class mmaShape(ctypes.Structure):
@@ -56,6 +71,11 @@ def nthroot(a, n):
     return np.power(a, (1 / n))
 
 
+# Compute the gamma function divisor for determining hyper-sphere volume. Use lgamma so we don't overflow.
+def computeGamma(numDim):
+    return Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
+
+
 # returns a new epsilon that should be tested
 def adjustEpsilon(oldEpsilon, oldSelectivity, targetSelectivity, numDim):
     # edge case
@@ -76,8 +96,7 @@ def adjustEpsilon(oldEpsilon, oldSelectivity, targetSelectivity, numDim):
 
         piDec = Decimal(math.pi)
         dec2 = Decimal(2.0)
-        # Use lgamma so we don't overflow.
-        gammaDec = Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
+        gammaDec = computeGamma(numDim)
 
         oldVolumeDec = ((piDec ** (numDimDec / dec2)) / gammaDec) * (
             oldEpsilonDec**numDimDec
@@ -128,9 +147,12 @@ def findEpsilon(size, dim, selectivity, expD, initialEpsilon=0.1):
     ):
         epsilon = adjustEpsilon(epsilon, sel, selectivity, dim)
         print(f"Selectivity was {sel}/{selectivity} new epsilon: {epsilon}")
+        start = time.perf_counter()
         result = findPairs.runFromExponentialDataset(
             size, dim, expD.eLambda, expD.eRange, epsilon, True
         )
+        end = time.perf_counter()
+        print(f"CUDA Code execution time: {end - start:.6f} seconds")
     print(
         f"Final selectivity was {sel}/{selectivity} with an epsilon of: {epsilon}"
     )
@@ -192,8 +214,8 @@ def runSpeedSweepsExponentialDataExperiment(expD):
     selectivity = [10]
     results = []
     print("Running exponential sweep speed experiment")
-    for size in np.logspace(3, 4, 5):
-        for dim in range(64, 256, 64):
+    for size in np.logspace(3, 6, 20):
+        for dim in range(64, 4096, 64):
             results += runSelectivityExperiment(
                 round(size), round(dim), selectivity, expD
             )
