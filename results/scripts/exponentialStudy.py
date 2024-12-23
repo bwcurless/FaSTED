@@ -1,8 +1,15 @@
 import json
+from decimal import Decimal
 import ctypes
+from dataclasses import dataclass
 import numpy as np
 import sys
 import math
+
+
+# Define my own print method so I can tell what output comes from C++, and what from Python
+def print(*args, prefix="[PYTHON]", **kwargs):
+    __builtins__.print(prefix, *args, **kwargs)
 
 
 class mmaShape(ctypes.Structure):
@@ -51,29 +58,36 @@ def nthroot(a, n):
 
 # returns a new epsilon that should be tested
 def adjustEpsilon(oldEpsilon, oldSelectivity, targetSelectivity, numDim):
-
     # edge case
     # if the selectivity is 0, then we adjust the old selectivity
     # otherwise we'll have a division by 0 error
     if oldSelectivity == 0:
         print(
-            "[Python] The last selectivity yielded no neighbors with a selectivity of 0; doubling the epsilon value"
+            "The last selectivity yielded no neighbors with a selectivity of 0; increasing the epsilon value"
         )
         newEpsilon = oldEpsilon * 2.0
 
     else:
+        # Cast to decimal so we don't overflow when we exponentiate
+        oldEpsilonDec = Decimal(oldEpsilon)
+        targetSelectivityDec = Decimal(targetSelectivity)
+        oldSelectivityDec = Decimal(oldSelectivity)
+        numDimDec = Decimal(numDim)
 
-        oldVolume = (
-            (math.pi ** (numDim / 2.0)) / (math.gamma(numDim / 2.0 + 1))
-        ) * (oldEpsilon**numDim)
-        targetVolume = (
-            targetSelectivity * 1.0 / oldSelectivity * 1.0
-        ) * oldVolume
+        piDec = Decimal(math.pi)
+        dec2 = Decimal(2.0)
+        # Use lgamma so we don't overflow.
+        gammaDec = Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
 
-        expr = (targetVolume * (math.gamma(numDim / 2.0 + 1))) / (
-            math.pi ** (numDim / 2.0)
+        oldVolumeDec = ((piDec ** (numDimDec / dec2)) / gammaDec) * (
+            oldEpsilonDec**numDimDec
         )
-        newEpsilon = nthroot(expr, numDim)
+        targetVolumeDec = (
+            targetSelectivityDec / oldSelectivityDec
+        ) * oldVolumeDec
+
+        exprDec = (targetVolumeDec * gammaDec) / (piDec ** (numDim / dec2))
+        newEpsilon = float(exprDec ** (Decimal(1.0) / numDimDec))
 
     return newEpsilon
 
@@ -91,16 +105,18 @@ class ExponentialDistribution:
 
 
 # Wraps up the result parameters for an experiment
+@dataclass
 class Experiment:
-    def __init__(self, selectivity, epsilon, iteration, results):
-        self.selectivity = selectivity
-        self.epsilon = epsilon
-        self.iteration = iteration
-        self.results = results
+    selectivity: float
+    epsilon: float
+    iteration: int
+    results: Results
 
 
 # Determines the proper epsilon value to obtain a specified selectivity
 def findEpsilon(size, dim, selectivity, expD, initialEpsilon=0.1):
+    # Selectivity threshold. Must be this % to the target selectivity
+    selThreshold = 0.1
     result = findPairs.runFromExponentialDataset(
         size, dim, expD.eLambda, expD.eRange, initialEpsilon, True
     )
@@ -108,7 +124,7 @@ def findEpsilon(size, dim, selectivity, expD, initialEpsilon=0.1):
     while (
         abs((sel := computeSelectivity(result.pairsFound, size)) - selectivity)
         / selectivity
-        > 0.1
+        > selThreshold
     ):
         epsilon = adjustEpsilon(epsilon, sel, selectivity, dim)
         print(f"Selectivity was {sel}/{selectivity} new epsilon: {epsilon}")
@@ -176,8 +192,8 @@ def runSpeedSweepsExponentialDataExperiment(expD):
     selectivity = [10]
     results = []
     print("Running exponential sweep speed experiment")
-    for size in np.logspace(3, 6, 20):
-        for dim in range(64, 4096, 64):
+    for size in np.logspace(3, 4, 5):
+        for dim in range(64, 256, 64):
             results += runSelectivityExperiment(
                 round(size), round(dim), selectivity, expD
             )
@@ -186,17 +202,17 @@ def runSpeedSweepsExponentialDataExperiment(expD):
         json.dump(results, f, cls=ResultsEncoder)
 
 
-print(sys.version)
+if __name__ == "__main__":
+    print(sys.version)
 
-# Targeting selectivities in the range of 10..1000
-targetSelectivities = np.logspace(1, 3, 20)
+    # Targeting selectivities in the range of 10..1000
+    targetSelectivities = np.logspace(1, 3, 20)
 
-# Set up my exponential dataset distribution
-expD = ExponentialDistribution(1.0, 5)
+    # Set up my exponential dataset distribution
+    expD = ExponentialDistribution(1.0, 5)
 
-# runSelectivityVsSpeedExperiment(targetSelectivities, expD)
+    # runSelectivityVsSpeedExperiment(targetSelectivities, expD)
 
-runSpeedSweepsExponentialDataExperiment(expD)
+    runSpeedSweepsExponentialDataExperiment(expD)
 
-
-# Run on real world datasets. Autotune to use the 3x different selectivities. Will have 3x however many datasets I am testing on of output Pair data.
+    # Run on real world datasets. Autotune to use the 3x different selectivities. Will have 3x however many datasets I am testing on of output Pair data.
