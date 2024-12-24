@@ -27,7 +27,7 @@ def parseSelectivityVsSpeedData():
     plt.xlabel("Selectivity")
     plt.ylabel("TFLOPS")
     plt.title("Selectivity vs Throughput")
-    plt.savefig("selectivityVsSpeed.png")
+    plt.savefig("selectivityVsSpeed.pdf")
     plt.show()
 
 
@@ -55,7 +55,7 @@ def parseSpeedVsSizeData():
     ax.set_zlabel("Speed (TFLOPS)")
     ax.set_title("Speed vs Dataset Shape")
     fig.colorbar(surf)
-    plt.savefig("ExpoDataSpeedVsSize.png")
+    plt.savefig("ExpoDataSpeedVsSize.pdf")
     plt.show()
 
 

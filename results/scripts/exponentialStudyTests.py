@@ -1,0 +1,48 @@
+import unittest
+import exponentialStudy
+from exponentialStudy import ExperimentRunner
+from exponentialStudy import ExponentialDistribution
+from exponentialStudy import Results, mmaShape
+
+
+# Fake pair finding class for testing.
+class MockFindPairs(object):
+    def runFromExponentialDataset(
+        self, size, dim, eLambda, eRange, epsilon, skipPairs
+    ):
+        # Scale the output based on epsilon
+        result = Results()
+        result.TFLOPS = 1.0
+        result.pairsFound = int(1000000 * epsilon)
+        result.pairsStored = result.pairsFound
+        result.inputProblemShape = mmaShape(size, size, dim)
+        result.paddedProblemShape = mmaShape(size, size, dim)
+
+        return result
+
+
+class TestExponentialStudy(unittest.TestCase):
+    def setUp(self):
+        # Make a fake pairs finding routine
+        fake_findpairs = MockFindPairs()
+
+        self.sut = ExperimentRunner(fake_findpairs)
+
+    def test_experiment_runner(self):
+        print("Running experiment runner")
+        expD = ExponentialDistribution(1, 2)
+
+        results = self.sut.runSelectivityExperiment(100, 10, [10], expD)
+        print(results)
+        self.assertEqual(True, True)
+
+    # Pass in a high dimensionality to make sure the method does not error our.
+    def test_adjustEpsilonVolume_forOverflow(self):
+        oldEpsilon = 100
+        result = self.sut.adjustEpsilonVolume(oldEpsilon, 1000, 10, 10000)
+        print(f"Result was: {result}")
+        self.assertAlmostEqual(result, oldEpsilon, 1)
+
+
+if __name__ == "__main__":
+    unittest.main()
