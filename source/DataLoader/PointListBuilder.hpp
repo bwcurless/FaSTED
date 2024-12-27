@@ -1,3 +1,5 @@
+#include <omp.h>
+
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -128,6 +130,7 @@ class PointListBuilder {
      * \returns The list of points, padded according to the input.
      * */
     PointList<T> build(int dimensionFactor = 1, int numPointsFactor = 1) {
+        double buildDatasetStartTime = omp_get_wtime();
         std::vector<T> points;
         bool firstIter = true;
         int numDimensions;
@@ -168,6 +171,10 @@ class PointListBuilder {
         if (pointCount == 0) {
             throw std::runtime_error("No points were generated.");
         }
+        double buildDatasetEndTime = omp_get_wtime();
+
+        std::cout << "Dataset creation time: " << buildDatasetEndTime - buildDatasetStartTime
+                  << " (sec)" << std::endl;
 
         // Return a PointList object constructed with the read data
         return PointList<T>(std::move(points), paddedPoints, pointCount, paddedDimensions,

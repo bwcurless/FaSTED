@@ -74,11 +74,13 @@ class ExperimentRunner(object):
         """
         self._find_pairs = find_pairs
 
-    # Compute the gamma function divisor for determining hyper-sphere volume. Use lgamma so we don't overflow.
+    # Compute the gamma function divisor for determining hyper-sphere volume.
+    # Use lgamma so we don't overflow.
     def computeGamma(self, numDim):
         return Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
 
-    # Returns a scaled epsilon based on scaling the volume by how much our selectivity differs from the target selectivity.
+    # Returns a scaled epsilon based on scaling the volume by how much our selectivity
+    # differs from the target selectivity.
     def adjustEpsilonVolume(
         self, oldEpsilon, oldSelectivity, targetSelectivity, numDim
     ):
@@ -87,7 +89,8 @@ class ExperimentRunner(object):
         # otherwise we'll have a division by 0 error
         if oldSelectivity == 0:
             print(
-                "The last selectivity yielded no neighbors with a selectivity of 0; increasing the epsilon value"
+                """The last selectivity yielded no neighbors with a selectivity of 0; 
+                increasing the epsilon value"""
             )
             newEpsilon = oldEpsilon * 2.0
 
@@ -120,11 +123,12 @@ class ExperimentRunner(object):
             max(0, resultSetSize * 1.0 - datasetSize * 1.0) / datasetSize * 1.0
         )
 
-    # Find an upper and lower bound on epsilon to achieve a target selectivity, given a way to calculate the selectivity for a specific epsilon.
+    # Find an upper and lower bound on epsilon to achieve a target selectivity,
+    # given a way to calculate the selectivity for a specific epsilon.
     def boundEpsilon(
         self, initialEpsilon, maxEpsilon, target_selectivity, getSelectivity
     ):
-        epsilonScaleFactor = 10
+        epsilonScaleFactor = 3
 
         current_selectivity = 0
         new_epsilon = initialEpsilon
@@ -138,9 +142,14 @@ class ExperimentRunner(object):
                 else (old_epsilon * epsilonScaleFactor)
             )
 
+            print(
+                f"Checking if Epsilon is in the range ({old_epsilon}, {new_epsilon})"
+            )
+
             if new_epsilon > maxEpsilon:
                 raise ValueError(
-                    f"Epsilon of {new_epsilon} exceed the maximum value of {maxEpsilon}. Giving up trying to find the upper bound."
+                    f"""Epsilon of {new_epsilon} exceed the maximum value of {maxEpsilon}. 
+                    Giving up trying to find the upper bound."""
                 )
 
             current_selectivity = getSelectivity(new_epsilon)
@@ -161,7 +170,10 @@ class ExperimentRunner(object):
 
         return newEpsilon
 
-    # Determines the proper epsilon value to obtain a specified selectivity, using a binary search method. First finds a bounded epsilon range, then binary searches that range until we achieve the target selectivity. The initial epsilon MUST be below the target selectivity for this to work.
+    # Determines the proper epsilon value to obtain a specified selectivity,
+    # using a binary search method. First finds a bounded epsilon range,
+    # then binary searches that range until we achieve the target selectivity.
+    # The initial epsilon MUST be below the target selectivity for this to work.
     def findEpsilonBinary(
         self, size, dim, target_selectivity, expD, initialEpsilon=0
     ):
@@ -178,17 +190,21 @@ class ExperimentRunner(object):
             initialEpsilon, 100000, target_selectivity, getSelectivity
         )
 
-        # Perform a binary search on these bounds. Start in the middle of the two. We know we overshot it as well, so we can pick up where we left off with the binary search.
+        # Perform a binary search on these bounds. Start in the middle of the two.
+        # We know we overshot it as well, so we can pick up where we left off with the binary search.
         new_epsilon = ((upper_epsilon - lower_epsilon) / 2.0) + lower_epsilon
         last_epsilon = upper_epsilon
         selectivity_threshold = (
             0.01  # Search within a percent of the target selectivity
         )
 
+        iteration = 0
         current_selectivity = getSelectivity(new_epsilon)
         while not withinPercent(
             current_selectivity, target_selectivity, selectivity_threshold
         ):
+            print(f"Binary search iteration: {iteration}")
+            iteration += 1
             new_epsilon, last_epsilon = (
                 self.adjustEpsilonBinary(
                     new_epsilon,
@@ -202,7 +218,8 @@ class ExperimentRunner(object):
 
         return new_epsilon
 
-    # Determines the proper epsilon value to obtain a specified selectivity by iteratively scaling epsilon based on the volume of the hyper-sphere.
+    # Determines the proper epsilon value to obtain a specified selectivity by iteratively
+    # scaling epsilon based on the volume of the hyper-sphere.
     def findEpsilonVolumetric(
         self, size, dim, target_selectivity, expD, initialEpsilon=0.1
     ):
@@ -308,4 +325,5 @@ if __name__ == "__main__":
 
     experimentRunner.runSpeedSweepsExponentialDataExperiment(expD)
 
-    # Run on real world datasets. Autotune to use the 3x different selectivities. Will have 3x however many datasets I am testing on of output Pair data.
+    # Run on real world datasets. Autotune to use the 3x different selectivities.
+    # Will have 3x however many datasets I am testing on of output Pair data.
