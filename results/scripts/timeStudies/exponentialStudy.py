@@ -44,6 +44,11 @@ class ExponentialDistribution:
     eRange: float
 
 
+# Checks if an actual val ue is within a certain percentage of the target value.
+def withinPercent(actualValue, targetValue, percent):
+    return (abs(actualValue - targetValue) / targetValue) < percent
+
+
 # Custom encoder to serialize out experiment results
 # Extends the default encoder to handle my types
 class ResultsEncoder(json.JSONEncoder):
@@ -71,20 +76,6 @@ class ExperimentRunner(object):
     # Compute the gamma function divisor for determining hyper-sphere volume. Use lgamma so we don't overflow.
     def computeGamma(self, numDim):
         return Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
-
-    # Adjust the epsilon value using a binary search method based on a target, and the last step size.
-    def adjustEpsilonBinary(
-        self, lastEpsilon, lastStep, targetSelectivity, actualSelectivity
-    ):
-        lastStep = abs(lastStep)
-        # If we overshot the target selectivity, go backwards
-        if actualSelectivity > targetSelectivity:
-            newEpsilon = lastEpsilon - (0.5 * lastStep)
-        # If we undershot the target selectivity, go forwards
-        else:
-            newEpsilon = lastEpsilon + (0.5 * lastStep)
-
-        return newEpsilon
 
     # Returns a scaled epsilon based on scaling the volume by how much our selectivity differs from the target selectivity.
     def adjustEpsilonVolume(
@@ -155,37 +146,75 @@ class ExperimentRunner(object):
         print(f"Epsilon bounded to: {old_epsilon}, {new_epsilon}")
         return (old_epsilon, new_epsilon)
 
-    # Determines the proper epsilon value to obtain a specified selectivity, using a binary search method. First finds a bounded epsilon range, then binary searches that range until we achieve the target selectivity.
+    # Adjust the epsilon value using a binary search method based on a target selectivity.
+    def adjustEpsilonBinary(
+        self, currentEpsilon, lastEpsilon, targetSelectivity, actualSelectivity
+    ):
+        lastStep = abs(currentEpsilon - lastEpsilon)
+        # If we overshot the target selectivity, go backwards
+        if actualSelectivity > targetSelectivity:
+            newEpsilon = currentEpsilon - (0.5 * lastStep)
+        # If we undershot the target selectivity, go forwards
+        else:
+            newEpsilon = currentEpsilon + (0.5 * lastStep)
+
+        return newEpsilon
+
+    # Determines the proper epsilon value to obtain a specified selectivity, using a binary search method. First finds a bounded epsilon range, then binary searches that range until we achieve the target selectivity. The initial epsilon MUST be below the target selectivity for this to work.
     def findEpsilonBinary(
         self, size, dim, target_selectivity, expD, initialEpsilon=0
     ):
-        lower_epsilon, upper_epsilon = self.boundEpsilon(
-            initialEpsilon,
-            100000,
-            target_selectivity,
-            lambda epsilon: self.computeSelectivity(
-                self._find_pairs.runFromExponentialDataset(
-                    size, dim, expD.eLambda, expD.eRange, epsilon, True
-                ).pairsFound,
-                size,
-            ),
+        # Create a simple way to get the selectivity given an epsilon
+        getSelectivity = lambda epsilon: self.computeSelectivity(
+            self._find_pairs.runFromExponentialDataset(
+                size, dim, expD.eLambda, expD.eRange, epsilon, True
+            ).pairsFound,
+            size,
         )
 
-    # Determines the proper epsilon value to obtain a specified selectivity
-    def findEpsilon(self, size, dim, selectivity, expD, initialEpsilon=0.1):
+        # Find the upper and lower bounds for epsilon
+        lower_epsilon, upper_epsilon = self.boundEpsilon(
+            initialEpsilon, 100000, target_selectivity, getSelectivity
+        )
+
+        # Perform a binary search on these bounds. Start in the middle of the two. We know we overshot it as well, so we can pick up where we left off with the binary search.
+        new_epsilon = ((upper_epsilon - lower_epsilon) / 2.0) + lower_epsilon
+        last_epsilon = upper_epsilon
+        selectivity_threshold = (
+            0.01  # Search within a percent of the target selectivity
+        )
+
+        current_selectivity = getSelectivity(new_epsilon)
+        while not withinPercent(
+            current_selectivity, target_selectivity, selectivity_threshold
+        ):
+            new_epsilon, last_epsilon = (
+                self.adjustEpsilonBinary(
+                    new_epsilon,
+                    last_epsilon,
+                    target_selectivity,
+                    current_selectivity,
+                ),
+                new_epsilon,
+            )
+            current_selectivity = getSelectivity(new_epsilon)
+
+        return new_epsilon
+
+    # Determines the proper epsilon value to obtain a specified selectivity by iteratively scaling epsilon based on the volume of the hyper-sphere.
+    def findEpsilonVolumetric(
+        self, size, dim, selectivity, expD, initialEpsilon=0.1
+    ):
         # Selectivity threshold. Must be this % to the target selectivity
         selThreshold = 0.1
         result = self._find_pairs.runFromExponentialDataset(
             size, dim, expD.eLambda, expD.eRange, initialEpsilon, True
         )
         epsilon = initialEpsilon
-        while (
-            abs(
-                (sel := self.computeSelectivity(result.pairsFound, size))
-                - selectivity
-            )
-            / selectivity
-            > selThreshold
+        while not withinPercent(
+            (sel := self.computeSelectivity(result.pairsFound, size)),
+            selectivity,
+            selThreshold,
         ):
             epsilon = self.adjustEpsilonVolume(epsilon, sel, selectivity, dim)
             print(
@@ -209,7 +238,7 @@ class ExperimentRunner(object):
         # First find the appropriate epsilons
         epsilons = {}
         for selectivity in selectivities:
-            epsilons[selectivity] = self.findEpsilon(
+            epsilons[selectivity] = self.findEpsilonVolumetric(
                 size, dim, selectivity, expD, 0.1
             )
 

@@ -16,10 +16,10 @@ class MockFindPairs(object):
     def runFromExponentialDataset(
         self, size, dim, eLambda, eRange, epsilon, skipPairs
     ):
-        # Scale the output based on epsilon
         result = Results()
         result.TFLOPS = 1.0
-        result.pairsFound = int(1000000 * epsilon)
+        # The selectivity is equal to epsilon
+        result.pairsFound = int(epsilon * size)
         result.pairsStored = result.pairsFound
         result.inputProblemShape = mmaShape(size, size, dim)
         result.paddedProblemShape = mmaShape(size, size, dim)
@@ -59,7 +59,15 @@ class TestExponentialStudy(unittest.TestCase):
 
     def test_findEpsilonBinary_whenSelectivityEqualsEpsilon(self):
         target_selectivity = 1243
-        self.sut.findEpsilonBinary(100, 100, target_selectivity, self.expD)
+        eps = self.sut.findEpsilonBinary(
+            100, 100, target_selectivity, self.expD
+        )
+        print(
+            f"Expected selectivity: {target_selectivity}. Actual selectivity: {eps}"
+        )
+        self.assertTrue(
+            exponentialStudy.withinPercent(eps, target_selectivity, 0.01)
+        )
 
 
 if __name__ == "__main__":
