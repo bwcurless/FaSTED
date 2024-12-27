@@ -33,7 +33,7 @@ class Results(ctypes.Structure):
 # Load shared library from file.
 def load_findpairs():
     # Load the shared library
-    findPairs = ctypes.CDLL("../../source/main.so")
+    findPairs = ctypes.CDLL("../../../source/main.so")
 
     # Define the function prototype
     findPairs.runFromExponentialDataset.restype = Results

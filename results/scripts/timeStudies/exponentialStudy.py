@@ -6,6 +6,7 @@ import time
 import sys
 import math
 
+import findPairs
 from findPairs import mmaShape, Results
 
 
@@ -203,7 +204,7 @@ class ExperimentRunner(object):
 
     # Determines the proper epsilon value to obtain a specified selectivity by iteratively scaling epsilon based on the volume of the hyper-sphere.
     def findEpsilonVolumetric(
-        self, size, dim, selectivity, expD, initialEpsilon=0.1
+        self, size, dim, target_selectivity, expD, initialEpsilon=0.1
     ):
         # Selectivity threshold. Must be this % to the target selectivity
         selThreshold = 0.1
@@ -213,12 +214,14 @@ class ExperimentRunner(object):
         epsilon = initialEpsilon
         while not withinPercent(
             (sel := self.computeSelectivity(result.pairsFound, size)),
-            selectivity,
+            target_selectivity,
             selThreshold,
         ):
-            epsilon = self.adjustEpsilonVolume(epsilon, sel, selectivity, dim)
+            epsilon = self.adjustEpsilonVolume(
+                epsilon, sel, target_selectivity, dim
+            )
             print(
-                f"Selectivity was {sel}/{selectivity} new epsilon: {epsilon}"
+                f"Selectivity was {sel}/{target_selectivity} new epsilon: {epsilon}"
             )
             start = time.perf_counter()
             result = self._find_pairs.runFromExponentialDataset(
@@ -227,7 +230,7 @@ class ExperimentRunner(object):
             end = time.perf_counter()
             print(f"CUDA Code execution time: {end - start:.6f} seconds")
         print(
-            f"Final selectivity was {sel}/{selectivity} with an epsilon of: {epsilon}"
+            f"Final selectivity was {sel}/{target_selectivity} with an epsilon of: {epsilon}"
         )
         return epsilon
 
@@ -238,7 +241,7 @@ class ExperimentRunner(object):
         # First find the appropriate epsilons
         epsilons = {}
         for selectivity in selectivities:
-            epsilons[selectivity] = self.findEpsilonVolumetric(
+            epsilons[selectivity] = self.findEpsilonBinary(
                 size, dim, selectivity, expD, 0.1
             )
 
@@ -263,7 +266,7 @@ class ExperimentRunner(object):
     def runSelectivityVsSpeedExperiment(self, targetSelectivities, expD):
         print("Running basic selectivity experiment")
         # Run a basic experiment to show that increasing selectivity doesn't significantly effect results
-        results = runSelectivityExperiment(
+        results = self.runSelectivityExperiment(
             1000000, 64, targetSelectivities, expD
         )
         with open("selectivityVsSpeed.json", "w") as f:
@@ -279,7 +282,7 @@ class ExperimentRunner(object):
         print("Running exponential sweep speed experiment")
         for size in np.logspace(3, 6, 20):
             for dim in range(64, 4096, 64):
-                results += runSelectivityExperiment(
+                results += self.runSelectivityExperiment(
                     round(size), round(dim), selectivity, expD
                 )
 

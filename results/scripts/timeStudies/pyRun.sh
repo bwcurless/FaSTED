@@ -3,6 +3,7 @@
 
 # You will need to copy these helper routines to this location to run this script.
 source ~/helpers/helper_slurm_funcs.sh
+
 # Exit if any part fails
 set -e
 
