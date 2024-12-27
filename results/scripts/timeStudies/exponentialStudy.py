@@ -72,15 +72,17 @@ class ExperimentRunner(object):
     def computeGamma(self, numDim):
         return Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
 
-    # Performs a binary search to hone in the epsilon until we achieve a target selectivity
+    # Adjust the epsilon value using a binary search method based on a target, and the last step size.
     def adjustEpsilonBinary(
-        self, lastEpsilon, lastStep, targetSelectivity, lastSelectivity
+        self, lastEpsilon, lastStep, targetSelectivity, actualSelectivity
     ):
-        # Ideally at first we just increment by factors of 10 until we find a reasonable epsilon
-
-        # Once we have found it, we binary search that delta to find the exact value.
-        if lastSelectivity < 10:
-            newEpsilon = lastEpsilon * (10.0 * lastStep)
+        lastStep = abs(lastStep)
+        # If we overshot the target selectivity, go backwards
+        if actualSelectivity > targetSelectivity:
+            newEpsilon = lastEpsilon - (0.5 * lastStep)
+        # If we undershot the target selectivity, go forwards
+        else:
+            newEpsilon = lastEpsilon + (0.5 * lastStep)
 
         return newEpsilon
 
@@ -124,6 +126,49 @@ class ExperimentRunner(object):
     def computeSelectivity(self, resultSetSize, datasetSize):
         return (
             max(0, resultSetSize * 1.0 - datasetSize * 1.0) / datasetSize * 1.0
+        )
+
+    # Find an upper and lower bound on epsilon to achieve a target selectivity, given a way to calculate the selectivity for a specific epsilon.
+    def boundEpsilon(
+        self, initialEpsilon, maxEpsilon, target_selectivity, getSelectivity
+    ):
+        epsilonScaleFactor = 10
+
+        current_selectivity = 0
+        new_epsilon = initialEpsilon
+        # Do a rough incremental search where we overshoot, so we can bound the search space.
+        while current_selectivity < target_selectivity:
+            old_epsilon = new_epsilon
+            # If we started at 0, scale by addition at first...
+            new_epsilon = (
+                epsilonScaleFactor
+                if (old_epsilon == 0)
+                else (old_epsilon * epsilonScaleFactor)
+            )
+
+            if new_epsilon > maxEpsilon:
+                raise ValueError(
+                    f"Epsilon of {new_epsilon} exceed the maximum value of {maxEpsilon}. Giving up trying to find the upper bound."
+                )
+
+            current_selectivity = getSelectivity(new_epsilon)
+        print(f"Epsilon bounded to: {old_epsilon}, {new_epsilon}")
+        return (old_epsilon, new_epsilon)
+
+    # Determines the proper epsilon value to obtain a specified selectivity, using a binary search method. First finds a bounded epsilon range, then binary searches that range until we achieve the target selectivity.
+    def findEpsilonBinary(
+        self, size, dim, target_selectivity, expD, initialEpsilon=0
+    ):
+        lower_epsilon, upper_epsilon = self.boundEpsilon(
+            initialEpsilon,
+            100000,
+            target_selectivity,
+            lambda epsilon: self.computeSelectivity(
+                self._find_pairs.runFromExponentialDataset(
+                    size, dim, expD.eLambda, expD.eRange, epsilon, True
+                ).pairsFound,
+                size,
+            ),
         )
 
     # Determines the proper epsilon value to obtain a specified selectivity
