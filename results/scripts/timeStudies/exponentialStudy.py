@@ -345,8 +345,8 @@ class ExperimentRunner:
         selectivity = [10]
         results = []
         print("Running exponential sweep speed experiment")
-        for size in np.logspace(3, 6, 20):
-            for dim in range(64, 4096, 64):
+        for size in np.logspace(3, 5, 10):
+            for dim in range(64, 2048, 64):
                 results += self.runSelectivityExperiment(
                     round(size), round(dim), selectivity, exp_d
                 )
