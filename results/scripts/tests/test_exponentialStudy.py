@@ -4,12 +4,12 @@ import unittest
 from timeStudies import exponentialStudy
 
 from timeStudies.exponentialStudy import ExperimentRunner
-from timeStudies.exponentialStudy import ExponentialDistribution
 from timeStudies.findPairs import Results, mmaShape
 
 
-# Fake pair finding class for testing.
 class MockFindPairs:
+    """Fake pair finding class for testing."""
+
     def __init__(self):
         self.__last_size = 0
         self.__last_dim = 0
@@ -17,6 +17,8 @@ class MockFindPairs:
     def runFromExponentialDataset(
         self, size, dim, e_lambda, e_range, epsilon, skip_pairs
     ):
+        """Fake method to run from an exponential dataset."""
+
         # Save the size for when we rerun
         self.__last_size = size
         self.__last_dim = dim
@@ -52,25 +54,24 @@ class TestExponentialStudy(unittest.TestCase):
         fake_findpairs = MockFindPairs()
 
         self.sut = ExperimentRunner(fake_findpairs)
-        self.expD = ExponentialDistribution(1, 2)
 
     def test_experiment_runner(self):
         print("Running experiment runner")
 
-        results = self.sut.runSelectivityExperiment(100, 10, [10], self.expD)
+        results = self.sut.run_selectivity_experiment(100, 10, [10])
         print(results)
         self.assertEqual(True, True)
 
     # Pass in a high dimensionality to make sure the method does not error our.
     def test_adjustEpsilonVolume_forOverflow(self):
-        oldEpsilon = 100
-        result = self.sut.adjustEpsilonVolume(oldEpsilon, 1000, 10, 10000)
+        old_epsilon = 100
+        result = self.sut.adjust_epsilon_volume(old_epsilon, 1000, 10, 10000)
         print(f"Result was: {result}")
-        self.assertAlmostEqual(result, oldEpsilon, 1)
+        self.assertAlmostEqual(result, old_epsilon, 1)
 
     def test_boundEpsilon_whenSelectivityEqualsEpsilon(self):
         target_selectivity = 1243
-        lower, upper = self.sut.boundEpsilon(
+        lower, upper = self.sut.bound_epsilon(
             0.001, 100000, target_selectivity, lambda eps: eps
         )
         self.assertTrue(lower < target_selectivity)
@@ -78,14 +79,12 @@ class TestExponentialStudy(unittest.TestCase):
 
     def test_findEpsilonBinary_whenSelectivityEqualsEpsilon(self):
         target_selectivity = 1243
-        eps = self.sut.findEpsilonBinary(
-            100, 100, target_selectivity, self.expD
-        )
+        eps = self.sut.find_epsilon_binary(100, 100, target_selectivity)
         print(
             f"Expected selectivity: {target_selectivity}. Actual selectivity: {eps}"
         )
         self.assertTrue(
-            exponentialStudy.withinPercent(eps, target_selectivity, 0.01)
+            exponentialStudy.within_percent(eps, target_selectivity, 0.01)
         )
 
 

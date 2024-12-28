@@ -2,14 +2,16 @@
 File: exponentialStudy.py
 Author: Brian Curless
 Description: Contains methods to be automatically determine epsilon values using different
-methods like volumetric scaling, and a binary search. Once a certain target selectivity has been found, experiments are run to obtain the performance of the algorithm.
+methods like volumetric scaling, and a binary search. Once a certain target selectivity 
+has been found, experiments are run to obtain the performance of the algorithm.
 """
 
 import ctypes
 import json
-import time
-import sys
 import math
+import sys
+import time
+from typing import Callable, Tuple
 
 from decimal import Decimal
 from dataclasses import dataclass
@@ -38,25 +40,37 @@ def timeit(func):
     return wrapper
 
 
-# Wraps up the result parameters for an experiment
 @dataclass
 class Experiment:
+    """Wraps up the result parameters for an experiment"""
+
     selectivity: float
     epsilon: float
     iteration: int
     results: Results
 
 
-# Encapsulates the parameters to modify the distribution
 @dataclass
 class ExponentialDistribution:
+    """Encapsulates the parameters to modify the distribution"""
+
     e_lambda: float
     e_range: float
 
 
-# Checks if an actual value is within a certain percentage of the target value.
-def withinPercent(actualValue, targetValue, percent):
-    return (abs(actualValue - targetValue) / targetValue) < percent
+def within_percent(
+    actual_value: float, target_value: float, percent: float
+) -> bool:
+    """Checks if an actual value is within a certain percentage of the target value.
+
+    :actual_value: The measured value.
+    :target_value: The desired
+    :percent: The percentage we want the actual value to be within the target.
+
+    :Returns: True if actual_value is close enough to the target
+    """
+
+    return (abs(actual_value - target_value) / target_value) < percent
 
 
 # Custom encoder to serialize out experiment results
@@ -81,6 +95,7 @@ class ExperimentRunner:
         :find_pairs: The pair finding class. Can inject in a real one or a mocked one
 
         """
+        self._exp_d = ExponentialDistribution(1.0, 5)
         self._find_pairs = find_pairs
 
     def compute_gamma(self, gamma_in: int) -> Decimal:
@@ -93,30 +108,41 @@ class ExperimentRunner:
         """
         return Decimal(math.lgamma(gamma_in / 2.0 + 1)).exp()
 
-    # Returns a scaled epsilon based on scaling the volume by how much our selectivity
-    # differs from the target selectivity.
-    def adjustEpsilonVolume(
+    def adjust_epsilon_volume(
         self,
-        old_epsilon: float,
-        old_selectivity: float,
+        epsilon: float,
+        selectivity: float,
         target_selectivity: float,
         num_dim: int,
-    ):
+    ) -> float:
+        """Returns a scaled epsilon based on scaling the volume by how much our selectivity
+             differs from the target selectivity. Performs all calculation in Decimal to
+            avoid overflowing with high dimensional datasets.
+
+        :epsilon: The current epsilon value.
+        :selectivity: The current selectivity.
+        :target_selectivity: The desired selectivity value.
+        :num_dim: The dimensional of the input data.
+
+        :Returns: The predicted new epsilon value.
+
+        """
+
         # edge case
         # if the selectivity is 0, then we adjust the old selectivity
         # otherwise we'll have a division by 0 error
-        if old_selectivity == 0:
+        if selectivity == 0:
             print(
                 """The last selectivity yielded no neighbors with a selectivity of 0; 
                 increasing the epsilon value"""
             )
-            new_epsilon = old_epsilon * 2.0
+            new_epsilon = epsilon * 2.0
 
         else:
             # Cast to decimal so we don't overflow when we exponentiate
-            old_epsilon_dec = Decimal(old_epsilon)
+            old_epsilon_dec = Decimal(epsilon)
             target_selectivity_dec = Decimal(target_selectivity)
-            old_selectivity_dec = Decimal(old_selectivity)
+            old_selectivity_dec = Decimal(selectivity)
             num_dim_dec = Decimal(num_dim)
 
             pi_dec = Decimal(math.pi)
@@ -137,19 +163,43 @@ class ExperimentRunner:
 
         return new_epsilon
 
-    # computes the selectivity as |R|-|D|/|D|
-    def computeSelectivity(self, result_set_size, dataset_size):
+    def compute_selectivity(
+        self, result_set_size: int, dataset_size: int
+    ) -> float:
+        """computes the selectivity as |R|-|D|/|D|
+
+        :result_set_size: How many pairs were found.
+        :dataset_size: How many points are in the dataset.
+
+        :Returns: The selectivity.
+
+        """
+
         return (
             max(0, result_set_size * 1.0 - dataset_size * 1.0)
             / dataset_size
             * 1.0
         )
 
-    # Find an upper and lower bound on epsilon to achieve a target selectivity,
-    # given a way to calculate the selectivity for a specific epsilon.
-    def boundEpsilon(
-        self, initial_epsilon, max_epsilon, target_selectivity, get_selectivity
-    ):
+    def bound_epsilon(
+        self,
+        initial_epsilon: float,
+        max_epsilon: float,
+        target_selectivity: float,
+        get_selectivity: Callable[[float], Tuple[float, float]],
+    ) -> Tuple[float, float]:
+        """Find an upper and lower bound on epsilon to achieve a target selectivity,
+             given a way to calculate the selectivity for a specific epsilon.
+
+        :initial_epsilon: An epsilon to start searching from.
+        :max_epsilon: The maximum epsilon before this routine gives up and Raises a ValueError
+        :target_selectivity: The desired selectivity to bound.
+        :get_selectivity: A delegate to compute the selectivity given an epsilon value
+
+        :Returns: The range of values that we know epsilon must be in between
+
+        """
+
         epsilon_scale_factor = 10.0
 
         current_selectivity = 0
@@ -178,14 +228,26 @@ class ExperimentRunner:
         print(f"Epsilon bounded to: {old_epsilon}, {new_epsilon}")
         return (old_epsilon, new_epsilon)
 
-    # Adjust the epsilon value using a binary search method based on a target selectivity.
-    def adjustEpsilonBinary(
+    def adjust_epsilon_binary(
         self,
-        current_epsilon,
-        last_epsilon,
-        target_selectivity,
-        actual_selectivity,
-    ):
+        current_epsilon: float,
+        last_epsilon: float,
+        target_selectivity: float,
+        actual_selectivity: float,
+    ) -> float:
+        """Adjust the epsilon value using a binary search method based on a target selectivity.
+        Based on if we overshot, or undershot the target selectivity, takes a half step in the
+        correct direction and returns that new epsilon value.
+
+        :current_epsilon: The current value for epsilon.
+        :last_epsilon: The previous value of epsilon.
+        :target_selectivity: The target selectivity that we want.
+        :actual_selectivity: The current selectivity.
+
+        :Returns: The new predicted epsilon.
+
+        """
+
         last_step = abs(current_epsilon - last_epsilon)
         # If we overshot the target selectivity, go backwards
         if actual_selectivity > target_selectivity:
@@ -196,36 +258,59 @@ class ExperimentRunner:
 
         return new_epsilon
 
-    # Determines the proper epsilon value to obtain a specified selectivity,
-    # using a binary search method. First finds a bounded epsilon range,
-    # then binary searches that range until we achieve the target selectivity.
-    # The initial epsilon MUST be below the target selectivity for this to work.
-    def findEpsilonBinary(
-        self, size, dim, target_selectivity, exp_d, initial_epsilon=0.0
+    def find_epsilon_binary(
+        self,
+        size: int,
+        dim: int,
+        target_selectivity: float,
+        initial_epsilon: float = 0.0,
     ):
+        """Determines the proper epsilon value to obtain a specified selectivity,
+        using a binary search method. First finds a bounded epsilon range,
+        then binary searches that range until we achieve the target selectivity.
+        The initial epsilon MUST be below the target selectivity for this to work.
+
+        :size: The number of points in the dataset.
+        :dim: The dimensionality of each point in the dataset.
+        :target_selectivity: The desired selectivity.
+        :initial_epsilon: The first epsilon to search with.
+
+        :Returns: The final epsilon value that achieves the target selectivity.
+
+        """
+
         # Create a simple way to get the selectivity given an epsilon
-        get_selectivity = lambda epsilon: self.computeSelectivity(
-            self._find_pairs.runFromExponentialDataset(
-                size, dim, exp_d.e_lambda, exp_d.e_range, epsilon, True
-            ).pairsFound,
-            size,
-        )
+        def get_selectivity(epsilon: float) -> float:
+            return self.compute_selectivity(
+                self._find_pairs.runFromExponentialDataset(
+                    size,
+                    dim,
+                    self._exp_d.e_lambda,
+                    self._exp_d.e_range,
+                    epsilon,
+                    True,
+                ).pairsFound,
+                size,
+            )
+
         # To rerun the routine without changing the dataset run this method.
-        get_selectivity_rerun = lambda epsilon: self.computeSelectivity(
-            self._find_pairs.reRun(epsilon, True).pairsFound,
-            size,
-        )
+        def get_selectivity_rerun(epsilon: float) -> float:
+            return self.compute_selectivity(
+                self._find_pairs.reRun(epsilon, True).pairsFound,
+                size,
+            )
 
         # Run once to generate the dataset and push it to the device.
         get_selectivity(1.0)
 
         # Find the upper and lower bounds for epsilon
-        lower_epsilon, upper_epsilon = self.boundEpsilon(
+        lower_epsilon, upper_epsilon = self.bound_epsilon(
             initial_epsilon, 100000, target_selectivity, get_selectivity_rerun
         )
 
         # Perform a binary search on these bounds. Start in the middle of the two.
-        # We know we overshot it as well, so we can pick up where we left off with the binary search.
+        # We know we overshot it as well, so we can pick up where we left off with
+        # the binary search.
         new_epsilon = ((upper_epsilon - lower_epsilon) / 2.0) + lower_epsilon
         last_epsilon = upper_epsilon
         selectivity_threshold = (
@@ -234,13 +319,13 @@ class ExperimentRunner:
 
         iteration = 0
         current_selectivity = get_selectivity_rerun(new_epsilon)
-        while not withinPercent(
+        while not within_percent(
             current_selectivity, target_selectivity, selectivity_threshold
         ):
             print(f"Binary search iteration: {iteration}")
             iteration += 1
             new_epsilon, last_epsilon = (
-                self.adjustEpsilonBinary(
+                self.adjust_epsilon_binary(
                     new_epsilon,
                     last_epsilon,
                     target_selectivity,
@@ -257,23 +342,42 @@ class ExperimentRunner:
 
         return new_epsilon
 
-    # Determines the proper epsilon value to obtain a specified selectivity by iteratively
-    # scaling epsilon based on the volume of the hyper-sphere.
-    def findEpsilonVolumetric(
-        self, size, dim, target_selectivity, exp_d, initial_epsilon=0.1
+    def find_epsilon_volumetric(
+        self,
+        size: int,
+        dim: int,
+        target_selectivity: float,
+        initial_epsilon: float = 0.1,
     ):
+        """
+        Determines the proper epsilon value to obtain a specified selectivity by iteratively
+        scaling epsilon based on the volume of the hyper-sphere.
+
+        :size: The number of points in the dataset.
+        :dim: The dimensionality of each point in the dataset.
+        :target_selectivity: The desired selectivity.
+        :initial_epsilon: The first epsilon to search with.
+
+        :Returns: The epsilon that achieves the target selectivity.
+        """
+
         # Selectivity threshold. Must be this % to the target selectivity
         selectivity_threshold = 0.1
         result = self._find_pairs.runFromExponentialDataset(
-            size, dim, exp_d.e_lambda, exp_d.e_range, initial_epsilon, True
+            size,
+            dim,
+            self._exp_d.e_lambda,
+            self._exp_d.e_range,
+            initial_epsilon,
+            True,
         )
         epsilon = initial_epsilon
-        while not withinPercent(
-            (sel := self.computeSelectivity(result.pairsFound, size)),
+        while not within_percent(
+            (sel := self.compute_selectivity(result.pairsFound, size)),
             target_selectivity,
             selectivity_threshold,
         ):
-            epsilon = self.adjustEpsilonVolume(
+            epsilon = self.adjust_epsilon_volume(
                 epsilon, sel, target_selectivity, dim
             )
             print(
@@ -281,7 +385,12 @@ class ExperimentRunner:
             )
             start = time.perf_counter()
             result = self._find_pairs.runFromExponentialDataset(
-                size, dim, exp_d.e_lambda, exp_d.e_range, epsilon, True
+                size,
+                dim,
+                self._exp_d.e_lambda,
+                self._exp_d.e_range,
+                epsilon,
+                True,
             )
             end = time.perf_counter()
             print(f"CUDA Code execution time: {end - start:.6f} seconds")
@@ -290,15 +399,30 @@ class ExperimentRunner:
         )
         return epsilon
 
-    # Run an experiment over a given range of selectivities.
-    def runSelectivityExperiment(
-        self, size, dim, selectivities, exp_d, iterations=3
+    def run_selectivity_experiment(
+        self,
+        size: int,
+        dim: int,
+        selectivities: list[float],
+        iterations: int = 3,
     ):
+        """Run an experiment over a given range of selectivities.
+        Auto-finds the epsilon to achieve the target selectivity,
+        and repeats the experiment for "iterations" times.
+
+        :size: The number of input points.
+        :dim: The dimensionality of the input points.
+        :selectivities: The selectivities to test over.
+        :iterations: The number of iterations to run the final tests for.
+
+        :Returns: The results of the experiments
+        """
+
         # First find the appropriate epsilons
         epsilons = {}
         for selectivity in selectivities:
-            epsilons[selectivity] = self.findEpsilonBinary(
-                size, dim, selectivity, exp_d, 0.0
+            epsilons[selectivity] = self.find_epsilon_binary(
+                size, dim, selectivity, 0.0
             )
 
         # Now run the actual experiments and save the results
@@ -319,39 +443,41 @@ class ExperimentRunner:
         return results
 
     def run_selectivity_vs_speed_experiment(
-        self, target_selectivities: list[float], exp_d: ExponentialDistribution
-    ):
+        self, target_selectivities: list[float]
+    ) -> None:
         """Test how changing the selectivity effects the speed of my algorithm
 
         :target_selectivities: The selectivities to run tests with.
-        :exp_d: The distribution of the input data.
 
         """
         print("Running basic selectivity experiment")
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
         # Chose a size that demonstrates the max throughput.
-        results = self.runSelectivityExperiment(
-            100000, 4096, target_selectivities, exp_d
+        results = self.run_selectivity_experiment(
+            100000, 4096, target_selectivities
         )
-        with open("selectivityVsSpeed.json", "w") as f:
+        with open("selectivityVsSpeed.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
 
-    # Test how different dataset sizes and dimensionality effect the speed of my algorithm
-    def runSpeedSweepsExponentialDataExperiment(self, exp_d):
-        # Run main speed experiment on exponential datasets
-        # Show how problem sizes impacts tensor core utilization
-        # Use a fixed selectivity
+    def run_speed_sweeps_exponential_data_experiment(self) -> None:
+        """Test how different dataset sizes and dimensionality effect the speed of my algorithm
+        Run main speed experiment on exponential datasets
+        Show how problem sizes impacts tensor core utilization
+        Use a fixed selectivity
+
+        """
+
         selectivity = [10]
         results = []
         print("Running exponential sweep speed experiment")
         for size in np.logspace(3, 5, 10):
             for dim in range(64, 2048, 64):
-                results += self.runSelectivityExperiment(
-                    round(size), round(dim), selectivity, exp_d
+                results += self.run_selectivity_experiment(
+                    round(size), round(dim), selectivity
                 )
 
-        with open("ExpoDataSpeedVsSize.json", "w") as f:
+        with open("ExpoDataSpeedVsSize.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
 
 
@@ -364,16 +490,11 @@ if __name__ == "__main__":
     experiment_runner = ExperimentRunner(real_find_pairs)
 
     # Targeting selectivities in the range of 10..1000
-    target_selectivities = np.logspace(1, 3, 20)
+    test_selectivities = np.logspace(1, 3, 20)
 
-    # Set up my exponential dataset distribution
-    exp_d = ExponentialDistribution(1.0, 5)
+    experiment_runner.run_selectivity_vs_speed_experiment(test_selectivities)
 
-    experiment_runner.run_selectivity_vs_speed_experiment(
-        target_selectivities, exp_d
-    )
-
-    # experiment_runner.runSpeedSweepsExponentialDataExperiment(exp_d)
+    # experiment_runner.runSpeedSweepsExponentialDataExperiment()
 
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.
