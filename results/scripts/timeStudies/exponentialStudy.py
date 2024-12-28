@@ -1,3 +1,10 @@
+"""
+File: exponentialStudy.py
+Author: Brian Curless
+Description: Contains methods to be automatically determine epsilon values using different
+methods like volumetric scaling, and a binary search. Once a certain target selectivity has been found, experiments are run to obtain the performance of the algorithm.
+"""
+
 import json
 import time
 import sys
@@ -64,7 +71,7 @@ class ResultsEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-class ExperimentRunner(object):
+class ExperimentRunner:
     """Class for running experiments on a pair finding routine."""
 
     def __init__(self, find_pairs):
@@ -75,15 +82,24 @@ class ExperimentRunner(object):
         """
         self._find_pairs = find_pairs
 
-    # Compute the gamma function divisor for determining hyper-sphere volume.
-    # Use lgamma so we don't overflow.
-    def computeGamma(self, numDim):
-        return Decimal(math.lgamma(numDim / 2.0 + 1)).exp()
+    def compute_gamma(self, gamma_in: int) -> Decimal:
+        """Compute the gamma function divisor for determining hyper-sphere volume.
+         Use lgamma so we don't overflow.
+
+        :gamma_in: The value to input to the gamma function.
+        :returns: The gamma function result given the input.
+
+        """
+        return Decimal(math.lgamma(gamma_in / 2.0 + 1)).exp()
 
     # Returns a scaled epsilon based on scaling the volume by how much our selectivity
     # differs from the target selectivity.
     def adjustEpsilonVolume(
-        self, old_epsilon, old_selectivity, target_selectivity, num_dim
+        self,
+        old_epsilon: float,
+        old_selectivity: float,
+        target_selectivity: float,
+        num_dim: int,
     ):
         # edge case
         # if the selectivity is 0, then we adjust the old selectivity
@@ -104,7 +120,7 @@ class ExperimentRunner(object):
 
             pi_dec = Decimal(math.pi)
             dec2 = Decimal(2.0)
-            gamma_dec = self.computeGamma(num_dim)
+            gamma_dec = self.compute_gamma(num_dim)
 
             old_volume_dec = ((pi_dec ** (num_dim_dec / dec2)) / gamma_dec) * (
                 old_epsilon_dec**num_dim_dec
@@ -301,8 +317,15 @@ class ExperimentRunner(object):
         print(results)
         return results
 
-    # Test how changing the selectivity effects the speed of my algorithm
-    def runSelectivityVsSpeedExperiment(self, target_selectivities, exp_d):
+    def run_selectivity_vs_speed_experiment(
+        self, target_selectivities: list[float], exp_d: ExponentialDistribution
+    ):
+        """Test how changing the selectivity effects the speed of my algorithm
+
+        :target_selectivities: The selectivities to run tests with.
+        :exp_d: The distribution of the input data.
+
+        """
         print("Running basic selectivity experiment")
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
@@ -345,7 +368,7 @@ if __name__ == "__main__":
     # Set up my exponential dataset distribution
     exp_d = ExponentialDistribution(1.0, 5)
 
-    experiment_runner.runSelectivityVsSpeedExperiment(
+    experiment_runner.run_selectivity_vs_speed_experiment(
         target_selectivities, exp_d
     )
 
