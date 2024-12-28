@@ -71,9 +71,10 @@ def parse_speed_vs_size_data():
         size_index = np.where(unique_size == size)[0]
         grid[dim_index, size_index] = speed
 
+    # TODO Fix the size ticks since I did an exponential distribution.
     fig, ax = plt.subplots()
     cax = ax.imshow(
-        grid,
+        grid.T,
         cmap="viridis",
         origin="lower",
         aspect="auto",
@@ -86,8 +87,8 @@ def parse_speed_vs_size_data():
     )
     colorbar = fig.colorbar(cax, ax=ax)
     colorbar.set_label("Speed (TFLOPS)")
-    ax.set_xlabel("Dataset Size (Points)")
-    ax.set_ylabel("Dataset Dimensionality")
+    ax.set_xlabel("Dataset Dimensionality")
+    ax.set_ylabel("Dataset Size (Points)")
     ax.set_title("Speed vs Input Size")
     plt.savefig("ExpoDataSpeedVsSize.pdf")
     plt.show()
