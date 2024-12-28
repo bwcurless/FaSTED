@@ -27,17 +27,27 @@ a dataset already loaded into host memory.
 #include "warpMma.cuh"
 
 namespace SimSearch {
+
+/** Release the global memory allocated to hold the input data for the A and B arrays.
+ *
+ */
+__host__ void releaseGlobalMemory();
+
 struct Results {
     double TFLOPS;                  // The estimated teraflops achieved
     unsigned long long pairsFound;  // How many pairs were found
     unsigned long long
         pairsStored;  // How many pairs were actually saved. (Could run out of memory)
-    Mma::mmaShape inputProblemShape;  // The input shape of the problem, m x n x k
-    Mma::mmaShape
-        paddedProblemShape;  // The actual shape of the problem, m x n x k (includes padding of 0's)
+    Mma::mmaShape inputProblemShape;   // The input shape of the problem, m x n x k
+    Mma::mmaShape paddedProblemShape;  // The actual shape of the problem, m x n x k (includes
+                                       // padding of 0's)
 };
 
 using Coordinate = matrix::Coordinate;
+
+// Allocate the space for the input data on the device so that we can reuse it in-between
+// invocations while fine tuning epsilon.
+half2 *d_AValues, *d_BValues = nullptr;
 
 // Block Parameters
 constexpr int numWarpCols = 2;
@@ -58,21 +68,23 @@ constexpr int maxPipelineDepth = 4;
  */
 struct FindPairsParamsHost {
     double epsilon;  // The maximum distance between points to be considered a pair.
-    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query points,
-                                      // candidate points, and dimensions of each point.
+    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query
+                                      // points, candidate points, and dimensions of each point.
     Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
     Points::PointList<half_float::half> pointList;  // Host memory containing all points.
     bool skipPairs;                                 // Skip writing out pairs, useful for testing
-    std::string outputPath;                         // Filepath to write data to.
+    bool skipPointsDownload;  // Skip allocating and copying input points to the device. Useful
+                              // to speed up testing if you are only changing epsilon.
+    std::string outputPath;   // Filepath to write data to.
 };
 
 /**The parameters required to run a search on the device.
  */
 struct FindPairsParamsDevice {
     float epsilonSquared;  // The maximum distance between points to be considered a pair.
-    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query points,
-                                      // candidate points, and dimensions of each point.
+    Mma::mmaShape paddedSearchShape;  // The dimensions of the search data. Number of query
+                                      // points, candidate points, and dimensions of each point.
     Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
     half2* queryPoints;               // Global memory array containing all query points.
@@ -97,8 +109,8 @@ constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimP
 constexpr int BElemsPerStage = blockTileDims.n * blockTileDims.k / WarpMma::dimPerInt4;
 constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
 
-/** Get global coordinates of upper left element this block is responsible for. Converts a 1D block
- * index to a 2D coordinate that this block is responsible for computing.
+/** Get global coordinates of upper left element this block is responsible for. Converts a 1D
+ * block index to a 2D coordinate that this block is responsible for computing.
  *
  * \param blockCoords 1D Array of coordinates each block in the grid is responsible for.
  *
@@ -114,8 +126,8 @@ __device__ Coordinate GetBaseBlockCoordinate(Coordinate* blockCoords) {
     return {baseRow, baseCol};
 }
 
-/** Local coordinates of warp. Get local (relative to this block) coordinates of upper left element
- * that a warp in a block is responsible for
+/** Local coordinates of warp. Get local (relative to this block) coordinates of upper left
+ * element that a warp in a block is responsible for
  *
  * \param warpId Index of warp to return coordinates for
  *
@@ -130,8 +142,8 @@ __device__ Coordinate GetBaseLocalWarpCoordinate(int warpId) {
     return {baseRow, baseCol};
 }
 
-/** Global coordinates a warp is responsible for. Get global coordinates of upper left element that
- * a given warp in a block is responsible for
+/** Global coordinates a warp is responsible for. Get global coordinates of upper left element
+ * that a given warp in a block is responsible for
  *
  * \param baseBlockCoord Global coordinates of upper left element this block is
  * responsible for
@@ -164,10 +176,10 @@ __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columns
     return swizzledAddress;
 }
 
-/** Pages points from global to shared memory asynchronously. Pages in a certain number of points in
- global memory from a specified start point. Each thread does an int4 copy from global to shared for
- every point that the BlockTile needs. This method swizzles the addresses as it stores into shared
- memory to avoid shared memory conflicts.
+/** Pages points from global to shared memory asynchronously. Pages in a certain number of
+ points in global memory from a specified start point. Each thread does an int4 copy from global
+ to shared for every point that the BlockTile needs. This method swizzles the addresses as it
+ stores into shared memory to avoid shared memory conflicts.
  *
  * \param globalArray Base address of global memory array to page from
  * \param sharedArray Base address of shared memory array to page into
@@ -218,8 +230,8 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
 
 /** Pages points from global to shared memory. Pages in a certain number of points in global
  memory from a specified start point. Each thread does an int4 copy from global to
- shared for every point that the BlockTile needs. This method swizzles the addresses as it stores
- into shared memory to avoid shared memory conflicts.
+ shared for every point that the BlockTile needs. This method swizzles the addresses as it
+ stores into shared memory to avoid shared memory conflicts.
  *
  * \param globalArray Base address of global memory array to page from
  * \param sharedArray Base address of shared memory array to page into
@@ -260,15 +272,15 @@ __device__ void LoadGlobalToShared(half2* globalArray, SharedSize* sharedArray,
     }
 }
 
-/** Accumulates a single k slice into a warp tile from shared memory. Data needs to be done being
- * paged in from global memory before calling this method.
+/** Accumulates a single k slice into a warp tile from shared memory. Data needs to be done
+ * being paged in from global memory before calling this method.
  *
  *
  * \param warpTile The warp tile to accumulate into
  * \param ATile Pointer to start of shared memory array containing A
  * \param BTile Pointer to start of shared memory array containing B
- * \param baseLocalWarpCoord The upper left coordinate this warp is responsible for. Scoped to the
- * block (not global matrix).
+ * \param baseLocalWarpCoord The upper left coordinate this warp is responsible for. Scoped to
+ * the block (not global matrix).
  *
  * \return
  */
@@ -282,7 +294,8 @@ __device__ void AccumulateKSliceWarpTile(WarpMma::WarpTile& warpTile, SharedSize
     }
 }
 
-/** Checks if an array of a specified type is an exact multiple of the desired alignment in bytes.
+/** Checks if an array of a specified type is an exact multiple of the desired alignment in
+ * bytes.
  *
  * \param numElements The number of elements in the array
  * \param multiple The number of bytes to be a multiple of
@@ -295,9 +308,9 @@ __device__ constexpr bool IsMultiple(int numElements) {
     return (numElements * sizeof(arrayType)) % multiple == 0;
 }
 
-/** Return the pointer to the next tile based on the pipeline index. This is an optimization because
- * the compiler is putting the arrays in local memory becaus it can't determine the constant
- * indices.
+/** Return the pointer to the next tile based on the pipeline index. This is an optimization
+ * because the compiler is putting the arrays in local memory becaus it can't determine the
+ * constant indices.
  *
  * \param pipelineIndex The next index to load.
  * \param ATile The base address for the A Tile in shared memory.
@@ -330,8 +343,8 @@ __device__ void GetNextSharedTile(int pipelineIndex, SharedSize** ATile, SharedS
 }
 
 /** Asynchronously loads all the necessary sums of squared points that the entire block will
- * need from global memory to shared memory. You must wait on the group before attempting to read
- * values from shared memory.
+ * need from global memory to shared memory. You must wait on the group before attempting to
+ * read values from shared memory.
  *
  * \param pipe The cuda pipeline to commit transactions to.
  * \param globalSums The sums of the squared dimensions of the points in global memory.
@@ -351,8 +364,8 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  * the points.
  *
  * \param params See struct documentation.
- * \param blockCoords Array of coordinates specifying which chunk of the output matrix each block is
- * responsible for.
+ * \param blockCoords Array of coordinates specifying which chunk of the output matrix each
+ * block is responsible for.
  *
  */
 __global__ void FindPairsKernel(FindPairsParamsDevice params, Coordinate* blockCoords,
@@ -544,11 +557,24 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
         printf("Allocating %lu bytes for candidate points\n", candidateSize);
     }
 
-    cudaMalloc(d_Query, querySize);
-    cudaMalloc(d_Candidate, candidateSize);
+    // Release global memory before allocating over the top of it, if it has already been allocated.
+    releaseGlobalMemory();
 
-    cudaMemcpy(*d_Query, h_Query.data(), querySize, cudaMemcpyHostToDevice);
-    cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMalloc(d_Query, querySize));
+    gpuErrchk(cudaMalloc(d_Candidate, candidateSize));
+
+    gpuErrchk(cudaMemcpy(*d_Query, h_Query.data(), querySize, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(*d_Candidate, h_Candidate.data(), candidateSize, cudaMemcpyHostToDevice));
+}
+
+/** Transfer a set of input points to global memory on the device for processing. The memory
+ * allocated here must be released later with the "releaseGlobalMemory()" call.
+ *
+ */
+template <typename Precision>
+__host__ void allocateTransferPoints(const std::vector<Precision>& h_Query,
+                                     const std::vector<Precision>& h_Candidate) {
+    TransferPointsToGMem(h_Query, h_Candidate, &d_AValues, &d_BValues);
 }
 
 /** Given a set of input points, finds all pairs of points in the query and candidate points.
@@ -560,9 +586,10 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
  */
 __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Push points from host to the GPU.
-    half2 *d_AValues, *d_BValues;
-    TransferPointsToGMem(hostParams.pointList.values, hostParams.pointList.values, &d_AValues,
-                         &d_BValues);
+    if (!hostParams.skipPointsDownload) {
+        allocateTransferPoints(hostParams.pointList.values, hostParams.pointList.values);
+    }
+
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
@@ -670,8 +697,6 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaEventDestroy(squaredSumsStart);
     cudaEventDestroy(squaredSumsStop);
     cudaEventDestroy(findPairsStop);
-    cudaFree(d_AValues);
-    cudaFree(d_BValues);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
     cudaFree(d_blockCoords);
@@ -679,6 +704,19 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     return Results{tflops, pairsFound, pairsStored, hostParams.inputSearchShape,
                    hostParams.paddedSearchShape};
 }
+
+__host__ void releaseGlobalMemory() {
+    if (d_AValues) {
+        cudaFree(d_AValues);
+        d_AValues = nullptr;
+    }
+
+    if (d_BValues) {
+        cudaFree(d_BValues);
+        d_BValues = nullptr;
+    }
+}
+
 };  // namespace SimSearch
 
 #endif /* end of include guard: FINDPAIRS_CUH_KP5RAZNA */

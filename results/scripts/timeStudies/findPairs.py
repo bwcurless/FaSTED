@@ -35,7 +35,8 @@ def load_findpairs():
     # Load the shared library
     findPairs = ctypes.CDLL("../../../source/main.so")
 
-    # Define the function prototype
+    # Define functions
+    # Run from a dynamically generated input dataset
     findPairs.runFromExponentialDataset.restype = Results
     findPairs.runFromExponentialDataset.argtypes = [
         ctypes.c_int,
@@ -45,4 +46,15 @@ def load_findpairs():
         ctypes.c_double,
         ctypes.c_bool,
     ]
+
+    # Can re-run with previously allocated input data, and a new epsilon.
+    findPairs.reRun.restype = Results
+    findPairs.reRun.argtypes = [
+        ctypes.c_double,
+        ctypes.c_bool,
+    ]
+
+    # Free all resources allocated on GPU after done running.
+    findPairs.releaseResources.argtypes = []
+
     return findPairs

@@ -29,12 +29,27 @@
 using SharedSize = WarpMma::SharedSize;
 using InPrec = Mma::InPrec;
 
+// Allocate the point list here so it can be reused across invocations.
+Points::PointList<half_float::half> pointList;
+
 extern "C" {
+/** Run the same routine again, but with a different search radius. Useful for running quick tests
+ * while fine tuning epsilon.
+ *
+ * \param epsilon The search radius.
+ * \param skipPairs Skip saving the pairs to their own output stream.
+ *
+ * \returns The search results
+ */
+SimSearch::Results reRun(double epsilon, bool skipPairs = false);
+
 /** Load a dataset from file and compute the results.
  *
  * \param filename The name of the file that contains the dataset.
  * \param epsilon The epsilon to use.
+ * \param skipPairs Skip saving the pairs to their own output stream.
  *
+ * \returns The search results
  */
 SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPairs = false);
 
@@ -44,12 +59,19 @@ SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPa
  * \param lambda The lambda of the dataset.
  * \param mean The mean value of the dataset.
  * \param epsilon The search radius.
+ * \param skipPairs Skip saving the pairs to their own output stream.
  *
  * \returns The search results
  *
  */
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
                                              double mean, double epsilon, bool skipPairs = false);
+
+/** Releases resources allocated on GPU. Needs to be called after running from file or from an
+ * exponential dataset to free allocated memory. Memory persists so we can call the "reRun"
+ * function.
+ */
+void releaseResources();
 }
 
 /** Create a set of points with monatomically increasing values. Increments by 1 for every
@@ -171,24 +193,31 @@ int main(int argc, char* argv[]) {
  * \param builder The PointListBuilder that will return the dataset.
  * \param epsilon The search radius.
  * \param skipPairs Don't save the pairs off to disk.
+ * \param skipPointsGeneration Don't generate new points. Use the ones from the last iteration.
  *
  * \returns The search results
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon,
-                       bool skipPairs) {
+                       bool skipPairs, bool skipPointsGeneration) {
+    // TODO this is kind of messy. Figure out a cleaner way to maintain the history here. This
+    // filename isn't even correct either.
+    std::string datasetName;
+    // Reuse the points previously created if told to do so.
+    if (!skipPointsGeneration) {
+        datasetName = builder.getDatasetName();
+        Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
+        if (Debug) {
+            pointList = builder.withMaxPoints(128).build(bDims.k, bDims.m);
+        } else {
+            pointList = builder.build(bDims.k, bDims.m);
+        }
+    } else {
+        datasetName = "";
+    }
+
     // Output filename generation
     std::string outputPath =
-        "/scratch/bc2497/pairsData/" + builder.getDatasetName() + "_" + std::to_string(epsilon);
-
-    // Attempt to build the PointList using the provided filename
-    Points::PointList<half_float::half> pointList;
-
-    Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
-    if (Debug) {
-        pointList = builder.withMaxPoints(128).build(bDims.k, bDims.m);
-    } else {
-        pointList = builder.build(bDims.k, bDims.m);
-    }
+        "/scratch/bc2497/pairsData/" + datasetName + "_" + std::to_string(epsilon);
 
     Mma::mmaShape paddedSearchShape{pointList.getNumPoints(), pointList.getNumPoints(),
                                     pointList.getDimensions()};
@@ -210,8 +239,9 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
                           paddedSearchShape.m, paddedSearchShape.k);
     }
 
-    auto hostParams = SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape, inputSearchShape,
-                                                     pointList, skipPairs,         outputPath};
+    auto hostParams =
+        SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape,    inputSearchShape, pointList,
+                                       skipPairs, skipPointsGeneration, outputPath};
     SimSearch::Results results = SimSearch::FindPairs(hostParams);
 
     return results;
@@ -225,7 +255,7 @@ SimSearch::Results runFromExponentialDataset(int size, int dimensionality, doubl
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     // Run routine
-    return run(pointListBuilder, epsilon, skipPairs);
+    return run(pointListBuilder, epsilon, skipPairs, false);
 }
 
 SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPairs) {
@@ -233,6 +263,13 @@ SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPa
     SimSearch::FilePointGenerator pointGen(filename, ',');
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
-    return run(pointListBuilder, epsilon, skipPairs);
+    return run(pointListBuilder, epsilon, skipPairs, false);
 }
+
+SimSearch::Results reRun(double epsilon, bool skipPairs) {
+    // TODO don't make a dummy generator here, find a better way to bypass this.
+    return run(nullptr, epsilon, skipPairs, true);
+}
+
+void releaseResources() { releaseResources(); }
 }
