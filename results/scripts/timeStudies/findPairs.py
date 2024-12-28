@@ -35,7 +35,7 @@ class Results(ctypes.Structure):
 # Load shared library from file.
 def load_findpairs():
     # Load the shared library
-    find_pairs = ctypes.CDLL("../../../source/main.so")
+    find_pairs = ctypes.CDLL("../../source/main.so")
 
     # Define functions
     # Run from a dynamically generated input dataset

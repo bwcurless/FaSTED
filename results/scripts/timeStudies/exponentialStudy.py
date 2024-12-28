@@ -7,7 +7,7 @@ from decimal import Decimal
 from dataclasses import dataclass
 import numpy as np
 
-from timeStudies import findPairs
+from timeStudies.findPairs import load_findpairs
 from timeStudies.findPairs import Results
 
 
@@ -304,9 +304,11 @@ class ExperimentRunner(object):
     # Test how changing the selectivity effects the speed of my algorithm
     def runSelectivityVsSpeedExperiment(self, target_selectivities, exp_d):
         print("Running basic selectivity experiment")
-        # Run a basic experiment to show that increasing selectivity doesn't significantly effect results
+        # Run a basic experiment to show that increasing selectivity doesn't
+        # significantly effect results
+        # Chose a size that demonstrates the max throughput.
         results = self.runSelectivityExperiment(
-            1000000, 64, target_selectivities, exp_d
+            1000000, 4096, target_selectivities, exp_d
         )
         with open("selectivityVsSpeed.json", "w") as f:
             json.dump(results, f, cls=ResultsEncoder)
@@ -333,7 +335,7 @@ if __name__ == "__main__":
     print(sys.version)
 
     # Create the pair finding routine
-    real_find_pairs = findPairs.load_findpairs()
+    real_find_pairs = load_findpairs()
 
     experiment_runner = ExperimentRunner(real_find_pairs)
 
@@ -343,9 +345,11 @@ if __name__ == "__main__":
     # Set up my exponential dataset distribution
     exp_d = ExponentialDistribution(1.0, 5)
 
-    # experimentRunner.runSelectivityVsSpeedExperiment(targetSelectivities, expD)
+    experiment_runner.runSelectivityVsSpeedExperiment(
+        target_selectivities, exp_d
+    )
 
-    experiment_runner.runSpeedSweepsExponentialDataExperiment(exp_d)
+    # experiment_runner.runSpeedSweepsExponentialDataExperiment(exp_d)
 
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.

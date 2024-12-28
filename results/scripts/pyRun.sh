@@ -56,11 +56,12 @@ module load python/3.10.8
 module load py-pip
 pip install numpy
 
-cd "../../../source"
+cd "../../source"
 make shared
 
-cd "../results/scripts/timeStudies"
-python -u exponentialStudy.py
+# Navigate back
+cd -
+python -um timeStudies.exponentialStudy
 #srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
