@@ -5,6 +5,7 @@ Description: Contains methods to be automatically determine epsilon values using
 methods like volumetric scaling, and a binary search. Once a certain target selectivity has been found, experiments are run to obtain the performance of the algorithm.
 """
 
+import ctypes
 import json
 import time
 import sys
@@ -53,7 +54,7 @@ class ExponentialDistribution:
     e_range: float
 
 
-# Checks if an actual val ue is within a certain percentage of the target value.
+# Checks if an actual value is within a certain percentage of the target value.
 def withinPercent(actualValue, targetValue, percent):
     return (abs(actualValue - targetValue) / targetValue) < percent
 
@@ -331,7 +332,7 @@ class ExperimentRunner:
         # significantly effect results
         # Chose a size that demonstrates the max throughput.
         results = self.runSelectivityExperiment(
-            1000000, 4096, target_selectivities, exp_d
+            100000, 4096, target_selectivities, exp_d
         )
         with open("selectivityVsSpeed.json", "w") as f:
             json.dump(results, f, cls=ResultsEncoder)
