@@ -471,11 +471,16 @@ class ExperimentRunner:
         selectivity = [10]
         results = []
         print("Running exponential sweep speed experiment")
-        for size in np.logspace(3, 5, 10):
-            for dim in range(64, 2048, 64):
+        for size in np.logspace(3, 6, 8):
+            # Iterate through powers of 2 for the dimensionality.
+            first, last = (64, 4096)
+
+            current = first
+            while current <= last:
                 results += self.run_selectivity_experiment(
-                    round(size), round(dim), selectivity
+                    round(size), current, selectivity
                 )
+                current *= 2
 
         with open("ExpoDataSpeedVsSize.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
