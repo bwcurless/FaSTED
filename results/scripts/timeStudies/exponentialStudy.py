@@ -1,13 +1,14 @@
 import json
-from decimal import Decimal
-from dataclasses import dataclass
-import numpy as np
 import time
 import sys
 import math
 
-import findPairs
-from findPairs import mmaShape, Results
+from decimal import Decimal
+from dataclasses import dataclass
+import numpy as np
+
+from timeStudies import findPairs
+from timeStudies.findPairs import Results
 
 
 # Define my own print method so I can tell what output comes from C++, and what from Python
@@ -41,8 +42,8 @@ class Experiment:
 # Encapsulates the parameters to modify the distribution
 @dataclass
 class ExponentialDistribution:
-    eLambda: float
-    eRange: float
+    e_lambda: float
+    e_range: float
 
 
 # Checks if an actual val ue is within a certain percentage of the target value.
@@ -57,7 +58,7 @@ class ResultsEncoder(json.JSONEncoder):
         if isinstance(obj, ctypes.Structure):
             # Convert ctypes.Structure to a dictionary
             return {field[0]: getattr(obj, field[0]) for field in obj._fields_}
-        elif isinstance(obj, Experiment):
+        if isinstance(obj, Experiment):
             # Convert Experiment object to a dictionary
             return obj.__dict__
         return super().default(obj)
@@ -82,112 +83,128 @@ class ExperimentRunner(object):
     # Returns a scaled epsilon based on scaling the volume by how much our selectivity
     # differs from the target selectivity.
     def adjustEpsilonVolume(
-        self, oldEpsilon, oldSelectivity, targetSelectivity, numDim
+        self, old_epsilon, old_selectivity, target_selectivity, num_dim
     ):
         # edge case
         # if the selectivity is 0, then we adjust the old selectivity
         # otherwise we'll have a division by 0 error
-        if oldSelectivity == 0:
+        if old_selectivity == 0:
             print(
                 """The last selectivity yielded no neighbors with a selectivity of 0; 
                 increasing the epsilon value"""
             )
-            newEpsilon = oldEpsilon * 2.0
+            new_epsilon = old_epsilon * 2.0
 
         else:
             # Cast to decimal so we don't overflow when we exponentiate
-            oldEpsilonDec = Decimal(oldEpsilon)
-            targetSelectivityDec = Decimal(targetSelectivity)
-            oldSelectivityDec = Decimal(oldSelectivity)
-            numDimDec = Decimal(numDim)
+            old_epsilon_dec = Decimal(old_epsilon)
+            target_selectivity_dec = Decimal(target_selectivity)
+            old_selectivity_dec = Decimal(old_selectivity)
+            num_dim_dec = Decimal(num_dim)
 
-            piDec = Decimal(math.pi)
+            pi_dec = Decimal(math.pi)
             dec2 = Decimal(2.0)
-            gammaDec = self.computeGamma(numDim)
+            gamma_dec = self.computeGamma(num_dim)
 
-            oldVolumeDec = ((piDec ** (numDimDec / dec2)) / gammaDec) * (
-                oldEpsilonDec**numDimDec
+            old_volume_dec = ((pi_dec ** (num_dim_dec / dec2)) / gamma_dec) * (
+                old_epsilon_dec**num_dim_dec
             )
-            targetVolumeDec = (
-                targetSelectivityDec / oldSelectivityDec
-            ) * oldVolumeDec
+            target_volume_dec = (
+                target_selectivity_dec / old_selectivity_dec
+            ) * old_volume_dec
 
-            exprDec = (targetVolumeDec * gammaDec) / (piDec ** (numDim / dec2))
-            newEpsilon = float(exprDec ** (Decimal(1.0) / numDimDec))
+            expr_dec = (target_volume_dec * gamma_dec) / (
+                pi_dec ** (num_dim / dec2)
+            )
+            new_epsilon = float(expr_dec ** (Decimal(1.0) / num_dim_dec))
 
-        return newEpsilon
+        return new_epsilon
 
     # computes the selectivity as |R|-|D|/|D|
-    def computeSelectivity(self, resultSetSize, datasetSize):
+    def computeSelectivity(self, result_set_size, dataset_size):
         return (
-            max(0, resultSetSize * 1.0 - datasetSize * 1.0) / datasetSize * 1.0
+            max(0, result_set_size * 1.0 - dataset_size * 1.0)
+            / dataset_size
+            * 1.0
         )
 
     # Find an upper and lower bound on epsilon to achieve a target selectivity,
     # given a way to calculate the selectivity for a specific epsilon.
     def boundEpsilon(
-        self, initialEpsilon, maxEpsilon, target_selectivity, getSelectivity
+        self, initial_epsilon, max_epsilon, target_selectivity, get_selectivity
     ):
-        epsilonScaleFactor = 3
+        epsilon_scale_factor = 10.0
 
         current_selectivity = 0
-        new_epsilon = initialEpsilon
+        new_epsilon = initial_epsilon
         # Do a rough incremental search where we overshoot, so we can bound the search space.
         while current_selectivity < target_selectivity:
             old_epsilon = new_epsilon
             # If we started at 0, scale by addition at first...
             new_epsilon = (
-                epsilonScaleFactor
+                epsilon_scale_factor
                 if (old_epsilon == 0)
-                else (old_epsilon * epsilonScaleFactor)
+                else (old_epsilon * epsilon_scale_factor)
             )
 
             print(
                 f"Checking if Epsilon is in the range ({old_epsilon}, {new_epsilon})"
             )
 
-            if new_epsilon > maxEpsilon:
+            if new_epsilon > max_epsilon:
                 raise ValueError(
-                    f"""Epsilon of {new_epsilon} exceed the maximum value of {maxEpsilon}. 
+                    f"""Epsilon of {new_epsilon} exceed the maximum value of {max_epsilon}.
                     Giving up trying to find the upper bound."""
                 )
 
-            current_selectivity = getSelectivity(new_epsilon)
+            current_selectivity = get_selectivity(new_epsilon)
         print(f"Epsilon bounded to: {old_epsilon}, {new_epsilon}")
         return (old_epsilon, new_epsilon)
 
     # Adjust the epsilon value using a binary search method based on a target selectivity.
     def adjustEpsilonBinary(
-        self, currentEpsilon, lastEpsilon, targetSelectivity, actualSelectivity
+        self,
+        current_epsilon,
+        last_epsilon,
+        target_selectivity,
+        actual_selectivity,
     ):
-        lastStep = abs(currentEpsilon - lastEpsilon)
+        last_step = abs(current_epsilon - last_epsilon)
         # If we overshot the target selectivity, go backwards
-        if actualSelectivity > targetSelectivity:
-            newEpsilon = currentEpsilon - (0.5 * lastStep)
+        if actual_selectivity > target_selectivity:
+            new_epsilon = current_epsilon - (0.5 * last_step)
         # If we undershot the target selectivity, go forwards
         else:
-            newEpsilon = currentEpsilon + (0.5 * lastStep)
+            new_epsilon = current_epsilon + (0.5 * last_step)
 
-        return newEpsilon
+        return new_epsilon
 
     # Determines the proper epsilon value to obtain a specified selectivity,
     # using a binary search method. First finds a bounded epsilon range,
     # then binary searches that range until we achieve the target selectivity.
     # The initial epsilon MUST be below the target selectivity for this to work.
     def findEpsilonBinary(
-        self, size, dim, target_selectivity, expD, initialEpsilon=0
+        self, size, dim, target_selectivity, exp_d, initial_epsilon=0.0
     ):
         # Create a simple way to get the selectivity given an epsilon
-        getSelectivity = lambda epsilon: self.computeSelectivity(
+        get_selectivity = lambda epsilon: self.computeSelectivity(
             self._find_pairs.runFromExponentialDataset(
-                size, dim, expD.eLambda, expD.eRange, epsilon, True
+                size, dim, exp_d.e_lambda, exp_d.e_range, epsilon, True
             ).pairsFound,
             size,
         )
+        # To rerun the routine without changing the dataset run this method.
+        get_selectivity_rerun = lambda epsilon: self.computeSelectivity(
+            self._find_pairs.reRun(epsilon, True).pairsFound,
+            size,
+        )
+
+        # Run once to generate the dataset and push it to the device.
+        get_selectivity(1.0)
 
         # Find the upper and lower bounds for epsilon
         lower_epsilon, upper_epsilon = self.boundEpsilon(
-            initialEpsilon, 100000, target_selectivity, getSelectivity
+            initial_epsilon, 100000, target_selectivity, get_selectivity_rerun
         )
 
         # Perform a binary search on these bounds. Start in the middle of the two.
@@ -199,7 +216,7 @@ class ExperimentRunner(object):
         )
 
         iteration = 0
-        current_selectivity = getSelectivity(new_epsilon)
+        current_selectivity = get_selectivity_rerun(new_epsilon)
         while not withinPercent(
             current_selectivity, target_selectivity, selectivity_threshold
         ):
@@ -214,25 +231,30 @@ class ExperimentRunner(object):
                 ),
                 new_epsilon,
             )
-            current_selectivity = getSelectivity(new_epsilon)
+            start = time.perf_counter()
+
+            current_selectivity = get_selectivity_rerun(new_epsilon)
+
+            end = time.perf_counter()
+            print(f"CUDA Code execution time: {end - start:.6f} seconds")
 
         return new_epsilon
 
     # Determines the proper epsilon value to obtain a specified selectivity by iteratively
     # scaling epsilon based on the volume of the hyper-sphere.
     def findEpsilonVolumetric(
-        self, size, dim, target_selectivity, expD, initialEpsilon=0.1
+        self, size, dim, target_selectivity, exp_d, initial_epsilon=0.1
     ):
         # Selectivity threshold. Must be this % to the target selectivity
-        selThreshold = 0.1
+        selectivity_threshold = 0.1
         result = self._find_pairs.runFromExponentialDataset(
-            size, dim, expD.eLambda, expD.eRange, initialEpsilon, True
+            size, dim, exp_d.e_lambda, exp_d.e_range, initial_epsilon, True
         )
-        epsilon = initialEpsilon
+        epsilon = initial_epsilon
         while not withinPercent(
             (sel := self.computeSelectivity(result.pairsFound, size)),
             target_selectivity,
-            selThreshold,
+            selectivity_threshold,
         ):
             epsilon = self.adjustEpsilonVolume(
                 epsilon, sel, target_selectivity, dim
@@ -242,7 +264,7 @@ class ExperimentRunner(object):
             )
             start = time.perf_counter()
             result = self._find_pairs.runFromExponentialDataset(
-                size, dim, expD.eLambda, expD.eRange, epsilon, True
+                size, dim, exp_d.e_lambda, exp_d.e_range, epsilon, True
             )
             end = time.perf_counter()
             print(f"CUDA Code execution time: {end - start:.6f} seconds")
@@ -253,16 +275,18 @@ class ExperimentRunner(object):
 
     # Run an experiment over a given range of selectivities.
     def runSelectivityExperiment(
-        self, size, dim, selectivities, expD, iterations=3
+        self, size, dim, selectivities, exp_d, iterations=3
     ):
         # First find the appropriate epsilons
         epsilons = {}
         for selectivity in selectivities:
             epsilons[selectivity] = self.findEpsilonBinary(
-                size, dim, selectivity, expD, 0.1
+                size, dim, selectivity, exp_d, 0.0
             )
 
         # Now run the actual experiments and save the results
+        # There is an assumption that the input data has already been generated and downloaded to
+        # the device. Don't repeat it here, just rerun.
         results = []
         for sel, eps in epsilons.items():
             for i in range(iterations):
@@ -271,26 +295,24 @@ class ExperimentRunner(object):
                         sel,
                         eps,
                         i,
-                        self._find_pairs.runFromExponentialDataset(
-                            size, dim, expD.eLambda, expD.eRange, eps, True
-                        ),
+                        self._find_pairs.reRun(eps, True),
                     )
                 )
         print(results)
         return results
 
     # Test how changing the selectivity effects the speed of my algorithm
-    def runSelectivityVsSpeedExperiment(self, targetSelectivities, expD):
+    def runSelectivityVsSpeedExperiment(self, target_selectivities, exp_d):
         print("Running basic selectivity experiment")
         # Run a basic experiment to show that increasing selectivity doesn't significantly effect results
         results = self.runSelectivityExperiment(
-            1000000, 64, targetSelectivities, expD
+            1000000, 64, target_selectivities, exp_d
         )
         with open("selectivityVsSpeed.json", "w") as f:
             json.dump(results, f, cls=ResultsEncoder)
 
     # Test how different dataset sizes and dimensionality effect the speed of my algorithm
-    def runSpeedSweepsExponentialDataExperiment(self, expD):
+    def runSpeedSweepsExponentialDataExperiment(self, exp_d):
         # Run main speed experiment on exponential datasets
         # Show how problem sizes impacts tensor core utilization
         # Use a fixed selectivity
@@ -300,7 +322,7 @@ class ExperimentRunner(object):
         for size in np.logspace(3, 6, 20):
             for dim in range(64, 4096, 64):
                 results += self.runSelectivityExperiment(
-                    round(size), round(dim), selectivity, expD
+                    round(size), round(dim), selectivity, exp_d
                 )
 
         with open("ExpoDataSpeedVsSize.json", "w") as f:
@@ -311,19 +333,19 @@ if __name__ == "__main__":
     print(sys.version)
 
     # Create the pair finding routine
-    realFindPairs = findPairs.load_findpairs()
+    real_find_pairs = findPairs.load_findpairs()
 
-    experimentRunner = ExperimentRunner(realFindPairs)
+    experiment_runner = ExperimentRunner(real_find_pairs)
 
     # Targeting selectivities in the range of 10..1000
-    targetSelectivities = np.logspace(1, 3, 20)
+    target_selectivities = np.logspace(1, 3, 20)
 
     # Set up my exponential dataset distribution
-    expD = ExponentialDistribution(1.0, 5)
+    exp_d = ExponentialDistribution(1.0, 5)
 
     # experimentRunner.runSelectivityVsSpeedExperiment(targetSelectivities, expD)
 
-    experimentRunner.runSpeedSweepsExponentialDataExperiment(expD)
+    experiment_runner.runSpeedSweepsExponentialDataExperiment(exp_d)
 
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.

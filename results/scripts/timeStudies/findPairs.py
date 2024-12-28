@@ -27,18 +27,20 @@ class Results(ctypes.Structure):
     ]
 
     def __repr__(self):
-        return f"Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound}, pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape}, paddedProblemShape={self.paddedProblemShape})"
+        return f"""Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound},
+        pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape},
+        paddedProblemShape={self.paddedProblemShape})"""
 
 
 # Load shared library from file.
 def load_findpairs():
     # Load the shared library
-    findPairs = ctypes.CDLL("../../../source/main.so")
+    find_pairs = ctypes.CDLL("../../../source/main.so")
 
     # Define functions
     # Run from a dynamically generated input dataset
-    findPairs.runFromExponentialDataset.restype = Results
-    findPairs.runFromExponentialDataset.argtypes = [
+    find_pairs.runFromExponentialDataset.restype = Results
+    find_pairs.runFromExponentialDataset.argtypes = [
         ctypes.c_int,
         ctypes.c_int,
         ctypes.c_double,
@@ -48,13 +50,13 @@ def load_findpairs():
     ]
 
     # Can re-run with previously allocated input data, and a new epsilon.
-    findPairs.reRun.restype = Results
-    findPairs.reRun.argtypes = [
+    find_pairs.reRun.restype = Results
+    find_pairs.reRun.argtypes = [
         ctypes.c_double,
         ctypes.c_bool,
     ]
 
     # Free all resources allocated on GPU after done running.
-    findPairs.releaseResources.argtypes = []
+    find_pairs.releaseResources.argtypes = []
 
-    return findPairs
+    return find_pairs

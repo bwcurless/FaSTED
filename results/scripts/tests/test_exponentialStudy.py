@@ -1,21 +1,25 @@
 import unittest
 
-# Import the package
-import timeStudies
-
 # Import the module to test
 from timeStudies import exponentialStudy
 
 from timeStudies.exponentialStudy import ExperimentRunner
 from timeStudies.exponentialStudy import ExponentialDistribution
-from timeStudies.exponentialStudy import Results, mmaShape
+from timeStudies.findPairs import Results, mmaShape
 
 
 # Fake pair finding class for testing.
-class MockFindPairs(object):
+class MockFindPairs:
+    def __init__(self):
+        self.__last_size = 0
+        self.__last_dim = 0
+
     def runFromExponentialDataset(
-        self, size, dim, eLambda, eRange, epsilon, skipPairs
+        self, size, dim, e_lambda, e_range, epsilon, skip_pairs
     ):
+        # Save the size for when we rerun
+        self.__last_size = size
+        self.__last_dim = dim
         result = Results()
         result.TFLOPS = 1.0
         # The selectivity is equal to epsilon
@@ -23,6 +27,21 @@ class MockFindPairs(object):
         result.pairsStored = result.pairsFound
         result.inputProblemShape = mmaShape(size, size, dim)
         result.paddedProblemShape = mmaShape(size, size, dim)
+
+        return result
+
+    def reRun(self, epsilon, skip_pairs):
+        result = Results()
+        result.TFLOPS = 1.0
+        # The selectivity is equal to epsilon
+        result.pairsFound = int(epsilon * self.__last_size)
+        result.pairsStored = result.pairsFound
+        result.inputProblemShape = mmaShape(
+            self.__last_size, self.__last_size, self.__last_dim
+        )
+        result.paddedProblemShape = mmaShape(
+            self.__last_size, self.__last_size, self.__last_dim
+        )
 
         return result
 
