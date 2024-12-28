@@ -62,6 +62,12 @@ class TestExponentialStudy(unittest.TestCase):
         print(results)
         self.assertEqual(True, True)
 
+    def test_selectivity_vs_speed_experiment(self):
+        self.sut.run_selectivity_vs_speed_experiment([1, 10, 100])
+
+    def test_size_vs_dim_experiment(self):
+        self.sut.run_speed_sweeps_exponential_data_experiment()
+
     # Pass in a high dimensionality to make sure the method does not error our.
     def test_adjustEpsilonVolume_forOverflow(self):
         old_epsilon = 100
