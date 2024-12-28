@@ -4,6 +4,7 @@ Description: Plots experimental results for publishing.
 """
 
 import json
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -35,6 +36,7 @@ def parse_selectivity_vs_speed_data():
     )
     plt.xlabel("Selectivity")
     plt.ylabel("TFLOPS")
+    plt.ylim(0, 300)
     plt.title("Selectivity vs Throughput")
     plt.savefig("selectivityVsSpeed.pdf")
     plt.show()
@@ -53,19 +55,40 @@ def parse_speed_vs_size_data():
         .drop(columns=["iteration"])
     )
     print(averaged_results)
-    fig = plt.figure(2)
-    ax = fig.add_subplot(111, projection="3d")
-    surf = ax.plot_trisurf(
-        averaged_results[INPUT_SIZE_COL],
+
+    # Convert results to 2D array to show as a heatmap
+    unique_size = np.unique(averaged_results[INPUT_SIZE_COL])
+    unique_dim = np.unique(averaged_results[INPUT_DIM_COL])
+
+    grid = np.zeros((len(unique_dim), len(unique_size)))
+
+    for dim, size, speed in zip(
         averaged_results[INPUT_DIM_COL],
+        averaged_results[INPUT_SIZE_COL],
         averaged_results[SPEED_COL],
+    ):
+        dim_index = np.where(unique_dim == dim)[0]
+        size_index = np.where(unique_size == size)[0]
+        grid[dim_index, size_index] = speed
+
+    fig, ax = plt.subplots()
+    cax = ax.imshow(
+        grid,
         cmap="viridis",
+        origin="lower",
+        aspect="auto",
+        extent=(
+            unique_dim[0],
+            unique_dim[-1],
+            unique_size[0],
+            unique_size[-1],
+        ),
     )
+    colorbar = fig.colorbar(cax, ax=ax)
+    colorbar.set_label("Speed (TFLOPS)")
     ax.set_xlabel("Dataset Size (Points)")
     ax.set_ylabel("Dataset Dimensionality")
-    ax.set_zlabel("Speed (TFLOPS)")
-    ax.set_title("Speed vs Dataset Shape")
-    fig.colorbar(surf)
+    ax.set_title("Speed vs Input Size")
     plt.savefig("ExpoDataSpeedVsSize.pdf")
     plt.show()
 
