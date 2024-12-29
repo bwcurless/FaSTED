@@ -1,10 +1,13 @@
+"""
+File: test_experiments.py
+Description: Runs experiments with a mocked pair finding routine to quickly prove out
+the python algorithms before running on an actual  GPU.
+"""
+
 import unittest
 
-# Import the module to test
-from timeStudies import exponentialStudy
-
-from timeStudies.exponentialStudy import ExperimentRunner
-from timeStudies.findPairs import Results, mmaShape
+from experiment.experiments import ExperimentRunner
+from experiment.find_pairs import Results, mmaShape
 
 
 class MockFindPairs:
@@ -55,13 +58,6 @@ class TestExponentialStudy(unittest.TestCase):
 
         self.sut = ExperimentRunner(fake_findpairs)
 
-    def test_experiment_runner(self):
-        print("Running experiment runner")
-
-        results = self.sut.run_selectivity_experiment(100, 10, [10])
-        print(results)
-        self.assertEqual(True, True)
-
     def test_selectivity_vs_speed_experiment(self):
         self.sut.run_selectivity_vs_speed_experiment([1, 10, 100])
 
@@ -85,7 +81,9 @@ class TestExponentialStudy(unittest.TestCase):
 
     def test_findEpsilonBinary_whenSelectivityEqualsEpsilon(self):
         target_selectivity = 1243
-        eps = self.sut.find_epsilon_binary(100, 100, target_selectivity)
+        eps = self.sut.find_epsilon_binary(
+            100, target_selectivity, lambda eps: eps
+        )
         print(
             f"Expected selectivity: {target_selectivity}. Actual selectivity: {eps}"
         )

@@ -61,7 +61,7 @@ make shared
 
 # Navigate back
 cd -
-python -um timeStudies.exponentialStudy
+python -um run_experiments
 #srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001

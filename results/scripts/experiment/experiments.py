@@ -9,7 +9,6 @@ has been found, experiments are run to obtain the performance of the algorithm.
 import ctypes
 import json
 import math
-import sys
 import time
 from typing import Callable, Tuple
 
@@ -17,8 +16,7 @@ from decimal import Decimal
 from dataclasses import dataclass
 import numpy as np
 
-from timeStudies.findPairs import load_findpairs
-from timeStudies.findPairs import Results
+from experiment.find_pairs import Results
 
 
 # Define my own print method so I can tell what output comes from C++, and what from Python
@@ -51,9 +49,11 @@ class Experiment:
 
 
 @dataclass
-class ExponentialDistribution:
-    """Encapsulates the parameters to modify the distribution"""
+class ExponentialDataset:
+    """Encapsulates the parameters that specify the distribution of points"""
 
+    size: int
+    dimensionality: int
     e_lambda: float
     e_range: float
 
@@ -95,7 +95,7 @@ class ExperimentRunner:
         :find_pairs: The pair finding class. Can inject in a real one or a mocked one
 
         """
-        self._exp_d = ExponentialDistribution(1.0, 5)
+        self._exp_d = ExponentialDataset(100, 10, 1.0, 5)
         self._find_pairs = find_pairs
 
     def compute_gamma(self, gamma_in: int) -> Decimal:
@@ -261,8 +261,8 @@ class ExperimentRunner:
     def find_epsilon_binary(
         self,
         size: int,
-        dim: int,
         target_selectivity: float,
+        get_selectivity: Callable[[float], float],
         initial_epsilon: float = 0.0,
     ):
         """Determines the proper epsilon value to obtain a specified selectivity,
@@ -270,28 +270,14 @@ class ExperimentRunner:
         then binary searches that range until we achieve the target selectivity.
         The initial epsilon MUST be below the target selectivity for this to work.
 
-        :size: The number of points in the dataset.
-        :dim: The dimensionality of each point in the dataset.
+        :size: Number of points in the dataset
         :target_selectivity: The desired selectivity.
+        :get_selectivity: A delegate that takes in an epsilon value, and returns the selectivity.
         :initial_epsilon: The first epsilon to search with.
 
         :Returns: The final epsilon value that achieves the target selectivity.
 
         """
-
-        # Create a simple way to get the selectivity given an epsilon
-        def get_selectivity(epsilon: float) -> float:
-            return self.compute_selectivity(
-                self._find_pairs.runFromExponentialDataset(
-                    size,
-                    dim,
-                    self._exp_d.e_lambda,
-                    self._exp_d.e_range,
-                    epsilon,
-                    True,
-                ).pairsFound,
-                size,
-            )
 
         # To rerun the routine without changing the dataset run this method.
         def get_selectivity_rerun(epsilon: float) -> float:
@@ -402,8 +388,8 @@ class ExperimentRunner:
     def run_selectivity_experiment(
         self,
         size: int,
-        dim: int,
         selectivities: list[float],
+        get_selectivity: Callable[[float], float],
         iterations: int = 3,
     ):
         """Run an experiment over a given range of selectivities.
@@ -411,18 +397,19 @@ class ExperimentRunner:
         and repeats the experiment for "iterations" times.
 
         :size: The number of input points.
-        :dim: The dimensionality of the input points.
         :selectivities: The selectivities to test over.
+        :get_selectivity: A delegate to compute the selectivity given an epsilon value
         :iterations: The number of iterations to run the final tests for.
 
         :Returns: The results of the experiments
+
         """
 
         # First find the appropriate epsilons
         epsilons = {}
         for selectivity in selectivities:
             epsilons[selectivity] = self.find_epsilon_binary(
-                size, dim, selectivity, 0.0
+                size, selectivity, get_selectivity
             )
 
         # Now run the actual experiments and save the results
@@ -451,11 +438,28 @@ class ExperimentRunner:
 
         """
         print("Running basic selectivity experiment")
+        size = 100000
+        dim = 4096
+
+        # Create a simple way to get the selectivity given an epsilon
+        def get_selectivity(epsilon: float) -> float:
+            return self.compute_selectivity(
+                self._find_pairs.runFromExponentialDataset(
+                    size,
+                    dim,
+                    self._exp_d.e_lambda,
+                    self._exp_d.e_range,
+                    epsilon,
+                    True,
+                ).pairsFound,
+                size,
+            )
+
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
         # Chose a size that demonstrates the max throughput.
         results = self.run_selectivity_experiment(
-            100000, 4096, target_selectivities
+            size, target_selectivities, get_selectivity
         )
         with open("selectivityVsSpeed.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
@@ -468,37 +472,34 @@ class ExperimentRunner:
 
         """
 
-        selectivity = [10]
+        selectivities = [10]
         results = []
         print("Running exponential sweep speed experiment")
         for size in np.logspace(3, 6, 8):
+            rounded_size = round(size)
             # Iterate through powers of 2 for the dimensionality.
             first, last = (64, 4096)
 
-            current = first
-            while current <= last:
+            dim = first
+            while dim <= last:
+                # Create a simple way to get the selectivity given an epsilon
+                def get_selectivity(epsilon: float) -> float:
+                    return self.compute_selectivity(
+                        self._find_pairs.runFromExponentialDataset(
+                            rounded_size,
+                            dim,
+                            self._exp_d.e_lambda,
+                            self._exp_d.e_range,
+                            epsilon,
+                            True,
+                        ).pairsFound,
+                        rounded_size,
+                    )
+
                 results += self.run_selectivity_experiment(
-                    round(size), current, selectivity
+                    rounded_size, selectivities, get_selectivity
                 )
-                current *= 2
+                dim *= 2
 
         with open("ExpoDataSpeedVsSize.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
-
-
-if __name__ == "__main__":
-    print(sys.version)
-
-    # Create the pair finding routine
-    real_find_pairs = load_findpairs()
-
-    experiment_runner = ExperimentRunner(real_find_pairs)
-
-    # Targeting selectivities in the range of 10..1000
-    # test_selectivities = np.logspace(1, 3, 20)
-    # experiment_runner.run_selectivity_vs_speed_experiment(test_selectivities)
-
-    experiment_runner.run_speed_sweeps_exponential_data_experiment()
-
-    # Run on real world datasets. Autotune to use the 3x different selectivities.
-    # Will have 3x however many datasets I am testing on of output Pair data.
