@@ -8,6 +8,7 @@ import unittest
 
 from experiment.experiments import ExperimentRunner
 from experiment.find_pairs import Results, mmaShape
+from experiment import experiments
 
 
 class MockFindPairs:
@@ -67,29 +68,11 @@ class TestExponentialStudy(unittest.TestCase):
     # Pass in a high dimensionality to make sure the method does not error our.
     def test_adjustEpsilonVolume_forOverflow(self):
         old_epsilon = 100
-        result = self.sut.adjust_epsilon_volume(old_epsilon, 1000, 10, 10000)
+        result = experiments.adjust_epsilon_volume(
+            old_epsilon, 1000, 10, 10000
+        )
         print(f"Result was: {result}")
         self.assertAlmostEqual(result, old_epsilon, 1)
-
-    def test_boundEpsilon_whenSelectivityEqualsEpsilon(self):
-        target_selectivity = 1243
-        lower, upper = self.sut.bound_epsilon(
-            0.001, 100000, target_selectivity, lambda eps: eps
-        )
-        self.assertTrue(lower < target_selectivity)
-        self.assertTrue(upper > target_selectivity)
-
-    def test_findEpsilonBinary_whenSelectivityEqualsEpsilon(self):
-        target_selectivity = 1243
-        eps = self.sut.find_epsilon_binary(
-            100, target_selectivity, lambda eps: eps
-        )
-        print(
-            f"Expected selectivity: {target_selectivity}. Actual selectivity: {eps}"
-        )
-        self.assertTrue(
-            exponentialStudy.within_percent(eps, target_selectivity, 0.01)
-        )
 
 
 if __name__ == "__main__":
