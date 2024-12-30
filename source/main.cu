@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
         // // Set std::cout to use the "C" locale (which does not include thousands separators)
         //     std::cout.imbue(std::locale("C"));
 
-        std::string filename = argv[1];       // Get the filename from the command-line argument
+        const char* filename = argv[1];       // Get the filename from the command-line argument
         std::string epsilonString = argv[2];  // Get epsilon from the command-line argument
         double epsilon = parseDouble(epsilonString);
 

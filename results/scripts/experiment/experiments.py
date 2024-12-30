@@ -9,6 +9,7 @@ has been found, experiments are run to obtain the performance of the algorithm.
 import ctypes
 import json
 import math
+from pathlib import Path
 import time
 from typing import Callable, Tuple
 
@@ -435,7 +436,15 @@ class ExperimentRunner:
         print("Running on real world datasets")
 
         # Run on all real world datasets, and find epsilons for each of the target selectivites.
-        datasets = ["adataset.txt"]
+        base_path = Path("/scratch/bc2497/datasets")
+        datasets = [
+            "bigcross.txt",
+            "sift10m.txt",
+            "tiny5m.txt",
+            "uscensus.txt",
+            "dataset_fixed_len_pts_expo_NDIM_2_pts_2000_SUPEREGO.txt",
+            "dataset_fixed_len_pts_expo_NDIM_2_pts_2000.txt",
+        ]
 
         # Insert a set of results per dataset
         results = {}
@@ -444,7 +453,7 @@ class ExperimentRunner:
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities,
                 lambda epsilon: self._find_pairs.runFromFile(
-                    dataset, epsilon, False
+                    str(base_path / dataset).encode("utf-8"), epsilon, False
                 ),
             )
 

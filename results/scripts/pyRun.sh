@@ -50,6 +50,9 @@ jobid=$(sbatch --parsable <<SHELL
 # Main partition
 #SBATCH --account=gowanlock
 
+# Abort if any command fails
+set -e
+
 # Code will not compile if we don't load the module
 module load cuda
 module load python/3.10.8
