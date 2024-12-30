@@ -15,8 +15,8 @@ class MockFindPairs:
     """Fake pair finding class for testing."""
 
     def __init__(self):
-        self.__last_size = 0
-        self.__last_dim = 0
+        self._last_size = 0
+        self._last_dim = 0
 
     def runFromExponentialDataset(
         self, size, dim, e_lambda, e_range, epsilon, skip_pairs
@@ -24,8 +24,8 @@ class MockFindPairs:
         """Fake method to run from an exponential dataset."""
 
         # Save the size for when we rerun
-        self.__last_size = size
-        self.__last_dim = dim
+        self._last_size = size
+        self._last_dim = dim
         result = Results()
         result.TFLOPS = 1.0
         # The selectivity is equal to epsilon
@@ -36,20 +36,39 @@ class MockFindPairs:
 
         return result
 
+    def runFromFile(self, filename, epsilon, skip_pairs):
+        # Make up a size
+        self._last_size = 100000
+        self._last_dim = 15
+        result = Results()
+        result.TFLOPS = 1.0
+        # The selectivity is equal to epsilon
+        result.pairsFound = int(epsilon * self._last_size)
+        result.pairsStored = result.pairsFound
+        result.inputProblemShape = mmaShape(
+            self._last_size, self._last_size, self._last_dim
+        )
+        result.paddedProblemShape = mmaShape(
+            self._last_size, self._last_size, self._last_dim
+        )
+
     def reRun(self, epsilon, skip_pairs):
         result = Results()
         result.TFLOPS = 1.0
         # The selectivity is equal to epsilon
-        result.pairsFound = int(epsilon * self.__last_size)
+        result.pairsFound = int(epsilon * self._last_size)
         result.pairsStored = result.pairsFound
         result.inputProblemShape = mmaShape(
-            self.__last_size, self.__last_size, self.__last_dim
+            self._last_size, self._last_size, self._last_dim
         )
         result.paddedProblemShape = mmaShape(
-            self.__last_size, self.__last_size, self.__last_dim
+            self._last_size, self._last_size, self._last_dim
         )
 
         return result
+
+
+TEST_SELECTIVITIES = [1, 10, 100]
 
 
 class TestExponentialStudy(unittest.TestCase):
@@ -60,10 +79,13 @@ class TestExponentialStudy(unittest.TestCase):
         self.sut = ExperimentRunner(fake_findpairs)
 
     def test_selectivity_vs_speed_experiment(self):
-        self.sut.run_selectivity_vs_speed_experiment([1, 10, 100])
+        self.sut.run_selectivity_vs_speed_experiment(TEST_SELECTIVITIES)
 
     def test_size_vs_dim_experiment(self):
         self.sut.run_speed_sweeps_exponential_data_experiment()
+
+    def test_real_datasets_experiment(self):
+        self.sut.run_real_datasets_experiments(TEST_SELECTIVITIES)
 
     # Pass in a high dimensionality to make sure the method does not error our.
     def test_adjustEpsilonVolume_forOverflow(self):

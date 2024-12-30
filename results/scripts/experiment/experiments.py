@@ -414,8 +414,35 @@ class ExperimentRunner:
         print(results)
         return results
 
-    def run_real_datasets_experiments(self) -> None:
+    def run_real_datasets_experiments(
+        self, target_selectivities: list[float]
+    ) -> None:
+        """Runs my experiments on all the real world datasets. Once all the target selectivies are
+        found, the time trials are run and a single set of pairs is saved in the output.
+        The experimental results are saved to a json file.
+
+        :target_selectivites: The selectivities to run the experiments over.
+
+        """
         print("Running on real world datasets")
+
+        # Run on all real world datasets, and find epsilons for each of the target selectivites.
+        datasets = ["adataset.txt"]
+
+        # Insert a set of results per dataset
+        results = {}
+
+        for dataset in datasets:
+            results[dataset] = self.run_selectivity_experiment(
+                target_selectivities,
+                lambda epsilon: self._find_pairs.runFromFile(
+                    dataset, epsilon, True
+                ),
+            )
+
+        # Save all the pair results for each once epsilon has been found.
+        with open("realDatasets.json", "w", encoding="utf-8") as f:
+            json.dump(results, f, cls=ResultsEncoder)
 
     def run_selectivity_vs_speed_experiment(
         self, target_selectivities: list[float]

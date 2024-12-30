@@ -51,7 +51,7 @@ SimSearch::Results reRun(double epsilon, bool skipPairs = false);
  *
  * \returns The search results
  */
-SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPairs = false);
+SimSearch::Results runFromFile(const char* filename, double epsilon, bool skipPairs = false);
 
 /** Run pair finding routine from a generated exponentially distributed dataset.
  * \param size The number of points in the dataset.
@@ -258,8 +258,10 @@ SimSearch::Results runFromExponentialDataset(int size, int dimensionality, doubl
     return run(pointListBuilder, epsilon, skipPairs, false);
 }
 
-SimSearch::Results runFromFile(std::string filename, double epsilon, bool skipPairs) {
+SimSearch::Results runFromFile(const char* filename, double epsilon, bool skipPairs) {
     // Read dataset from file
+    // Convert const char * to std::string. Ctypes can only use const char *
+    std::string stringFilename(filename);
     SimSearch::FilePointGenerator pointGen(filename, ',');
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 

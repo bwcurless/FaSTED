@@ -49,6 +49,14 @@ def load_findpairs():
         ctypes.c_bool,
     ]
 
+    # Run from a dataset saved to a file
+    find_pairs.runFromFile.restype = Results
+    find_pairs.runFromFile.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_double,
+        ctypes.c_bool,
+    ]
+
     # Can re-run with previously allocated input data, and a new epsilon.
     find_pairs.reRun.restype = Results
     find_pairs.reRun.argtypes = [
