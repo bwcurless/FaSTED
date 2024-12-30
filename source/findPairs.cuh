@@ -73,7 +73,7 @@ struct FindPairsParamsHost {
     Mma::mmaShape inputSearchShape;   // The actual dimensions of the search data. Not including
                                       // padded values.
     Points::PointList<half_float::half> pointList;  // Host memory containing all points.
-    bool skipPairs;                                 // Skip writing out pairs, useful for testing
+    bool savePairs;           // Save pairs to file, disabling speed up testing
     bool skipPointsDownload;  // Skip allocating and copying input points to the device. Useful
                               // to speed up testing if you are only changing epsilon.
     std::string outputPath;   // Filepath to write data to.
@@ -657,7 +657,7 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Synchronize then sort pairs and save them of
     gpuErrchk(cudaDeviceSynchronize());
     double sortStartTime = omp_get_wtime();
-    if (!hostParams.skipPairs) {
+    if (hostParams.savePairs) {
         pairs.sort();
         // Open file stream and write data to it
         std::string pairsPath = hostParams.outputPath + ".pairs";

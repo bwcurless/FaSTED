@@ -362,7 +362,7 @@ class ExperimentRunner:
 
         """
 
-        results = self._find_pairs.reRun(epsilon, True)
+        results = self._find_pairs.reRun(epsilon, False)
         return compute_selectivity(
             results.pairsFound,
             results.inputProblemShape.m,
@@ -373,15 +373,19 @@ class ExperimentRunner:
         selectivities: list[float],
         get_selectivity: Callable[[float], float],
         iterations: int = 3,
+        save_pairs: bool = False,
     ) -> Experiment:
         """Run an experiment over a given range of selectivities.
         Auto-finds the epsilon to achieve the target selectivity,
-        and repeats the experiment for "iterations" times.
+        and repeats the experiment for "iterations" times. Optionally, will save the pairs
+        that it finds.
 
         :selectivities: The selectivities to test over.
         :get_selectivity: A delegate to download the dataset and compute the selectivity
         given an epsilon value.
         :iterations: The number of iterations to run the final tests for.
+        :save_pairs: Whether to save the resulting pairs once we have found epsilon. Will only save
+        them one time.
 
         :Returns: The results of the experiments
 
@@ -403,12 +407,16 @@ class ExperimentRunner:
         results = []
         for sel, eps in epsilons.items():
             for i in range(iterations):
+                # Only save pairs on the first iteration.
+                if i > 0:
+                    save_pairs = False
+
                 results.append(
                     Experiment(
                         sel,
                         eps,
                         i,
-                        self._find_pairs.reRun(eps, True),
+                        self._find_pairs.reRun(eps, save_pairs),
                     )
                 )
         print(results)
@@ -436,7 +444,7 @@ class ExperimentRunner:
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities,
                 lambda epsilon: self._find_pairs.runFromFile(
-                    dataset, epsilon, True
+                    dataset, epsilon, False
                 ),
             )
 
@@ -467,7 +475,7 @@ class ExperimentRunner:
                     e_lambda,
                     e_range,
                     epsilon,
-                    True,
+                    False,
                 ).pairsFound,
                 size,
             )
@@ -510,7 +518,7 @@ class ExperimentRunner:
                             e_lambda,
                             e_range,
                             epsilon,
-                            True,
+                            False,
                         ).pairsFound,
                         rounded_size,
                     )

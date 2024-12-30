@@ -37,21 +37,21 @@ extern "C" {
  * while fine tuning epsilon.
  *
  * \param epsilon The search radius.
- * \param skipPairs Skip saving the pairs to their own output stream.
+ * \param savePairs Save the pairs to their own output stream.
  *
  * \returns The search results
  */
-SimSearch::Results reRun(double epsilon, bool skipPairs = false);
+SimSearch::Results reRun(double epsilon, bool savePairs = false);
 
 /** Load a dataset from file and compute the results.
  *
  * \param filename The name of the file that contains the dataset.
  * \param epsilon The epsilon to use.
- * \param skipPairs Skip saving the pairs to their own output stream.
+ * \param savePairs Save the pairs to their own output stream.
  *
  * \returns The search results
  */
-SimSearch::Results runFromFile(const char* filename, double epsilon, bool skipPairs = false);
+SimSearch::Results runFromFile(const char* filename, double epsilon, bool savePairs = false);
 
 /** Run pair finding routine from a generated exponentially distributed dataset.
  * \param size The number of points in the dataset.
@@ -59,13 +59,13 @@ SimSearch::Results runFromFile(const char* filename, double epsilon, bool skipPa
  * \param lambda The lambda of the dataset.
  * \param mean The mean value of the dataset.
  * \param epsilon The search radius.
- * \param skipPairs Skip saving the pairs to their own output stream.
+ * \param savePairs Save the pairs to their own output stream.
  *
  * \returns The search results
  *
  */
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double mean, double epsilon, bool skipPairs = false);
+                                             double mean, double epsilon, bool savePairs = false);
 
 /** Releases resources allocated on GPU. Needs to be called after running from file or from an
  * exponential dataset to free allocated memory. Memory persists so we can call the "reRun"
@@ -192,13 +192,13 @@ int main(int argc, char* argv[]) {
  *
  * \param builder The PointListBuilder that will return the dataset.
  * \param epsilon The search radius.
- * \param skipPairs Don't save the pairs off to disk.
+ * \param savePairs Don't save the pairs off to disk.
  * \param skipPointsGeneration Don't generate new points. Use the ones from the last iteration.
  *
  * \returns The search results
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon,
-                       bool skipPairs, bool skipPointsGeneration) {
+                       bool savePairs, bool skipPointsGeneration) {
     // TODO this is kind of messy. Figure out a cleaner way to maintain the history here. This
     // filename isn't even correct either.
     std::string datasetName;
@@ -241,7 +241,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 
     auto hostParams =
         SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape,    inputSearchShape, pointList,
-                                       skipPairs, skipPointsGeneration, outputPath};
+                                       savePairs, skipPointsGeneration, outputPath};
     SimSearch::Results results = SimSearch::FindPairs(hostParams);
 
     return results;
@@ -249,28 +249,28 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 
 extern "C" {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
-                                             double max, double epsilon, bool skipPairs) {
+                                             double max, double epsilon, bool savePairs) {
     // Dynamically generate the dataset
     SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, lambda, max);
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
     // Run routine
-    return run(pointListBuilder, epsilon, skipPairs, false);
+    return run(pointListBuilder, epsilon, savePairs, false);
 }
 
-SimSearch::Results runFromFile(const char* filename, double epsilon, bool skipPairs) {
+SimSearch::Results runFromFile(const char* filename, double epsilon, bool savePairs) {
     // Read dataset from file
     // Convert const char * to std::string. Ctypes can only use const char *
     std::string stringFilename(filename);
     SimSearch::FilePointGenerator pointGen(filename, ',');
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
-    return run(pointListBuilder, epsilon, skipPairs, false);
+    return run(pointListBuilder, epsilon, savePairs, false);
 }
 
-SimSearch::Results reRun(double epsilon, bool skipPairs) {
+SimSearch::Results reRun(double epsilon, bool savePairs) {
     // TODO don't make a dummy generator here, find a better way to bypass this.
-    return run(nullptr, epsilon, skipPairs, true);
+    return run(nullptr, epsilon, savePairs, true);
 }
 
 void releaseResources() { releaseResources(); }
