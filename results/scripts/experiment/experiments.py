@@ -48,16 +48,6 @@ class Experiment:
     results: Results
 
 
-@dataclass
-class ExponentialDataset:
-    """Encapsulates the parameters that specify the distribution of points"""
-
-    size: int
-    dimensionality: int
-    e_lambda: float
-    e_range: float
-
-
 def within_percent(
     actual_value: float, target_value: float, percent: float
 ) -> bool:
@@ -360,34 +350,42 @@ class ExperimentRunner:
         :find_pairs: The pair finding class. Can inject in a real one or a mocked one
 
         """
-        self._exp_d = ExponentialDataset(100, 10, 1.0, 5)
         self._find_pairs = find_pairs
+
+    def get_selectivity_rerun(self, epsilon: float) -> float:
+        """Obtain the current selecitivity, given an epsilon, by rerunning the pair
+        finding routine without changing the dataset.
+
+        :epsilon: The new epsilon value to compute the selectivity for
+
+        :Returns: The selectivity
+
+        """
+
+        results = self._find_pairs.reRun(epsilon, True)
+        return compute_selectivity(
+            results.pairsFound,
+            results.inputProblemShape.m,
+        )
 
     def run_selectivity_experiment(
         self,
         selectivities: list[float],
         get_selectivity: Callable[[float], float],
         iterations: int = 3,
-    ):
+    ) -> Experiment:
         """Run an experiment over a given range of selectivities.
         Auto-finds the epsilon to achieve the target selectivity,
         and repeats the experiment for "iterations" times.
 
         :selectivities: The selectivities to test over.
-        :get_selectivity: A delegate to compute the selectivity given an epsilon value
+        :get_selectivity: A delegate to download the dataset and compute the selectivity
+        given an epsilon value.
         :iterations: The number of iterations to run the final tests for.
 
         :Returns: The results of the experiments
 
         """
-
-        # To rerun the routine without changing the dataset run this method.
-        def get_selectivity_rerun(epsilon: float) -> float:
-            results = self._find_pairs.reRun(epsilon, True)
-            return compute_selectivity(
-                results.pairsFound,
-                results.inputProblemShape.m,
-            )
 
         # First, run once to download the dataset to the GPU.
         get_selectivity(1.0)
@@ -396,7 +394,7 @@ class ExperimentRunner:
         epsilons = {}
         for selectivity in selectivities:
             epsilons[selectivity] = find_epsilon_binary(
-                selectivity, get_selectivity_rerun
+                selectivity, self.get_selectivity_rerun
             )
 
         # Now run the actual experiments and save the results
@@ -416,6 +414,9 @@ class ExperimentRunner:
         print(results)
         return results
 
+    def run_real_datasets_experiments(self) -> None:
+        print("Running on real world datasets")
+
     def run_selectivity_vs_speed_experiment(
         self, target_selectivities: list[float]
     ) -> None:
@@ -427,6 +428,8 @@ class ExperimentRunner:
         print("Running basic selectivity experiment")
         size = 100000
         dim = 4096
+        e_lambda = 40
+        e_range = 10
 
         # Create a simple way to get the selectivity given an epsilon
         def get_selectivity(epsilon: float) -> float:
@@ -434,8 +437,8 @@ class ExperimentRunner:
                 self._find_pairs.runFromExponentialDataset(
                     size,
                     dim,
-                    self._exp_d.e_lambda,
-                    self._exp_d.e_range,
+                    e_lambda,
+                    e_range,
                     epsilon,
                     True,
                 ).pairsFound,
@@ -458,6 +461,8 @@ class ExperimentRunner:
         Use a fixed selectivity
 
         """
+        e_lambda = 40
+        e_range = 10
 
         selectivities = [10]
         results = []
@@ -475,8 +480,8 @@ class ExperimentRunner:
                         self._find_pairs.runFromExponentialDataset(
                             rounded_size,
                             dim,
-                            self._exp_d.e_lambda,
-                            self._exp_d.e_range,
+                            e_lambda,
+                            e_range,
                             epsilon,
                             True,
                         ).pairsFound,
