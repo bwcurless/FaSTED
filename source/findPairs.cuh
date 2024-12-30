@@ -611,9 +611,9 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaEventRecord(squaredSumsStop, 0);
 
     // Allocate place to store pairs to.
-    // Assume a certain amount of pairs will be found, 1000 is a fair guess without overflowing
+    // Assume a certain amount of pairs will be found, 100 is a fair guess without overflowing
     // memory.
-    size_t expectedPairs = hostParams.inputSearchShape.m * 1000;
+    size_t expectedPairs = hostParams.inputSearchShape.m * 100;
     Pairs::Pairs pairs(expectedPairs);
     pairs.init();
 

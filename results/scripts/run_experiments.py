@@ -25,5 +25,5 @@ if __name__ == "__main__":
 
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.
-    test_selectivities = [10, 100, 1000]
+    test_selectivities = [10, 50, 100]
     experiment_runner.run_real_datasets_experiments(test_selectivities)

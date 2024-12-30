@@ -450,6 +450,7 @@ class ExperimentRunner:
         results = {}
 
         for dataset in datasets:
+            print(f"Running on dataset: {dataset}")
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities,
                 lambda epsilon: self._find_pairs.runFromFile(
