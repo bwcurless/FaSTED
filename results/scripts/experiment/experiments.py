@@ -130,21 +130,6 @@ def adjust_epsilon_volume(
     return new_epsilon
 
 
-def compute_selectivity(result_set_size: int, dataset_size: int) -> float:
-    """computes the selectivity as |R|-|D|/|D|
-
-    :result_set_size: How many pairs were found.
-    :dataset_size: How many points are in the dataset.
-
-    :Returns: The selectivity.
-
-    """
-
-    return (
-        max(0, result_set_size * 1.0 - dataset_size * 1.0) / dataset_size * 1.0
-    )
-
-
 def bound_epsilon(
     initial_epsilon: float,
     max_epsilon: float,
@@ -309,7 +294,7 @@ def find_epsilon_volumetric(
 
     epsilon = initial_epsilon
     while not within_percent(
-        (sel := compute_selectivity(result.pairsFound, size)),
+        (sel := result.get_selectivity()),
         target_selectivity,
         selectivity_threshold,
     ):
@@ -364,10 +349,7 @@ class ExperimentRunner:
         """
 
         results = self._find_pairs.reRun(epsilon, False)
-        return compute_selectivity(
-            results.pairsFound,
-            results.inputProblemShape.m,
-        )
+        return results.get_selectivity()
 
     def run_selectivity_experiment(
         self,
@@ -478,17 +460,14 @@ class ExperimentRunner:
 
         # Create a simple way to get the selectivity given an epsilon
         def get_selectivity(epsilon: float) -> float:
-            return compute_selectivity(
-                self._find_pairs.runFromExponentialDataset(
-                    size,
-                    dim,
-                    e_lambda,
-                    e_range,
-                    epsilon,
-                    False,
-                ).pairsFound,
+            return self._find_pairs.runFromExponentialDataset(
                 size,
-            )
+                dim,
+                e_lambda,
+                e_range,
+                epsilon,
+                False,
+            ).get_selectivity()
 
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
@@ -521,17 +500,14 @@ class ExperimentRunner:
             while dim <= last:
                 # Create a simple way to get the selectivity given an epsilon
                 def get_selectivity(epsilon: float) -> float:
-                    return compute_selectivity(
-                        self._find_pairs.runFromExponentialDataset(
-                            rounded_size,
-                            dim,
-                            e_lambda,
-                            e_range,
-                            epsilon,
-                            False,
-                        ).pairsFound,
+                    return self._find_pairs.runFromExponentialDataset(
                         rounded_size,
-                    )
+                        dim,
+                        e_lambda,
+                        e_range,
+                        epsilon,
+                        False,
+                    ).get_selectivity()
 
                 results += self.run_selectivity_experiment(
                     selectivities, get_selectivity

@@ -5,6 +5,21 @@ A wrapper that loads the CUDA shared library and makes it available to be run.
 import ctypes
 
 
+def compute_selectivity(result_set_size: int, dataset_size: int) -> float:
+    """computes the selectivity as |R|-|D|/|D|
+
+    :result_set_size: How many pairs were found.
+    :dataset_size: How many points are in the dataset.
+
+    :Returns: The selectivity.
+
+    """
+
+    return (
+        max(0, result_set_size * 1.0 - dataset_size * 1.0) / dataset_size * 1.0
+    )
+
+
 class mmaShape(ctypes.Structure):
     _fields_ = [
         ("m", ctypes.c_int),
@@ -30,6 +45,10 @@ class Results(ctypes.Structure):
         return f"""Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound},
         pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape},
         paddedProblemShape={self.paddedProblemShape})"""
+
+    def get_selectivity(self):
+        """Calculates and returns the selectivity of the results."""
+        return compute_selectivity(self.pairsFound, self.inputProblemShape.m)
 
 
 # Load shared library from file.
