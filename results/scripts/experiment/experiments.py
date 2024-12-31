@@ -17,7 +17,7 @@ from decimal import Decimal
 from dataclasses import dataclass
 import numpy as np
 
-from experiment.find_pairs import Results
+from experiment.find_pairs import Results, RerunnablePairsFinder
 
 
 # Define my own print method so I can tell what output comes from C++, and what from Python
@@ -134,7 +134,7 @@ def bound_epsilon(
     initial_epsilon: float,
     max_epsilon: float,
     target_selectivity: float,
-    get_selectivity: Callable[[float], Tuple[float, float]],
+    get_selectivity: Callable[[float], float],
 ) -> Tuple[float, float]:
     """Find an upper and lower bound on epsilon to achieve a target selectivity,
          given a way to calculate the selectivity for a specific epsilon.
@@ -224,9 +224,6 @@ def find_epsilon_binary(
     :Returns: The final epsilon value that achieves the target selectivity.
 
     """
-
-    # Run once to generate the dataset and push it to the device.
-    get_selectivity(1.0)
 
     # Find the upper and lower bounds for epsilon
     lower_epsilon, upper_epsilon = bound_epsilon(
@@ -354,7 +351,7 @@ class ExperimentRunner:
     def run_selectivity_experiment(
         self,
         selectivities: list[float],
-        get_selectivity: Callable[[float], float],
+        find_pairs: Callable[[float, bool], Results],
         iterations: int = 3,
         save_pairs: bool = False,
     ) -> Experiment:
@@ -364,7 +361,7 @@ class ExperimentRunner:
         that it finds.
 
         :selectivities: The selectivities to test over.
-        :get_selectivity: A delegate to download the dataset and compute the selectivity
+        :find_pairs: A delegate to run the algorithm and return the results.
         given an epsilon value.
         :iterations: The number of iterations to run the final tests for.
         :save_pairs: Whether to save the resulting pairs once we have found epsilon. Will only save
@@ -374,14 +371,12 @@ class ExperimentRunner:
 
         """
 
-        # First, run once to download the dataset to the GPU.
-        get_selectivity(1.0)
-
-        # Then rerun and find the appropriate epsilons
+        # Find the epsilons to achieve the selectivities
         epsilons = {}
         for selectivity in selectivities:
             epsilons[selectivity] = find_epsilon_binary(
-                selectivity, self.get_selectivity_rerun
+                selectivity,
+                lambda epsilon: find_pairs(epsilon, False).get_selectivity(),
             )
 
         # Now run the actual experiments and save the results
@@ -399,7 +394,7 @@ class ExperimentRunner:
                         sel,
                         eps,
                         i,
-                        self._find_pairs.reRun(eps, save_pairs),
+                        find_pairs(eps, save_pairs),
                     )
                 )
         print(results)
@@ -433,11 +428,18 @@ class ExperimentRunner:
 
         for dataset in datasets:
             print(f"Running on dataset: {dataset}")
+            # Build a rerunnable pair finding algorithm
+            pairs_finder = RerunnablePairsFinder(
+                lambda epsilon, save_pairs: self._find_pairs.runFromFile(
+                    str(base_path / dataset).encode("utf-8"),
+                    epsilon,
+                    save_pairs,
+                ),
+                self._find_pairs.reRun,
+            )
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities,
-                lambda epsilon: self._find_pairs.runFromFile(
-                    str(base_path / dataset).encode("utf-8"), epsilon, False
-                ),
+                pairs_finder,
             )
 
         # Save all the pair results for each once epsilon has been found.
@@ -458,22 +460,19 @@ class ExperimentRunner:
         e_lambda = 40
         e_range = 10
 
-        # Create a simple way to get the selectivity given an epsilon
-        def get_selectivity(epsilon: float) -> float:
-            return self._find_pairs.runFromExponentialDataset(
-                size,
-                dim,
-                e_lambda,
-                e_range,
-                epsilon,
-                False,
-            ).get_selectivity()
+        # Build a rerunnable pair finding algorithm
+        pairs_finder = RerunnablePairsFinder(
+            lambda epsilon, save_pairs: self._find_pairs.runFromExponentialDataset(
+                size, dim, e_lambda, e_range, epsilon, save_pairs
+            ),
+            self._find_pairs.reRun,
+        )
 
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
         # Chose a size that demonstrates the max throughput.
         results = self.run_selectivity_experiment(
-            target_selectivities, get_selectivity
+            target_selectivities, pairs_finder
         )
         with open("selectivityVsSpeed.json", "w", encoding="utf-8") as f:
             json.dump(results, f, cls=ResultsEncoder)
@@ -498,19 +497,21 @@ class ExperimentRunner:
 
             dim = first
             while dim <= last:
-                # Create a simple way to get the selectivity given an epsilon
-                def get_selectivity(epsilon: float) -> float:
-                    return self._find_pairs.runFromExponentialDataset(
+                # Build a rerunnable pair finding algorithm
+                pairs_finder = RerunnablePairsFinder(
+                    lambda epsilon, save_pairs: self._find_pairs.runFromExponentialDataset(
                         rounded_size,
                         dim,
                         e_lambda,
                         e_range,
                         epsilon,
-                        False,
-                    ).get_selectivity()
+                        save_pairs,
+                    ),
+                    self._find_pairs.reRun,
+                )
 
                 results += self.run_selectivity_experiment(
-                    selectivities, get_selectivity
+                    selectivities, pairs_finder
                 )
                 dim *= 2
 

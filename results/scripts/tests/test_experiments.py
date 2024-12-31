@@ -20,7 +20,7 @@ class MockFindPairs:
 
     def runFromExponentialDataset(
         self, size, dim, e_lambda, e_range, epsilon, skip_pairs
-    ):
+    ) -> Results:
         """Fake method to run from an exponential dataset."""
 
         # Save the size for when we rerun
@@ -36,7 +36,8 @@ class MockFindPairs:
 
         return result
 
-    def runFromFile(self, filename, epsilon, skip_pairs):
+    def runFromFile(self, filename, epsilon, skip_pairs) -> Results:
+        """Fake method to run from a file"""
         # Make up a size
         self._last_size = 100000
         self._last_dim = 15
@@ -51,8 +52,10 @@ class MockFindPairs:
         result.paddedProblemShape = mmaShape(
             self._last_size, self._last_size, self._last_dim
         )
+        return result
 
-    def reRun(self, epsilon, skip_pairs):
+    def reRun(self, epsilon, skip_pairs) -> Results:
+        """Fake method to rerun a dataset"""
         result = Results()
         result.TFLOPS = 1.0
         # The selectivity is equal to epsilon
