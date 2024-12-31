@@ -40,7 +40,16 @@ void RasterizeChunk(const Coordinate baseCoord, std::vector<Coordinate>& rastere
 std::vector<Coordinate> RasterizeLayout(int waveWidth, int waveHeight, int numBlocksRows,
                                         int numBlocksCols) {
     std::vector<Coordinate> coords;
-    coords.reserve(numBlocksRows * numBlocksCols);
+    size_t requiredElements =
+        static_cast<size_t>(numBlocksRows) * static_cast<size_t>(numBlocksCols);
+    try {
+        coords.reserve(requiredElements);
+    } catch (const std::length_error& e) {
+        std::cout << "Max vector size of coordinates is:" << std::vector<Coordinate>().max_size()
+                  << std::endl;
+        std::cout << "Attempted to allocate " << requiredElements << " coordinates" << std::endl;
+        throw;
+    }
 
     Coordinate currentCoordinate(0, 0);
 

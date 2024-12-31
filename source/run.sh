@@ -20,10 +20,10 @@ fi
 outputFile="MMAPTXTest"
 
 # Do a test build locally to make sure there aren't errors before waiting in queue
-echo "Building executable to $outputFile"
-module load cuda
-make clean
-make
+#echo "Building executable to $outputFile"
+#module load cuda
+#make clean
+#make
 
 # Define where outputs go
 outputPath="/scratch/$USER/"
@@ -40,25 +40,29 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
 #SBATCH --time=00:10:00
-#SBATCH --mem=10000         #memory requested in MiB
+#SBATCH --mem=128000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
 
 # Gowanlock Partition
-#SBATCH --account=gowanlock_condo
-#SBATCH --partition=gowanlock
+###SBATCH --account=gowanlock_condo
+###SBATCH --partition=gowanlock
 
 # Main partition
-###SBATCH --account=gowanlock
+#SBATCH --account=gowanlock
+
+set -e
 
 # Code will not compile if we don't load the module
 module load cuda
 
 # Can do arithmetic interpolation inside of $(( )). Need to escape properly
+make clean
 make
 
-#srun ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.03
+srun ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
 #srun ./release/main -e 200000 17 0.03
+#compute-sanitizer --tool=memcheck ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
 #compute-sanitizer --tool=memcheck ./release/main -e 1000000 64 12.8
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
@@ -73,5 +77,5 @@ SHELL
 )
 
 
-waitForJobComplete "$jobid"
-printFile "$outputPath$jobPrefix$outputFile-$jobid.out"
+#waitForJobComplete "$jobid"
+#printFile "$outputPath$jobPrefix$outputFile-$jobid.out"
