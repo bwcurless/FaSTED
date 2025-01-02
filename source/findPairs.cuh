@@ -16,6 +16,7 @@ a dataset already loaded into host memory.
 #include <omp.h>
 
 #include <cuda/pipeline>
+#include <cuda/std/semaphore>
 
 #include "DataLoader/PointList.hpp"
 #include "matrix.cuh"
@@ -49,6 +50,9 @@ using Coordinate = matrix::Coordinate;
 // Allocate the space for the input data on the device so that we can reuse it in-between
 // invocations while fine tuning epsilon.
 half2 *d_AValues, *d_BValues = nullptr;
+
+// GPU Parameters
+constexpr int numSMs = 108;
 
 // Block Parameters
 constexpr int numWarpCols = 2;
@@ -110,21 +114,6 @@ constexpr Mma::mmaShape blockTileDims = GetBlockTileDims();
 constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimPerInt4;
 constexpr int BElemsPerStage = blockTileDims.n * blockTileDims.k / WarpMma::dimPerInt4;
 constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
-
-/** Get global coordinates of upper left element this block is responsible for. The rasterizer does
- * not know how large blocks are, so this method effectively scales a 2D block index into real
- * coordinates.
- *
- * \param blockInex 2D block coordinate to compute.
- *
- * \return Global coordinates of upper left element
- */
-__device__ Coordinate GetBaseBlockCoordinateOnDemand(Coordinate& blockIndex) {
-    int baseRow = blockIndex.row * GetBlockTileDims().m;
-    int baseCol = blockIndex.col * GetBlockTileDims().n;
-
-    return {baseRow, baseCol};
-}
 
 /** Local coordinates of warp. Get local (relative to this block) coordinates of upper left
  * element that a warp in a block is responsible for
@@ -370,19 +359,6 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  */
 __global__ void FindPairsKernel(FindPairsParamsDevice params,
                                 Raster::OnDemandRasterizer* rasterizer, Pairs::Pairs pairs) {
-    // First thing, figure out which part this block should compute. Execution order of blocks could
-    // change this, so it is dynamically acquired. Global MMA Scoped Compute Upper left coordinate
-    // that this block is responsible for
-    Coordinate baseBlockCoord;
-    if (threadIdx.x == 0) {
-        Coordinate nextChunk = rasterizer->nextChunk();
-        baseBlockCoord = GetBaseBlockCoordinateOnDemand(nextChunk);
-        if (Debug) {
-            printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
-                   baseBlockCoord.col);
-        }
-    }
-
     int warpId = threadIdx.x / 32;
 
     __align__(128) __shared__ float squaredQueries[blockTileDims.m];
@@ -411,134 +387,161 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params,
         }
     }
 
-    __syncthreads();  // Wait for the baseBlockCoord to be retrieved. Minor optimization to put this
-                      // here.
+    // Run until we run out of coordinates and return early
+    while (true) {
+        // First thing, figure out which part this block should compute. Execution order of blocks
+        // could change this, so it is dynamically acquired. Global MMA Scoped Compute Upper left
+        // coordinate that this block is responsible for
 
-    // Block MMA Scoped
-    // Compute local warpBase Coordinates relative to this block. Useful for extracting the
-    // appropriate values from shared memory
-    Coordinate baseLocalWarpCoord = GetBaseLocalWarpCoordinate(warpId);
-    // Global MMA Scoped
-    // Compute the Upper left coordinate that each warp is responsible for
-    // MMA Useful for performing final inspection of results
-    Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
+        // Only have one thread update the next chunk, and share it with the others.
+        __shared__ cuda::std::optional<Coordinate> nextChunk;
+        if (threadIdx.x == 0) {
+            nextChunk = rasterizer->nextChunk();
+        }
 
-    // Start transferring sums of squared points over
-    auto group = cooperative_groups::this_thread_block();
-    LoadSumSquaredAsync(group, params.sumSqQueries, squaredQueries, baseBlockCoord.row,
-                        GetBlockTileDims().m);
-    LoadSumSquaredAsync(group, params.sumSqCandidates, squaredCandidates, baseBlockCoord.col,
-                        GetBlockTileDims().n);
+        __syncthreads();  // Wait for the baseBlockCoord to be retrieved.
 
-    // Create numWarps warpTiles to process what this block is responsible for
-    WarpMma::WarpTile warpTile;
-    warpTile.clearD();
-
-    // All threads colloborate to move Global-->Shared as data in shared is shared between all
-    // warps in the block
-
-    // Normal copy global->register, register->shared
-    // Single buffered
-    if (sync) {
-        for (int kStart = 0; kStart < params.paddedSearchShape.k; kStart += GetBlockTileDims().k) {
-            __syncthreads();  // Wait for all warps to complete using data
-            // Page A in
-            LoadGlobalToShared(params.queryPoints, ATile[0], baseBlockCoord.row,
-                               GetBlockTileDims().m, kStart, params.paddedSearchShape.k);
-
-            // Page B in
-            LoadGlobalToShared(params.candidatePoints, BTile[0], baseBlockCoord.col,
-                               GetBlockTileDims().n, kStart, params.paddedSearchShape.k);
-            __syncthreads();  // Wait for all data to be paged before computing
-
-            // Debug print statements
+        Coordinate baseBlockCoord;
+        if (nextChunk) {
+            baseBlockCoord = nextChunk.value();
             if (Debug) {
-                if (threadIdx.x == 0) {
-                    PrintMatrix<half>("Shared A", reinterpret_cast<half*>(ATile),
-                                      GetBlockTileDims().m, GetBlockTileDims().k);
-                    PrintMatrix<half>("Shared B", reinterpret_cast<half*>(BTile),
-                                      GetBlockTileDims().n, GetBlockTileDims().k);
+                printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
+                       baseBlockCoord.col);
+            }
+        } else {
+            // All threads must return here early
+            return;
+        }
+
+        // Block MMA Scoped
+        // Compute local warpBase Coordinates relative to this block. Useful for extracting the
+        // appropriate values from shared memory
+        Coordinate baseLocalWarpCoord = GetBaseLocalWarpCoordinate(warpId);
+        // Global MMA Scoped
+        // Compute the Upper left coordinate that each warp is responsible for
+        // MMA Useful for performing final inspection of results
+        Coordinate baseWarpCoord = GetBaseWarpCoordinate(baseBlockCoord, warpId);
+
+        // Start transferring sums of squared points over
+        auto group = cooperative_groups::this_thread_block();
+        LoadSumSquaredAsync(group, params.sumSqQueries, squaredQueries, baseBlockCoord.row,
+                            GetBlockTileDims().m);
+        LoadSumSquaredAsync(group, params.sumSqCandidates, squaredCandidates, baseBlockCoord.col,
+                            GetBlockTileDims().n);
+
+        // Create numWarps warpTiles to process what this block is responsible for
+        WarpMma::WarpTile warpTile;
+        warpTile.clearD();
+
+        // All threads colloborate to move Global-->Shared as data in shared is shared between
+        // all warps in the block
+
+        // Normal copy global->register, register->shared
+        // Single buffered
+        if (sync) {
+            for (int kStart = 0; kStart < params.paddedSearchShape.k;
+                 kStart += GetBlockTileDims().k) {
+                __syncthreads();  // Wait for all warps to complete using data
+                // Page A in
+                LoadGlobalToShared(params.queryPoints, ATile[0], baseBlockCoord.row,
+                                   GetBlockTileDims().m, kStart, params.paddedSearchShape.k);
+
+                // Page B in
+                LoadGlobalToShared(params.candidatePoints, BTile[0], baseBlockCoord.col,
+                                   GetBlockTileDims().n, kStart, params.paddedSearchShape.k);
+                __syncthreads();  // Wait for all data to be paged before computing
+
+                // Debug print statements
+                if (Debug) {
+                    if (threadIdx.x == 0) {
+                        PrintMatrix<half>("Shared A", reinterpret_cast<half*>(ATile),
+                                          GetBlockTileDims().m, GetBlockTileDims().k);
+                        PrintMatrix<half>("Shared B", reinterpret_cast<half*>(BTile),
+                                          GetBlockTileDims().n, GetBlockTileDims().k);
+                    }
+                    __syncthreads();
                 }
+
+                AccumulateKSliceWarpTile(warpTile, ATile[0], BTile[0], baseLocalWarpCoord);
+            }
+        }
+        // Async pipeline direct global->shared
+        else {
+            // Fill pipeline
+            // Keep track of which k index to load next since it's different than the next k we
+            // need to compute with
+            int nextKToLoad = 0;
+            for (int i = 0; i < pipelineDepth; ++i) {
+                // Always acquire and commit since wait_prior< > takes in a constant.
+                pipeline.producer_acquire();
+
+                if (nextKToLoad < params.paddedSearchShape.k) {
+                    // Page A in
+                    LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i],
+                                            baseBlockCoord.row, blockTileDims.m, nextKToLoad,
+                                            params.paddedSearchShape.k);
+
+                    // Page B in
+                    LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i],
+                                            baseBlockCoord.col, blockTileDims.n, nextKToLoad,
+                                            params.paddedSearchShape.k);
+                    nextKToLoad += blockTileDims.k;
+                }
+                pipeline.producer_commit();
+            }
+            // Pipeline stage to consume next
+            int pipelineIndex = 0;
+            for (int kStart = 0; kStart < params.paddedSearchShape.k; kStart += blockTileDims.k) {
+                SharedSize *nextATile, *nextBTile;
+                GetNextSharedTile(pipelineIndex, ATile, BTile, &nextATile, &nextBTile);
+
+                cuda::pipeline_consumer_wait_prior<pipelineDepth - 1>(pipeline);
+
+                // Thread scoped pipeline so must sync so we can read other thread's data
                 __syncthreads();
+
+                AccumulateKSliceWarpTile(warpTile, nextATile, nextBTile, baseLocalWarpCoord);
+
+                __syncthreads();
+
+                pipeline.consumer_release();
+
+                // Queue up the next stage of the pipeline
+                pipeline.producer_acquire();
+                // Still queue up empty stage if all the data we need is in the pipeline so wait
+                // doesn't block indefinitely at the end of the computation
+                if (nextKToLoad < params.paddedSearchShape.k) {
+                    // Page A in
+                    LoadGlobalToSharedAsync(pipeline, params.queryPoints, nextATile,
+                                            baseBlockCoord.row, blockTileDims.m, nextKToLoad,
+                                            params.paddedSearchShape.k);
+
+                    // Page B in
+                    LoadGlobalToSharedAsync(pipeline, params.candidatePoints, nextBTile,
+                                            baseBlockCoord.col, blockTileDims.n, nextKToLoad,
+                                            params.paddedSearchShape.k);
+
+                    nextKToLoad += blockTileDims.k;
+                }
+                pipeline.producer_commit();
+
+                // Set up next iteration to load from next stage in shared mem.
+                pipelineIndex = (pipelineIndex + 1) % pipelineDepth;
             }
-
-            AccumulateKSliceWarpTile(warpTile, ATile[0], BTile[0], baseLocalWarpCoord);
         }
-    }
-    // Async pipeline direct global->shared
-    else {
-        // Fill pipeline
-        // Keep track of which k index to load next since it's different than the next k we need
-        // to compute with
-        int nextKToLoad = 0;
-        for (int i = 0; i < pipelineDepth; ++i) {
-            // Always acquire and commit since wait_prior< > takes in a constant.
-            pipeline.producer_acquire();
-
-            if (nextKToLoad < params.paddedSearchShape.k) {
-                // Page A in
-                LoadGlobalToSharedAsync(pipeline, params.queryPoints, ATile[i], baseBlockCoord.row,
-                                        blockTileDims.m, nextKToLoad, params.paddedSearchShape.k);
-
-                // Page B in
-                LoadGlobalToSharedAsync(pipeline, params.candidatePoints, BTile[i],
-                                        baseBlockCoord.col, blockTileDims.n, nextKToLoad,
-                                        params.paddedSearchShape.k);
-                nextKToLoad += blockTileDims.k;
+        // Wait for sums of squared terms to complete transferring
+        cooperative_groups::wait(group);
+        if (threadIdx.x == 0 && Debug == true) {
+            for (int i = 0; i < blockTileDims.n; ++i) {
+                printf("Shared Query Sums %d: %f\n", i, squaredQueries[i]);
+                printf("Shared Candidate Sums %d: %f\n", i, squaredCandidates[i]);
             }
-            pipeline.producer_commit();
         }
-        // Pipeline stage to consume next
-        int pipelineIndex = 0;
-        for (int kStart = 0; kStart < params.paddedSearchShape.k; kStart += blockTileDims.k) {
-            SharedSize *nextATile, *nextBTile;
-            GetNextSharedTile(pipelineIndex, ATile, BTile, &nextATile, &nextBTile);
 
-            cuda::pipeline_consumer_wait_prior<pipelineDepth - 1>(pipeline);
-
-            // Thread scoped pipeline so must sync so we can read other thread's data
-            __syncthreads();
-
-            AccumulateKSliceWarpTile(warpTile, nextATile, nextBTile, baseLocalWarpCoord);
-
-            __syncthreads();
-
-            pipeline.consumer_release();
-
-            // Queue up the next stage of the pipeline
-            pipeline.producer_acquire();
-            // Still queue up empty stage if all the data we need is in the pipeline so wait
-            // doesn't block indefinitely at the end of the computation
-            if (nextKToLoad < params.paddedSearchShape.k) {
-                // Page A in
-                LoadGlobalToSharedAsync(pipeline, params.queryPoints, nextATile, baseBlockCoord.row,
-                                        blockTileDims.m, nextKToLoad, params.paddedSearchShape.k);
-
-                // Page B in
-                LoadGlobalToSharedAsync(pipeline, params.candidatePoints, nextBTile,
-                                        baseBlockCoord.col, blockTileDims.n, nextKToLoad,
-                                        params.paddedSearchShape.k);
-
-                nextKToLoad += blockTileDims.k;
-            }
-            pipeline.producer_commit();
-
-            // Set up next iteration to load from next stage in shared mem.
-            pipelineIndex = (pipelineIndex + 1) % pipelineDepth;
-        }
+        // Inspect the final results to see if we are within epsilon
+        warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
+                                params.epsilonSquared, params.inputSearchShape, pairs);
     }
-    // Wait for sums of squared terms to complete transferring
-    cooperative_groups::wait(group);
-    if (threadIdx.x == 0 && Debug == true) {
-        for (int i = 0; i < blockTileDims.n; ++i) {
-            printf("Shared Query Sums %d: %f\n", i, squaredQueries[i]);
-            printf("Shared Candidate Sums %d: %f\n", i, squaredCandidates[i]);
-        }
-    }
-
-    // Inspect the final results to see if we are within epsilon
-    warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
-                            params.epsilonSquared, params.inputSearchShape, pairs);
 }
 
 /** Allocates space for and transfers query and candidate points stored in host memory to global
@@ -566,7 +569,8 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
         printf("Allocating %lu bytes for candidate points\n", candidateSize);
     }
 
-    // Release global memory before allocating over the top of it, if it has already been allocated.
+    // Release global memory before allocating over the top of it, if it has already been
+    // allocated.
     releaseGlobalMemory();
 
     gpuErrchk(cudaMalloc(d_Query, querySize));
@@ -593,11 +597,13 @@ __host__ void allocateTransferPoints(const std::vector<Precision>& h_Query,
  * \param numCols How many columns of chunks to rasterize.
  * \param numRows How many rows of chunks to rasterize.
  * \param rasterSize The height/width to raster/
+ * \param chunkShape The dimensions of each chunk (128x128 for example)
  *
  */
 __global__ void initOnDemandRasterizer(Raster::OnDemandRasterizer* rasterizer, size_t numCols,
-                                       size_t numRows, unsigned int rasterSize) {
-    rasterizer->initialize(numRows, numCols, rasterSize);
+                                       size_t numRows, unsigned int rasterSize,
+                                       Mma::mmaShape chunkShape) {
+    rasterizer->initialize(numRows, numCols, rasterSize, chunkShape);
 }
 
 /** Given a set of input points, finds all pairs of points in the query and candidate points.
@@ -644,7 +650,9 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Determine thread block launch parameters
     size_t numBlocksRow = ceil(1.0 * hostParams.paddedSearchShape.m / GetBlockTileDims().m);
     size_t numBlocksCol = ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
-    dim3 gridDim(numBlocksRow * numBlocksCol, 1, 1);
+    // TODO, read how many SM's a device has and dynamically assign this. May need to do more if
+    // we can schedule more blocks to run than there are SM's (this it true I believe).
+    dim3 gridDim(numSMs * 4, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
@@ -652,7 +660,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     Raster::OnDemandRasterizer* d_rasterizer;
     gpuErrchk(cudaMalloc(&d_rasterizer, sizeof(Raster::OnDemandRasterizer)));
     // Run a kernel of 1 item to initialize the rasterizer on the GPU
-    initOnDemandRasterizer<<<1, 1>>>(d_rasterizer, numBlocksCol, numBlocksRow, rasterizeSize);
+    initOnDemandRasterizer<<<1, 1>>>(d_rasterizer, numBlocksCol, numBlocksRow, rasterizeSize,
+                                     blockTileDims);
     gpuErrchk(cudaDeviceSynchronize());
 
     if (Debug) {

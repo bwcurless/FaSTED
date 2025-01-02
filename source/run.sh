@@ -39,7 +39,7 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --output=$outputPath$jobPrefix$outputFile-%j.out
 #SBATCH --error=$errorPath$jobPrefix$outputFile-%j.out
 
-#SBATCH --time=00:10:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=128000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
