@@ -2,7 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "rasterizer.hpp"
+#include "bulkRasterizer.hpp"
 
 int main(int argc, char* argv[]) {
     int rows = 21;

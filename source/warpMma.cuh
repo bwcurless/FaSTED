@@ -241,7 +241,7 @@ struct WarpTile {
                     float distanceSqd = querySquared + candidateSquared -
                                         (static_cast<float>(2.0) * Dfrag.Registers[d]);
 
-                    if (Debug) {
+                    if (SmallDebug) {
                         printf("OElement %d, %d q^2=%f c^2=%f d=%f d^2=%f\n", elemCoord.row,
                                elemCoord.col, querySquared, candidateSquared, Dfrag.Registers[d],
                                distanceSqd);

@@ -60,14 +60,20 @@ __host__ std::ostream& operator<<(std::ostream& os, const Pair& obj) {
  */
 class Pairs {
    public:
-    Pairs(unsigned long long maxSize) : maxPairs{maxSize} {};
+    Pairs(unsigned long long maxPairs) : maxPairs{maxPairs} {};
 
     /** Initialize object. Must call release before disposing of this object. Allocates
      * global memory on GPU, as well as memory on host.
      *
      */
     __host__ void init() {
-        gpuErrchk(cudaMalloc(&d_pairs, sizeof(Pair) * maxPairs));
+        size_t pairsSize = sizeof(Pair) * maxPairs;
+        if (Debug) {
+            printf("Max number of pairs is: %lu\n", maxPairs);
+            printf("Size of each pair is: %lu\n", sizeof(Pair));
+            printf("Allocating %lu bytes for pairs\n", pairsSize);
+        }
+        gpuErrchk(cudaMalloc(&d_pairs, pairsSize));
         gpuErrchk(cudaMalloc(&d_pairsFound, sizeof(unsigned long long)));
         gpuErrchk(cudaMemset(d_pairsFound, 0, sizeof(unsigned long long)));
         gpuErrchk(cudaMalloc(&d_pairsStored, sizeof(unsigned long long)));

@@ -60,10 +60,10 @@ module load cuda
 make clean
 make
 
-srun ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
-#srun ./release/main -e 200000 17 0.03
+#srun ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
+srun ./release/main -e 11620300 57 0.03
 #compute-sanitizer --tool=memcheck ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
-#compute-sanitizer --tool=memcheck ./release/main -e 1000000 64 12.8
+#compute-sanitizer --tool=memcheck ./release/main -e 10000 64 12.8
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables

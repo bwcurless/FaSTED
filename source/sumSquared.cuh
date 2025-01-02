@@ -86,7 +86,12 @@ Out* ComputeSquaredSums(half2* points, const int numPoints, const int numDimensi
     // Allocate memory
     Out* sums;
     size_t sumsSize = numPoints * sizeof(Out);
-    cudaMalloc(&sums, sumsSize);
+
+    if (Debug) {
+        printf("Allocating %lu bytes for sum squared points\n", sumsSize);
+    }
+
+    gpuErrchk(cudaMalloc(&sums, sumsSize));
 
     // Determine launch parameters
     dim3 blockDims(
@@ -96,7 +101,7 @@ Out* ComputeSquaredSums(half2* points, const int numPoints, const int numDimensi
     // Launch Kernel
     SquaredSumsKernel<<<gridDims, blockDims>>>(points, numPoints, numDimensions, sums);
 
-    if (Debug) {
+    if (SmallDebug) {
         Out* h_sums = static_cast<Out*>(malloc(sumsSize));
 
         cudaDeviceSynchronize();

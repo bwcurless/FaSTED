@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
             return 1;  // Exit with error if the number of arguments is incorrect
         }
         // Run exponential dataset
-        std::cout << "Running from a generated exponential dataset";
+        std::cout << "Running from a generated exponential dataset" << std::endl;
 
         std::string numPointsString = argv[2];
         std::string numDimensionsString = argv[3];
@@ -206,11 +206,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     if (!skipPointsGeneration) {
         datasetName = builder.getDatasetName();
         Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
-        if (Debug) {
-            pointList = builder.withMaxPoints(128).build(bDims.k, bDims.m);
-        } else {
-            pointList = builder.build(bDims.k, bDims.m);
-        }
+        pointList = builder.build(bDims.k, SimSearch::rasterizeSize * bDims.m);
     } else {
         datasetName = "";
     }
@@ -234,7 +230,7 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
     std::cout << "N: " << inputSearchShape.n << std::endl;
     std::cout << "K: " << inputSearchShape.k << std::endl;
 
-    if (Debug) {
+    if (SmallDebug) {
         PrintMatrix<half>("Dataset A", reinterpret_cast<half*>(pointList.values.data()),
                           paddedSearchShape.m, paddedSearchShape.k);
     }

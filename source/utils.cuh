@@ -13,7 +13,9 @@
 
 #define WARPSIZE 32
 constexpr int SharedMemWidth = 128;  // 128 bytes, 32 lanes of 4 bytes each
-constexpr bool Debug = false;
+constexpr bool Debug = false;        // Enables some debug print statements.
+constexpr bool SmallDebug =
+    false;  // Only set this if you are running with small datasets. Prints out a lot of data.
 
 __device__ __host__ void PrintMatrix(const char* name, half* matrix, int m, int n);
 
@@ -24,6 +26,19 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
         fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
         if (abort) exit(code);
     }
+}
+
+/** Allocate space for a host value on the device, and copy the value to the device.
+ *
+ * \param devicePointer The pointer that you want to allocate space for on the device.
+ * \param hostValue The value on the host that you want to copy to the memory allocated and
+ * stored in devicePointer.
+ *
+ */
+template <typename T>
+inline void allocateAndTransferToDevice(T*& devicePointer, const T& hostValue) {
+    gpuErrchk(cudaMalloc(&devicePointer, sizeof(hostValue)));
+    gpuErrchk(cudaMemcpy(devicePointer, &hostValue, sizeof(hostValue), cudaMemcpyHostToDevice));
 }
 
 void checkLastCudaError() {

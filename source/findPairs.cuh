@@ -21,6 +21,7 @@ a dataset already loaded into host memory.
 #include "matrix.cuh"
 #include "pair.cuh"
 #include "ptxMma.cuh"
+#include "rasterizer/onDemandRasterizer.cuh"
 #include "rasterizer/rasterizer.hpp"
 #include "sumSquared.cuh"
 #include "utils.cuh"
@@ -59,6 +60,7 @@ constexpr int kSlices = 4;
 // To to global memory copies asynchronously or synchronously
 constexpr bool sync = false;
 constexpr bool rasterized = true;
+constexpr int rasterizeSize = 8;
 
 using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
@@ -109,19 +111,17 @@ constexpr int AElemsPerStage = blockTileDims.m * blockTileDims.k / WarpMma::dimP
 constexpr int BElemsPerStage = blockTileDims.n * blockTileDims.k / WarpMma::dimPerInt4;
 constexpr int ElemsPerStage = AElemsPerStage + BElemsPerStage;
 
-/** Get global coordinates of upper left element this block is responsible for. Converts a 1D
- * block index to a 2D coordinate that this block is responsible for computing.
+/** Get global coordinates of upper left element this block is responsible for. The rasterizer does
+ * not know how large blocks are, so this method effectively scales a 2D block index into real
+ * coordinates.
  *
- * \param blockCoords 1D Array of coordinates each block in the grid is responsible for.
+ * \param blockInex 2D block coordinate to compute.
  *
  * \return Global coordinates of upper left element
  */
-__device__ Coordinate GetBaseBlockCoordinate(Coordinate* blockCoords) {
-    // Extract this block's 2D index from the 1D launch index.
-    Coordinate coords = blockCoords[blockIdx.x];
-
-    int baseRow = coords.row * GetBlockTileDims().m;
-    int baseCol = coords.col * GetBlockTileDims().n;
+__device__ Coordinate GetBaseBlockCoordinateOnDemand(Coordinate& blockIndex) {
+    int baseRow = blockIndex.row * GetBlockTileDims().m;
+    int baseCol = blockIndex.col * GetBlockTileDims().n;
 
     return {baseRow, baseCol};
 }
@@ -218,7 +218,7 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         // Store int4 to shared
         int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
 
-        if (Debug && blockIdx.x == 0) {
+        if (SmallDebug && blockIdx.x == 0 && blockIdx.y == 0) {
             // To check for coalesced accesses
             printf("globalPointIndex T%d Point %d: %d\n", threadIdx.x, point, globalPointIndex);
             printf("swizzledAddress T%d Point %d: %d\n", threadIdx.x, point, swizzledAddress);
@@ -368,8 +368,21 @@ __device__ void LoadSumSquaredAsync(cooperative_groups::thread_block& group, flo
  * block is responsible for.
  *
  */
-__global__ void FindPairsKernel(FindPairsParamsDevice params, Coordinate* blockCoords,
-                                Pairs::Pairs pairs) {
+__global__ void FindPairsKernel(FindPairsParamsDevice params,
+                                Raster::OnDemandRasterizer* rasterizer, Pairs::Pairs pairs) {
+    // First thing, figure out which part this block should compute. Execution order of blocks could
+    // change this, so it is dynamically acquired. Global MMA Scoped Compute Upper left coordinate
+    // that this block is responsible for
+    Coordinate baseBlockCoord;
+    if (threadIdx.x == 0) {
+        Coordinate nextChunk = rasterizer->nextChunk();
+        baseBlockCoord = GetBaseBlockCoordinateOnDemand(nextChunk);
+        if (Debug) {
+            printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
+                   baseBlockCoord.col);
+        }
+    }
+
     int warpId = threadIdx.x / 32;
 
     __align__(128) __shared__ float squaredQueries[blockTileDims.m];
@@ -392,19 +405,15 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params, Coordinate* blockC
         int stageOffset = (i * ElemsPerStage);
         ATile[i] = sharedMem + stageOffset;
         BTile[i] = ATile[i] + AElemsPerStage;
-        if (threadIdx.x == 0 && Debug) {
+        if (threadIdx.x == 0 && SmallDebug) {
             printf("Shared Memory addresses in stage %d are:\nATile: %p\nBTile: %p\n", i, ATile[i],
                    BTile[i]);
         }
     }
 
-    // Global MMA Scoped
-    // Compute Upper left coordinate that this block is responsible for
-    Coordinate baseBlockCoord = GetBaseBlockCoordinate(blockCoords);
-    if (Debug && threadIdx.x == 0) {
-        printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
-               baseBlockCoord.col);
-    }
+    __syncthreads();  // Wait for the baseBlockCoord to be retrieved. Minor optimization to put this
+                      // here.
+
     // Block MMA Scoped
     // Compute local warpBase Coordinates relative to this block. Useful for extracting the
     // appropriate values from shared memory
@@ -547,8 +556,8 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params, Coordinate* blockC
 template <typename Precision, typename T>
 void TransferPointsToGMem(const std::vector<Precision>& h_Query,
                           const std::vector<Precision>& h_Candidate, T** d_Query, T** d_Candidate) {
-    size_t querySize = h_Query.size() * sizeof(h_Query[0]);
-    size_t candidateSize = h_Candidate.size() * sizeof(h_Candidate[0]);
+    size_t querySize = h_Query.size() * sizeof(Precision);
+    size_t candidateSize = h_Candidate.size() * sizeof(Precision);
 
     if (Debug) {
         printf("Query vector has %lu elements\n", h_Query.size());
@@ -575,6 +584,20 @@ template <typename Precision>
 __host__ void allocateTransferPoints(const std::vector<Precision>& h_Query,
                                      const std::vector<Precision>& h_Candidate) {
     TransferPointsToGMem(h_Query, h_Candidate, &d_AValues, &d_BValues);
+}
+
+/** A simple kernel to initialize a class on the GPU. Allocate device memory for it on the host,
+ * pass a pointer to that memory in, and then have the device initialize itself.
+ *
+ * \param rasterizer The allocated rasterizer object.
+ * \param numCols How many columns of chunks to rasterize.
+ * \param numRows How many rows of chunks to rasterize.
+ * \param rasterSize The height/width to raster/
+ *
+ */
+__global__ void initOnDemandRasterizer(Raster::OnDemandRasterizer* rasterizer, size_t numCols,
+                                       size_t numRows, unsigned int rasterSize) {
+    rasterizer->initialize(numRows, numCols, rasterSize);
 }
 
 /** Given a set of input points, finds all pairs of points in the query and candidate points.
@@ -613,7 +636,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Allocate place to store pairs to.
     // Assume a certain amount of pairs will be found, 100 is a fair guess without overflowing
     // memory.
-    size_t expectedPairs = hostParams.inputSearchShape.m * 100;
+    size_t expectedPairs = static_cast<unsigned long long>(hostParams.inputSearchShape.m) *
+                           static_cast<unsigned long long>(100);
     Pairs::Pairs pairs(expectedPairs);
     pairs.init();
 
@@ -624,18 +648,17 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
-    // Generate rasterized thread block layout for better cache locality
-    std::vector<Coordinate> h_blockCoords =
-        rasterized ? Raster::RasterizeLayout(10, 10, numBlocksRow, numBlocksCol)
-                   : Raster::ConventionalLayout(numBlocksRow, numBlocksCol);
-    Coordinate* d_blockCoords;
-    size_t size = sizeof(Coordinate) * h_blockCoords.size();
-    gpuErrchk(cudaMalloc(&d_blockCoords, size));
-    gpuErrchk(cudaMemcpy(d_blockCoords, h_blockCoords.data(), size, cudaMemcpyHostToDevice));
+    // Allocate rasterizer that determines which elements each block computes.
+    Raster::OnDemandRasterizer* d_rasterizer;
+    gpuErrchk(cudaMalloc(&d_rasterizer, sizeof(Raster::OnDemandRasterizer)));
+    // Run a kernel of 1 item to initialize the rasterizer on the GPU
+    initOnDemandRasterizer<<<1, 1>>>(d_rasterizer, numBlocksCol, numBlocksRow, rasterizeSize);
+    gpuErrchk(cudaDeviceSynchronize());
 
     if (Debug) {
         printf("Requesting %lu bytes of shared memory\n", sharedMemBytes);
         printf("Block Size is %d x %d x %d\n", blockTileDims.m, blockTileDims.n, blockTileDims.k);
+        printf("Launching grid of %u blocks\n", gridDim.x);
     }
 
     gpuErrchk(cudaFuncSetAttribute(FindPairsKernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
@@ -651,7 +674,13 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
                                                          d_ASqSums,
                                                          d_BSqSums};
     // Run the actual search kernel
-    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(deviceParams, d_blockCoords, pairs);
+    FindPairsKernel<<<gridDim, blockDim, sharedMemBytes>>>(deviceParams, d_rasterizer, pairs);
+    auto err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err) << "\n";
+        throw std::runtime_error(std::string("CUDA error while running FindPairKernel ") + ": " +
+                                 cudaGetErrorString(err));
+    }
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
     // Synchronize then sort pairs and save them of
@@ -699,7 +728,7 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaEventDestroy(findPairsStop);
     cudaFree(d_ASqSums);
     cudaFree(d_BSqSums);
-    cudaFree(d_blockCoords);
+    cudaFree(d_rasterizer);
 
     return Results{tflops, pairsFound, pairsStored, hostParams.inputSearchShape,
                    hostParams.paddedSearchShape};
