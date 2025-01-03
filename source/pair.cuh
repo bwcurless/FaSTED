@@ -68,8 +68,23 @@ class Pairs {
      */
     __host__ void init() {
         size_t pairsSize = sizeof(Pair) * maxPairs;
+        // Attempt to allocate space for the required number of pairs, but we may fail to have
+        // enough memory.
+        float percentOfFreeMemoryForPairs = 0.5;
+        size_t freeSpace, totalSpace;
+        gpuErrchk(cudaMemGetInfo(&freeSpace, &totalSpace));
+        size_t estimatedPairsSpace = freeSpace * percentOfFreeMemoryForPairs;
+        if (pairsSize > estimatedPairsSpace) {
+            unsigned long long newMaxPairs = estimatedPairsSpace / sizeof(Pair);
+            pairsSize = sizeof(Pair) * newMaxPairs;
+            printf(
+                "Failed to allocate enough space for %llu pairs. Reducing max number of "
+                "pairs to %llu\n",
+                maxPairs, newMaxPairs);
+            maxPairs = newMaxPairs;
+        }
         if (Debug) {
-            printf("Max number of pairs is: %lu\n", maxPairs);
+            printf("Max number of pairs is: %llu\n", maxPairs);
             printf("Size of each pair is: %lu\n", sizeof(Pair));
             printf("Allocating %lu bytes for pairs\n", pairsSize);
         }
@@ -165,7 +180,7 @@ class Pairs {
     }
 
    private:
-    const unsigned long long maxPairs{};  // The max number of pairs that can be stored.
+    unsigned long long maxPairs{};        // The max number of pairs that can be stored.
     Pair* d_pairs{};                      // The actual pairs on the device.
     unsigned long long* d_pairsFound{};   // How many pairs have been found.
     unsigned long long* d_pairsStored{};  // How many pairs have been stored in memory.
