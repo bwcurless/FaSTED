@@ -199,48 +199,54 @@ int main(int argc, char* argv[]) {
  */
 SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, double epsilon,
                        bool savePairs, bool skipPointsGeneration) {
-    // TODO this is kind of messy. Figure out a cleaner way to maintain the history here. This
-    // filename isn't even correct either.
-    std::string datasetName;
-    // Reuse the points previously created if told to do so.
-    if (!skipPointsGeneration) {
-        datasetName = builder.getDatasetName();
-        Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
-        pointList = builder.build(bDims.k, SimSearch::rasterizeSize * bDims.m);
-    } else {
-        datasetName = "";
+    try {
+        // TODO this is kind of messy. Figure out a cleaner way to maintain the history here. This
+        // filename isn't even correct either.
+        std::string datasetName;
+        // Reuse the points previously created if told to do so.
+        if (!skipPointsGeneration) {
+            datasetName = builder.getDatasetName();
+            Mma::mmaShape bDims = SimSearch::GetBlockTileDims();
+            pointList = builder.build(bDims.k, SimSearch::rasterizeSize * bDims.m);
+        } else {
+            datasetName = "";
+        }
+
+        // Output filename generation
+        std::string outputPath =
+            "/scratch/bc2497/pairsData/" + datasetName + "_" + std::to_string(epsilon);
+
+        Mma::mmaShape paddedSearchShape{pointList.getNumPoints(), pointList.getNumPoints(),
+                                        pointList.getDimensions()};
+        Mma::mmaShape inputSearchShape{pointList.getActualNumPoints(),
+                                       pointList.getActualNumPoints(),
+                                       pointList.getActualDimensions()};
+
+        std::cout << "Padded Search Dimensions:" << std::endl;
+        std::cout << "M: " << paddedSearchShape.m << std::endl;
+        std::cout << "N: " << paddedSearchShape.n << std::endl;
+        std::cout << "K: " << paddedSearchShape.k << std::endl;
+
+        std::cout << "Input Search Dimensions:" << std::endl;
+        std::cout << "M: " << inputSearchShape.m << std::endl;
+        std::cout << "N: " << inputSearchShape.n << std::endl;
+        std::cout << "K: " << inputSearchShape.k << std::endl;
+
+        if (SmallDebug) {
+            PrintMatrix<half>("Dataset A", reinterpret_cast<half*>(pointList.values.data()),
+                              paddedSearchShape.m, paddedSearchShape.k);
+        }
+
+        auto hostParams = SimSearch::FindPairsParamsHost{
+            epsilon,   paddedSearchShape,    inputSearchShape, pointList,
+            savePairs, skipPointsGeneration, outputPath};
+        SimSearch::Results results = SimSearch::FindPairs(hostParams);
+
+        return results;
+    } catch (const std::exception& e) {
+        std::cout << "Error: Failed to run. " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
-
-    // Output filename generation
-    std::string outputPath =
-        "/scratch/bc2497/pairsData/" + datasetName + "_" + std::to_string(epsilon);
-
-    Mma::mmaShape paddedSearchShape{pointList.getNumPoints(), pointList.getNumPoints(),
-                                    pointList.getDimensions()};
-    Mma::mmaShape inputSearchShape{pointList.getActualNumPoints(), pointList.getActualNumPoints(),
-                                   pointList.getActualDimensions()};
-
-    std::cout << "Padded Search Dimensions:" << std::endl;
-    std::cout << "M: " << paddedSearchShape.m << std::endl;
-    std::cout << "N: " << paddedSearchShape.n << std::endl;
-    std::cout << "K: " << paddedSearchShape.k << std::endl;
-
-    std::cout << "Input Search Dimensions:" << std::endl;
-    std::cout << "M: " << inputSearchShape.m << std::endl;
-    std::cout << "N: " << inputSearchShape.n << std::endl;
-    std::cout << "K: " << inputSearchShape.k << std::endl;
-
-    if (SmallDebug) {
-        PrintMatrix<half>("Dataset A", reinterpret_cast<half*>(pointList.values.data()),
-                          paddedSearchShape.m, paddedSearchShape.k);
-    }
-
-    auto hostParams =
-        SimSearch::FindPairsParamsHost{epsilon,   paddedSearchShape,    inputSearchShape, pointList,
-                                       savePairs, skipPointsGeneration, outputPath};
-    SimSearch::Results results = SimSearch::FindPairs(hostParams);
-
-    return results;
 }
 
 extern "C" {

@@ -130,38 +130,45 @@ class PointListBuilder {
      * \returns The list of points, padded according to the input.
      * */
     PointList<T> build(int dimensionFactor = 1, int numPointsFactor = 1) {
+        std::cout << "Building point list" << std::endl;
+
         double buildDatasetStartTime = omp_get_wtime();
         std::vector<T> points;
         bool firstIter = true;
         int numDimensions;
         int paddedDimensions;
 
-        // Read the file line by line
+        // Read line by line
         int pointCount = 0;
-        std::optional<std::vector<double>> nextPoint;
-        while ((nextPoint = generator->next()) && maxPointsNotExceeded(pointCount)) {
-            int dimCount = nextPoint.value().size();
+        try {
+            std::optional<std::vector<double>> nextPoint;
+            while ((nextPoint = generator->next()) && maxPointsNotExceeded(pointCount)) {
+                int dimCount = nextPoint.value().size();
 
-            // Append point to PointList
-            for (auto dim : nextPoint.value()) {
-                points.push_back(castValue(dim));
+                // Append point to PointList
+                for (auto dim : nextPoint.value()) {
+                    points.push_back(castValue(dim));
+                }
+
+                // Check actual number of dimensions parsed
+                if (firstIter) {
+                    firstIter = false;
+                    // First row in file defines how many dimemsions to expect on subsequent rows
+                    numDimensions = dimCount;
+                    // Compute the total dimensions needed with padding
+                    paddedDimensions = roundToNearestMultiple(numDimensions, dimensionFactor);
+                } else if (dimCount != numDimensions) {
+                    throw std::runtime_error(
+                        "Dimensions of subsequent points didn't match the first point");
+                }
+
+                zeroPadPoint(points, paddedDimensions - numDimensions);
+
+                ++pointCount;
             }
-
-            // Check actual number of dimensions parsed
-            if (firstIter) {
-                firstIter = false;
-                // First row in file defines how many dimemsions to expect on subsequent rows
-                numDimensions = dimCount;
-                // Compute the total dimensions needed with padding
-                paddedDimensions = roundToNearestMultiple(numDimensions, dimensionFactor);
-            } else if (dimCount != numDimensions) {
-                throw std::runtime_error(
-                    "Dimensions of subsequent points didn't match the first point");
-            }
-
-            zeroPadPoint(points, paddedDimensions - numDimensions);
-
-            ++pointCount;
+        } catch (const std::exception& e) {
+            std::cout << "Failed to build point list at line: " << pointCount << std::endl;
+            throw;
         }
         // Add extra points of all 0's
         int paddedPoints = roundToNearestMultiple(pointCount, numPointsFactor);

@@ -43,10 +43,14 @@ class FilePointGenerator : public PointGenerator {
         // Parse each value on the current line
         std::string value;
         while (std::getline(lineStream, value, delimeter)) {
-            double dimension = std::stod(value);
-            point.push_back(dimension);
+            try {
+                double dimension = std::stod(value);
+                point.push_back(dimension);
+            } catch (const std::exception& e) {
+                std::cout << "Failed to parse value: " << value << " from dataset" << std::endl;
+                throw;
+            }
         }
-
         return point;
     }
 
