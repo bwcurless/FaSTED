@@ -157,8 +157,6 @@ int main(int argc, char* argv[]) {
                       << std::endl;
             return 1;  // Exit with error if the number of arguments is incorrect
         }
-        // Run exponential dataset
-        std::cout << "Running from a generated exponential dataset" << std::endl;
 
         std::string numPointsString = argv[2];
         std::string numDimensionsString = argv[3];
@@ -252,6 +250,8 @@ SimSearch::Results run(Points::PointListBuilder<half_float::half> builder, doubl
 extern "C" {
 SimSearch::Results runFromExponentialDataset(int size, int dimensionality, double lambda,
                                              double max, double epsilon, bool savePairs) {
+    // Run exponential dataset
+    std::cout << "Running from a generated exponential dataset" << std::endl;
     // Dynamically generate the dataset
     SimSearch::ExponentialPointGenerator pointGen(size, dimensionality, lambda, max);
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
@@ -264,6 +264,8 @@ SimSearch::Results runFromFile(const char* filename, double epsilon, bool savePa
     // Read dataset from file
     // Convert const char * to std::string. Ctypes can only use const char *
     std::string stringFilename(filename);
+    std::cout << "Running from file: " << stringFilename << std::endl;
+
     SimSearch::FilePointGenerator pointGen(filename, ',');
     Points::PointListBuilder<half_float::half> pointListBuilder(&pointGen);
 
