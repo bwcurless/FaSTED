@@ -431,8 +431,10 @@ class ExperimentRunner:
         base_path = Path("/scratch/bc2497/datasets")
         datasets = [
             # "bigcross.txt",
-            # "sift10m.txt",
-            "tiny5m.txt",
+            # "sift10m_unscaled.txt",
+            "cifar60k_unscaled.txt",
+            # "tiny5m_unscaled.txt",
+            # "gist_unscaled.txt",
             # "uscensus.txt",
             # "dataset_fixed_len_pts_expo_NDIM_2_pts_2000_SUPEREGO.txt",
             # "dataset_fixed_len_pts_expo_NDIM_2_pts_2000.txt",
