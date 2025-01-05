@@ -39,6 +39,21 @@ def timeit(func):
     return wrapper
 
 
+def generate_unique_filename(prefix: str, file_type: str) -> str:
+    """Insert the current time into the filename to create a unique name"""
+    return f"{prefix}{int(time.time())}{file_type}"
+
+
+def save_json_results(filename: str, results: dict):
+    """Serialize the results to a json file"""
+    with open(
+        generate_unique_filename(filename, ".json"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(results, f, cls=ResultsEncoder)
+
+
 @dataclass
 class Experiment:
     """Wraps up the result parameters for an experiment"""
@@ -148,7 +163,7 @@ def bound_epsilon(
 
     """
 
-    epsilon_scale_factor = 10.0
+    epsilon_scale_factor = 2.0
 
     current_selectivity = 0
     new_epsilon = initial_epsilon
@@ -415,12 +430,12 @@ class ExperimentRunner:
         # Run on all real world datasets, and find epsilons for each of the target selectivites.
         base_path = Path("/scratch/bc2497/datasets")
         datasets = [
-            "bigcross.txt",
-            "sift10m.txt",
+            # "bigcross.txt",
+            # "sift10m.txt",
             "tiny5m.txt",
-            "uscensus.txt",
-            "dataset_fixed_len_pts_expo_NDIM_2_pts_2000_SUPEREGO.txt",
-            "dataset_fixed_len_pts_expo_NDIM_2_pts_2000.txt",
+            # "uscensus.txt",
+            # "dataset_fixed_len_pts_expo_NDIM_2_pts_2000_SUPEREGO.txt",
+            # "dataset_fixed_len_pts_expo_NDIM_2_pts_2000.txt",
         ]
 
         # Insert a set of results per dataset
@@ -438,13 +453,10 @@ class ExperimentRunner:
                 self._find_pairs.reRun,
             )
             results[dataset] = self.run_selectivity_experiment(
-                target_selectivities,
-                pairs_finder,
+                target_selectivities, pairs_finder, iterations=1
             )
 
-        # Save all the pair results for each once epsilon has been found.
-        with open("realDatasets.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, cls=ResultsEncoder)
+        save_json_results("realDatasets", results)
 
     def run_selectivity_vs_speed_experiment(
         self, target_selectivities: list[float]
@@ -474,8 +486,8 @@ class ExperimentRunner:
         results = self.run_selectivity_experiment(
             target_selectivities, pairs_finder
         )
-        with open("selectivityVsSpeed.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, cls=ResultsEncoder)
+
+        save_json_results("selectivityVsSpeed", results)
 
     def run_speed_sweeps_exponential_data_experiment(self) -> None:
         """Test how different dataset sizes and dimensionality effect the speed of my algorithm
@@ -515,5 +527,4 @@ class ExperimentRunner:
                 )
                 dim *= 2
 
-        with open("ExpoDataSpeedVsSize.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, cls=ResultsEncoder)
+        save_json_results("ExpoDataSpeedVsSize", results)
