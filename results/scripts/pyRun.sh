@@ -42,6 +42,7 @@ jobid=$(sbatch --parsable <<SHELL
 #SBATCH --mem=50000         #memory requested in MiB
 #SBATCH -G 1 #resource requirement (1 GPU)
 #SBATCH -C $gpu #GPU Model: k80, p100, v100, a100
+#SBATCH --exclusive=user
 
 # Gowanlock Partition
 ##SBATCH --account=gowanlock_condo

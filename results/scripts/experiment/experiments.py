@@ -41,7 +41,7 @@ def timeit(func):
 
 def generate_unique_filename(prefix: str, file_type: str) -> str:
     """Insert the current time into the filename to create a unique name"""
-    return f"{prefix}{int(time.time())}_{file_type}"
+    return f"{prefix}_{int(time.time())}{file_type}"
 
 
 def save_json_results(filename: str, results: dict):
@@ -546,16 +546,17 @@ class ExperimentRunner:
         """Test how different dataset sizes and dimensionality effect the speed of my algorithm
         Run main speed experiment on exponential datasets
         Show how problem sizes impacts tensor core utilization
-        Use a fixed selectivity
+        Use a fixed epsilon
 
         """
         e_lambda = 40
         e_range = 10
 
-        selectivities = [64]
+        epsilon = 0.001
+        selectivity = 0
         results = []
         print("Running exponential sweep speed experiment")
-        for size in np.logspace(3, 7, 5):
+        for size in np.logspace(3, 7, 10):
             rounded_size = round(size)
             # Iterate through powers of 2 for the dimensionality.
             first, last = (64, 4096)
@@ -575,8 +576,11 @@ class ExperimentRunner:
                     self._find_pairs.reRun,
                 )
 
-                results += self.run_selectivity_experiment(
-                    selectivities, pairs_finder
+                results += self.run_time_trials(
+                    pairs_finder,
+                    [SearchParameters(selectivity, epsilon)],
+                    3,
+                    False,
                 )
                 dim *= 2
 
