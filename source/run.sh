@@ -63,9 +63,9 @@ make
 #srun nvidia-smi
 #srun ./release/main "/scratch/bc2497/datasets/tiny5m_unscaled.txt" 0.2
 #srun ./release/main "/home/bc2497/datasets/expo_16D_2000000.txt" 0.035
-srun ./release/main -e 100000 2048 0.003
+srun ./release/main -e  1291550 4096 0.001
 #compute-sanitizer --tool=memcheck ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
-#compute-sanitizer --tool=memcheck --launch-timeout=1000 ./release/main -e 1291550 4096 0.001
+#compute-sanitizer --tool=memcheck --launch-timeout=4000 ./release/main -e 1291550 4096 0.001
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
