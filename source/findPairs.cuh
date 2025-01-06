@@ -387,30 +387,25 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params,
         }
     }
 
+    // Only have one thread update the next chunk, and share it with the others.
+    __shared__ cuda::std::optional<Coordinate> nextChunk;
+    if (threadIdx.x == 0) {
+        nextChunk = rasterizer->nextChunk();
+    }
+
+    __syncthreads();  // Wait for the baseBlockCoord to be retrieved.
+                      //
+    Coordinate baseBlockCoord;
     // Run until we run out of coordinates and return early
-    while (true) {
+    while (nextChunk) {
         // First thing, figure out which part this block should compute. Execution order of blocks
         // could change this, so it is dynamically acquired. Global MMA Scoped Compute Upper left
         // coordinate that this block is responsible for
 
-        // Only have one thread update the next chunk, and share it with the others.
-        __shared__ cuda::std::optional<Coordinate> nextChunk;
-        if (threadIdx.x == 0) {
-            nextChunk = rasterizer->nextChunk();
-        }
-
-        __syncthreads();  // Wait for the baseBlockCoord to be retrieved.
-
-        Coordinate baseBlockCoord;
-        if (nextChunk) {
-            baseBlockCoord = nextChunk.value();
-            if (Debug) {
-                printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
-                       baseBlockCoord.col);
-            }
-        } else {
-            // All threads must return here early
-            return;
+        baseBlockCoord = nextChunk.value();
+        if (Debug) {
+            printf("baseBlockCoord block %d is %d, %d\n", blockIdx.x, baseBlockCoord.row,
+                   baseBlockCoord.col);
         }
 
         // Block MMA Scoped
@@ -541,6 +536,12 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params,
         // Inspect the final results to see if we are within epsilon
         warpTile.inspectResults(baseBlockCoord, baseWarpCoord, squaredQueries, squaredCandidates,
                                 params.epsilonSquared, params.inputSearchShape, pairs);
+
+        if (threadIdx.x == 0) {
+            nextChunk = rasterizer->nextChunk();
+        }
+
+        __syncthreads();  // Wait for the baseBlockCoord to be retrieved.
     }
 }
 
