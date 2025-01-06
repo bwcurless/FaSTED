@@ -5,7 +5,7 @@ Description: Execute the experiments that I want to run.
 
 import sys
 
-from experiment.experiments import ExperimentRunner
+from experiment.experiments import ExperimentRunner, SearchParameters
 from experiment.find_pairs import load_findpairs
 
 if __name__ == "__main__":
@@ -26,4 +26,12 @@ if __name__ == "__main__":
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.
     test_selectivities = [64, 128, 256]
-    experiment_runner.run_real_datasets_experiments(test_selectivities)
+    # experiment_runner.run_real_datasets_epsilon_finder_experiments(test_selectivities)
+
+    experiment_runner.run_real_dataset_known_epsilons_experiments(
+        "/scratch/bc2497/datasets/",
+        "tiny5m_unscaled.txt",
+        [
+            SearchParameters(64, 0.03),
+        ],
+    )

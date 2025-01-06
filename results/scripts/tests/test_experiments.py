@@ -6,7 +6,7 @@ the python algorithms before running on an actual  GPU.
 
 import unittest
 
-from experiment.experiments import ExperimentRunner
+from experiment.experiments import ExperimentRunner, SearchParameters
 from experiment.find_pairs import Results, mmaShape
 from experiment import experiments
 
@@ -88,7 +88,19 @@ class TestExponentialStudy(unittest.TestCase):
         self.sut.run_speed_sweeps_exponential_data_experiment()
 
     def test_real_datasets_experiment(self):
-        self.sut.run_real_datasets_experiments(TEST_SELECTIVITIES)
+        self.sut.run_real_datasets_epsilon_finder_experiments(
+            TEST_SELECTIVITIES
+        )
+
+    def test_run_real_dataset_known_epsilons_experiments(self):
+        search_params = [
+            SearchParameters(64, 1.2),
+            SearchParameters(128, 3.4),
+            SearchParameters(256, 5.6),
+        ]
+        self.sut.run_real_dataset_known_epsilons_experiments(
+            "basePath", "dateset", search_params
+        )
 
     # Pass in a high dimensionality to make sure the method does not error our.
     def test_adjustEpsilonVolume_forOverflow(self):

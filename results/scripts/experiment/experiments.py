@@ -41,7 +41,7 @@ def timeit(func):
 
 def generate_unique_filename(prefix: str, file_type: str) -> str:
     """Insert the current time into the filename to create a unique name"""
-    return f"{prefix}{int(time.time())}{file_type}"
+    return f"{prefix}{int(time.time())}_{file_type}"
 
 
 def save_json_results(filename: str, results: dict):
@@ -52,6 +52,14 @@ def save_json_results(filename: str, results: dict):
         encoding="utf-8",
     ) as f:
         json.dump(results, f, cls=ResultsEncoder)
+
+
+@dataclass
+class SearchParameters:
+    """Encapsulates the inputs to the search routine"""
+
+    target_selectivity: float
+    epsilon: float
 
 
 @dataclass
@@ -226,7 +234,7 @@ def find_epsilon_binary(
     target_selectivity: float,
     get_selectivity: Callable[[float], float],
     initial_epsilon: float = 0.0,
-):
+) -> SearchParameters:
     """Determines the proper epsilon value to obtain a specified selectivity,
     using a binary search method. First finds a bounded epsilon range,
     then binary searches that range until we achieve the target selectivity.
@@ -277,7 +285,7 @@ def find_epsilon_binary(
         end = time.perf_counter()
         print(f"CUDA Code execution time: {end - start:.6f} seconds")
 
-    return new_epsilon
+    return SearchParameters(target_selectivity, new_epsilon)
 
 
 def find_epsilon_volumetric(
@@ -363,6 +371,32 @@ class ExperimentRunner:
         results = self._find_pairs.reRun(epsilon, False)
         return results.get_selectivity()
 
+    def run_time_trials(
+        self,
+        find_pairs: Callable[[float, bool], Results],
+        search_params: list[SearchParameters],
+        iterations: int,
+        save_pairs: bool = False,
+    ) -> list[Results]:
+        """Run find pairs routine for n-iterations and return the results."""
+        results = []
+        for param in search_params:
+            for i in range(iterations):
+                # Only save pairs on the first iteration.
+                if i > 0:
+                    save_pairs = False
+
+                results.append(
+                    Experiment(
+                        param.target_selectivity,
+                        param.epsilon,
+                        i,
+                        find_pairs(param.epsilon, save_pairs),
+                    )
+                )
+        print(results)
+        return results
+
     def run_selectivity_experiment(
         self,
         selectivities: list[float],
@@ -387,42 +421,64 @@ class ExperimentRunner:
         """
 
         # Find the epsilons to achieve the selectivities
-        epsilons = {}
+        search_params = []
         for selectivity in selectivities:
-            epsilons[selectivity] = find_epsilon_binary(
-                selectivity,
-                lambda epsilon: find_pairs(epsilon, False).get_selectivity(),
+            search_params.append(
+                find_epsilon_binary(
+                    selectivity,
+                    lambda epsilon: find_pairs(
+                        epsilon, False
+                    ).get_selectivity(),
+                ),
             )
 
         # Now run the actual experiments and save the results
-        # There is an assumption that the input data has already been generated and downloaded to
-        # the device. Don't repeat it here, just rerun.
-        results = []
-        for sel, eps in epsilons.items():
-            for i in range(iterations):
-                # Only save pairs on the first iteration.
-                if i > 0:
-                    save_pairs = False
-
-                results.append(
-                    Experiment(
-                        sel,
-                        eps,
-                        i,
-                        find_pairs(eps, save_pairs),
-                    )
-                )
-        print(results)
+        results = self.run_time_trials(
+            find_pairs, search_params, iterations, save_pairs
+        )
         return results
 
-    def run_real_datasets_experiments(
+    def build_rerunnable_file_pairs_finder(
+        self, base_path: str, dataset: str
+    ) -> Callable[[float, bool], Results]:
+        """Builds a rerunnable pairs finder that reads a dataset from file"""
+
+        pairs_finder = RerunnablePairsFinder(
+            lambda epsilon, save_pairs: self._find_pairs.runFromFile(
+                str(Path(base_path) / dataset).encode("utf-8"),
+                epsilon,
+                save_pairs,
+            ),
+            self._find_pairs.reRun,
+        )
+        return pairs_finder
+
+    def run_real_dataset_known_epsilons_experiments(
+        self,
+        dataset_path: str,
+        dataset: str,
+        search_params: list[SearchParameters],
+    ) -> None:
+        """Runs experiments for a number of iterations on a real world dataset with
+        a known epsilon value. Saves the results out to a file"""
+
+        print(f"Running on dataset: {dataset}")
+        pairs_finder = self.build_rerunnable_file_pairs_finder(
+            dataset_path, dataset
+        )
+
+        results = {}
+        results = self.run_time_trials(pairs_finder, search_params, 3, True)
+
+        save_json_results(f"{dataset}_results", results)
+
+    def run_real_datasets_epsilon_finder_experiments(
         self, target_selectivities: list[float]
     ) -> None:
-        """Runs my experiments on all the real world datasets. Once all the target selectivies are
-        found, the time trials are run and a single set of pairs is saved in the output.
-        The experimental results are saved to a json file.
+        """Finds epsilon value for a list of target selectivities. Saves the results
+        out to a file so real experiments can be run with the proper epsilons.
 
-        :target_selectivites: The selectivities to run the experiments over.
+        :target_selectivites: The selectivities to find the epsilons for.
 
         """
         print("Running on real world datasets")
@@ -445,15 +501,10 @@ class ExperimentRunner:
 
         for dataset in datasets:
             print(f"Running on dataset: {dataset}")
-            # Build a rerunnable pair finding algorithm
-            pairs_finder = RerunnablePairsFinder(
-                lambda epsilon, save_pairs: self._find_pairs.runFromFile(
-                    str(base_path / dataset).encode("utf-8"),
-                    epsilon,
-                    save_pairs,
-                ),
-                self._find_pairs.reRun,
+            pairs_finder = self.build_rerunnable_file_pairs_finder(
+                base_path, dataset
             )
+
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities, pairs_finder, iterations=1
             )

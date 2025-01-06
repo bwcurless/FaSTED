@@ -1,5 +1,5 @@
 #!/bin/bash
-# Syncs tensor program to cmp computer
+# Syncs tensor program to monsoon
 dirname="$(basename "$(pwd)")"
 destname="wind:~/$dirname"
 echo "Copying all files in directory $dirname to $destname"
