@@ -70,7 +70,7 @@ class Pairs {
         size_t pairsSize = sizeof(Pair) * maxPairs;
         // Attempt to allocate space for the required number of pairs, but we may fail to have
         // enough memory.
-        float percentOfFreeMemoryForPairs = 0.5;
+        float percentOfFreeMemoryForPairs = 1;
         size_t freeSpace, totalSpace;
         gpuErrchk(cudaMemGetInfo(&freeSpace, &totalSpace));
         size_t estimatedPairsSpace = freeSpace * percentOfFreeMemoryForPairs;

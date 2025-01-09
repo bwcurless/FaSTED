@@ -6,6 +6,7 @@
  * Description:      Reads points line by line from a file.
  *****************************************************************************/
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -16,14 +17,14 @@
 namespace SimSearch {
 class FilePointGenerator : public PointGenerator {
    public:
-    FilePointGenerator(const std::string filename, char delimeter = ',')
-        : filename(filename), file(filename), delimeter(delimeter) {
-        if (filename.empty()) {
-            throw std::invalid_argument("Filename must be set.");
+    FilePointGenerator(const std::string filepath, char delimeter = ',')
+        : filepath(filepath), file(filepath), delimeter(delimeter) {
+        if (filepath.empty()) {
+            throw std::invalid_argument("filepath must be set.");
         }
 
         if (!file.is_open()) {
-            throw std::ios_base::failure("Failed to open file: " + filename);
+            throw std::ios_base::failure("Failed to open file: " + filepath);
         }
     }
 
@@ -54,10 +55,20 @@ class FilePointGenerator : public PointGenerator {
         return point;
     }
 
-    std::string getName() override { return filename; }
+    std::string getName() override {
+        // Find the last slash in the path
+        size_t lastSlashPos = filepath.find_last_of("/\\");
+        std::string filename = filepath.substr(lastSlashPos + 1);
+
+        // Find the last dot in the filename
+        size_t lastDotPos = filename.find_last_of(".");
+        std::string filenameWithoutExtension = filename.substr(0, lastDotPos);
+
+        return filenameWithoutExtension;
+    }
 
    private:
-    std::string filename;
+    std::string filepath;
     std::ifstream file;
     char delimeter;
 };

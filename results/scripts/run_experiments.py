@@ -21,17 +21,48 @@ if __name__ == "__main__":
     # test_selectivities = np.logspace(1, 3, 20)
     # experiment_runner.run_selectivity_vs_speed_experiment(test_selectivities)
 
-    experiment_runner.run_speed_sweeps_exponential_data_experiment()
+    # experiment_runner.run_speed_sweeps_exponential_data_experiment()
 
     # Run on real world datasets. Autotune to use the 3x different selectivities.
     # Will have 3x however many datasets I am testing on of output Pair data.
     test_selectivities = [64, 128, 256]
     # experiment_runner.run_real_datasets_epsilon_finder_experiments(test_selectivities)
 
-    # experiment_runner.run_real_dataset_known_epsilons_experiments(
-    #    "/scratch/bc2497/datasets/",
-    #    "tiny5m_unscaled.txt",
-    #    [
-    #        SearchParameters(64, 0.03),
-    #    ],
-    # )
+    SCRATCH_PATH = "/scratch/bc2497/datasets/"
+
+    experiment_runner.run_real_dataset_known_epsilons_experiments(
+        SCRATCH_PATH,
+        "cifar60k_unscaled.txt",
+        [
+            SearchParameters(64, 0.62890625),
+            SearchParameters(128, 0.6591796875),
+            SearchParameters(256, 0.69140625),
+        ],
+    )
+    experiment_runner.run_real_dataset_known_epsilons_experiments(
+        SCRATCH_PATH,
+        "tiny5m_unscaled.txt",
+        [
+            SearchParameters(64, 0.18310546875),
+            SearchParameters(128, 0.20458984375),
+            SearchParameters(256, 0.2275390625),
+        ],
+    )
+    experiment_runner.run_real_dataset_known_epsilons_experiments(
+        SCRATCH_PATH,
+        "sift10m_unscaled.txt",
+        [
+            SearchParameters(64, 122.5),
+            SearchParameters(128, 136.5),
+            SearchParameters(256, 152.5),
+        ],
+    )
+    experiment_runner.run_real_dataset_known_epsilons_experiments(
+        SCRATCH_PATH,
+        "gist_unscaled.txt",
+        [
+            SearchParameters(64, 0.4736328125),
+            SearchParameters(128, 0.529296875),
+            SearchParameters(256, 0.59375),
+        ],
+    )

@@ -381,6 +381,7 @@ class ExperimentRunner:
         """Run find pairs routine for n-iterations and return the results."""
         results = []
         for param in search_params:
+            save_pairs = True
             for i in range(iterations):
                 # Only save pairs on the first iteration.
                 if i > 0:
