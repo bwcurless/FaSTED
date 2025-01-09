@@ -23,7 +23,6 @@ a dataset already loaded into host memory.
 #include "pair.cuh"
 #include "ptxMma.cuh"
 #include "rasterizer/onDemandRasterizer.cuh"
-#include "rasterizer/rasterizer.hpp"
 #include "sumSquared.cuh"
 #include "utils.cuh"
 #include "warpMma.cuh"
