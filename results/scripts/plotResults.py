@@ -45,7 +45,9 @@ def parse_selectivity_vs_speed_data():
 def parse_speed_vs_size_data():
     """Read in the speed vs size data and create plots for it."""
 
-    with open("../ExpoDataSpeedVsSize.json", "r", encoding="utf-8") as f:
+    with open(
+        "../ExpoDataSpeedVsSize_OnDemandRasterizer.json", "r", encoding="utf-8"
+    ) as f:
         speed_size_results = json.load(f)
     df = pd.json_normalize(speed_size_results)
     # Average results from each iteration. We used a fixed selectity here, so groupBy input shape.

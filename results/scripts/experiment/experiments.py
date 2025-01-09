@@ -556,7 +556,7 @@ class ExperimentRunner:
         selectivity = 0
         results = []
         print("Running exponential sweep speed experiment")
-        for size in np.logspace(3, 7, 10):
+        for size in np.logspace(3, 6, 10):
             rounded_size = round(size)
             # Iterate through powers of 2 for the dimensionality.
             first, last = (64, 4096)
