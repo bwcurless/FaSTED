@@ -82,7 +82,8 @@ __global__ void SquaredSumsKernel(half2* points, const unsigned int numPoints,
  * \return The sums of the squared dimensions of each point.
  */
 template <typename Out>
-Out* ComputeSquaredSums(half2* points, const int numPoints, const int numDimensions) {
+Out* ComputeSquaredSums(half2* points, const unsigned int numPoints,
+                        const unsigned int numDimensions) {
     // Allocate memory
     Out* sums;
     size_t sumsSize = numPoints * sizeof(Out);

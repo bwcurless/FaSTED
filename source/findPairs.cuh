@@ -563,7 +563,7 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
     size_t querySize = h_Query.size() * sizeof(Precision);
     size_t candidateSize = h_Candidate.size() * sizeof(Precision);
 
-    if (Debug) {
+    if (true) {
         printf("Query vector has %lu elements\n", h_Query.size());
         printf("Candidate vector has %lu elements\n", h_Candidate.size());
         printf("Allocating %lu bytes for query points\n", querySize);
@@ -601,9 +601,9 @@ __host__ void allocateTransferPoints(const std::vector<Precision>& h_Query,
  * \param chunkShape The dimensions of each chunk (128x128 for example)
  *
  */
-__global__ void initOnDemandRasterizer(Raster::OnDemandRasterizer* rasterizer, size_t numCols,
-                                       size_t numRows, unsigned int rasterSize,
-                                       Mma::mmaShape chunkShape) {
+__global__ void initOnDemandRasterizer(Raster::OnDemandRasterizer* rasterizer,
+                                       unsigned long long numCols, unsigned long long numRows,
+                                       unsigned int rasterSize, Mma::mmaShape chunkShape) {
     rasterizer->initialize(numRows, numCols, rasterSize, chunkShape);
 }
 
@@ -649,8 +649,10 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     pairs.init();
 
     // Determine thread block launch parameters
-    size_t numBlocksRow = ceil(1.0 * hostParams.paddedSearchShape.m / GetBlockTileDims().m);
-    size_t numBlocksCol = ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
+    unsigned long long numBlocksRow =
+        ceil(1.0 * hostParams.paddedSearchShape.m / GetBlockTileDims().m);
+    unsigned long long numBlocksCol =
+        ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
     // TODO, read how many SM's a device has and dynamically assign this. May need to do more if
     // we can schedule more blocks to run than there are SM's (this it true I believe).
     dim3 gridDim(numSMs * 4, 1, 1);

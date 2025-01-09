@@ -37,9 +37,7 @@ class OnDemandRasterizer {
      * manually cleaned up by calling release, as a copy of this object is passed into the cuda
      * kernel, and resources must not be released.
      */
-    OnDemandRasterizer();
-
-    virtual ~OnDemandRasterizer();
+    __device__ OnDemandRasterizer();
 
     /** Allocate any resources and prepare the GPU to reference this class. This needs to be invoked
      * by a kernel and synchronized before other kernel invocations can use it.

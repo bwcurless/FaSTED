@@ -31,8 +31,8 @@ class PointListBuilder {
      * \param points Where to append the zeros to.
      * \param numValues How many zeros to append.
      */
-    void zeroPadPoint(std::vector<T>& points, int numValues) {
-        for (int i = 0; i < numValues; ++i) {
+    void zeroPadPoint(std::vector<T>& points, unsigned long long numValues) {
+        for (unsigned long long i = 0; i < numValues; ++i) {
             T dimension = getZero();
             points.push_back(dimension);
         }
@@ -172,7 +172,10 @@ class PointListBuilder {
         }
         // Add extra points of all 0's
         int paddedPoints = roundToNearestMultiple(pointCount, numPointsFactor);
-        int numZerosToAppend = paddedPoints * paddedDimensions;
+        int pointsToPad = paddedPoints - pointCount;
+        std::cout << "Number of points is: " << pointCount << std::endl;
+        std::cout << "Padding with " << pointsToPad << " points" << std::endl;
+        unsigned long long numZerosToAppend = pointsToPad * paddedDimensions;
         zeroPadPoint(points, numZerosToAppend);
 
         if (pointCount == 0) {
