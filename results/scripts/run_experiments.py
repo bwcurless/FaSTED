@@ -30,39 +30,38 @@ if __name__ == "__main__":
 
     SCRATCH_PATH = "/scratch/bc2497/datasets/"
 
-    experiment_runner.run_real_dataset_known_epsilons_experiments(
-        SCRATCH_PATH,
-        "cifar60k_unscaled.txt",
-        [
-            SearchParameters(64, 0.62890625),
-            SearchParameters(128, 0.6591796875),
-            SearchParameters(256, 0.69140625),
-        ],
-    )
-    experiment_runner.run_real_dataset_known_epsilons_experiments(
-        SCRATCH_PATH,
-        "tiny5m_unscaled.txt",
-        [
-            SearchParameters(64, 0.18310546875),
-            SearchParameters(128, 0.20458984375),
-            SearchParameters(256, 0.2275390625),
-        ],
-    )
+    # experiment_runner.run_real_dataset_known_epsilons_experiments( #    SCRATCH_PATH,
+    #    "cifar60k_unscaled.txt",
+    #    [
+    #        SearchParameters(64, 0.62890625, True),
+    #        SearchParameters(128, 0.6591796875, False),
+    #        SearchParameters(256, 0.69140625, False),
+    #    ],
+    # )
+    # experiment_runner.run_real_dataset_known_epsilons_experiments(
+    #    SCRATCH_PATH,
+    #    "tiny5m_unscaled.txt",
+    #    [
+    #        SearchParameters(64, 0.18310546875, True),
+    #        SearchParameters(128, 0.20458984375, False),
+    #        SearchParameters(256, 0.2275390625, False),
+    #    ],
+    # )
     experiment_runner.run_real_dataset_known_epsilons_experiments(
         SCRATCH_PATH,
         "sift10m_unscaled.txt",
         [
-            SearchParameters(64, 122.5),
-            SearchParameters(128, 136.5),
-            SearchParameters(256, 152.5),
+            SearchParameters(64, 122.5, False),
+            SearchParameters(128, 136.5, False),
+            SearchParameters(256, 152.5, False),
         ],
     )
-    experiment_runner.run_real_dataset_known_epsilons_experiments(
-        SCRATCH_PATH,
-        "gist_unscaled.txt",
-        [
-            SearchParameters(64, 0.4736328125),
-            SearchParameters(128, 0.529296875),
-            SearchParameters(256, 0.59375),
-        ],
-    )
+    # experiment_runner.run_real_dataset_known_epsilons_experiments(
+    #    SCRATCH_PATH,
+    #    "gist_unscaled.txt",
+    #    [
+    #        SearchParameters(64, 0.4736328125, True),
+    #        SearchParameters(128, 0.529296875, False),
+    #        SearchParameters(256, 0.59375, False),
+    #    ],
+    # )

@@ -60,6 +60,7 @@ class SearchParameters:
 
     target_selectivity: float
     epsilon: float
+    save_pairs: bool
 
 
 @dataclass
@@ -234,7 +235,7 @@ def find_epsilon_binary(
     target_selectivity: float,
     get_selectivity: Callable[[float], float],
     initial_epsilon: float = 0.0,
-) -> SearchParameters:
+) -> float:
     """Determines the proper epsilon value to obtain a specified selectivity,
     using a binary search method. First finds a bounded epsilon range,
     then binary searches that range until we achieve the target selectivity.
@@ -285,7 +286,7 @@ def find_epsilon_binary(
         end = time.perf_counter()
         print(f"CUDA Code execution time: {end - start:.6f} seconds")
 
-    return SearchParameters(target_selectivity, new_epsilon)
+    return new_epsilon
 
 
 def find_epsilon_volumetric(
@@ -376,12 +377,11 @@ class ExperimentRunner:
         find_pairs: Callable[[float, bool], Results],
         search_params: list[SearchParameters],
         iterations: int,
-        save_pairs: bool = False,
     ) -> list[Results]:
         """Run find pairs routine for n-iterations and return the results."""
         results = []
         for param in search_params:
-            save_pairs = True
+            save_pairs = param.save_pairs
             for i in range(iterations):
                 # Only save pairs on the first iteration.
                 if i > 0:
@@ -425,18 +425,20 @@ class ExperimentRunner:
         search_params = []
         for selectivity in selectivities:
             search_params.append(
-                find_epsilon_binary(
+                SearchParameters(
                     selectivity,
-                    lambda epsilon: find_pairs(
-                        epsilon, False
-                    ).get_selectivity(),
+                    find_epsilon_binary(
+                        selectivity,
+                        lambda epsilon: find_pairs(
+                            epsilon, False
+                        ).get_selectivity(),
+                    ),
+                    save_pairs,
                 ),
             )
 
         # Now run the actual experiments and save the results
-        results = self.run_time_trials(
-            find_pairs, search_params, iterations, save_pairs
-        )
+        results = self.run_time_trials(find_pairs, search_params, iterations)
         return results
 
     def build_rerunnable_file_pairs_finder(
@@ -469,7 +471,7 @@ class ExperimentRunner:
         )
 
         results = {}
-        results = self.run_time_trials(pairs_finder, search_params, 3, True)
+        results = self.run_time_trials(pairs_finder, search_params, 3)
 
         save_json_results(f"{dataset}_results", results)
 
@@ -579,9 +581,8 @@ class ExperimentRunner:
 
                 results += self.run_time_trials(
                     pairs_finder,
-                    [SearchParameters(selectivity, epsilon)],
+                    [SearchParameters(selectivity, epsilon, False)],
                     3,
-                    False,
                 )
                 dim *= 2
 

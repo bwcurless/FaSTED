@@ -94,9 +94,9 @@ class TestExponentialStudy(unittest.TestCase):
 
     def test_run_real_dataset_known_epsilons_experiments(self):
         search_params = [
-            SearchParameters(64, 1.2),
-            SearchParameters(128, 3.4),
-            SearchParameters(256, 5.6),
+            SearchParameters(64, 1.2, False),
+            SearchParameters(128, 3.4, False),
+            SearchParameters(256, 5.6, False),
         ]
         self.sut.run_real_dataset_known_epsilons_experiments(
             "basePath", "dateset", search_params
