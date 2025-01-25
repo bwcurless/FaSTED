@@ -58,11 +58,17 @@ def parse_speed_vs_size_data():
     )
     print(averaged_results)
 
-    # Convert results to 2D array to show as a heatmap
+    # Extract x and y labels...
     unique_size = np.unique(averaged_results[INPUT_SIZE_COL])
     unique_dim = np.unique(averaged_results[INPUT_DIM_COL])
 
-    grid = np.zeros((len(unique_dim), len(unique_size)))
+    num_sizes_tested = len(unique_size)
+    num_dims_tested = len(unique_dim)
+
+    max_speed = averaged_results[SPEED_COL].max()
+
+    # Convert results to 2D array to show as a heatmap
+    grid = np.zeros((num_dims_tested, num_sizes_tested))
 
     for dim, size, speed in zip(
         averaged_results[INPUT_DIM_COL],
@@ -73,7 +79,7 @@ def parse_speed_vs_size_data():
         size_index = np.where(unique_size == size)[0]
         grid[dim_index, size_index] = speed
 
-    # TODO Fix the size ticks since I did an exponential distribution.
+    # Create the figure
     fig, ax = plt.subplots()
     cax = ax.imshow(
         grid.T,
@@ -81,21 +87,46 @@ def parse_speed_vs_size_data():
         origin="lower",
         aspect="auto",
         extent=(
-            unique_dim[0],
-            unique_dim[-1],
-            unique_size[0],
-            unique_size[-1],
+            0,
+            num_dims_tested,
+            0,
+            num_sizes_tested,
         ),
     )
+
+    # To center labels on pixels, must offset by a half a pixel
+    center_offset = 0.5
+
+    ax.set_xlabel("Dataset Dimensionlity")
+    ax.set_xticks(np.arange(num_dims_tested) + center_offset)
+    ax.set_xticklabels(unique_dim)
+
+    ax.set_ylabel("Dataset Size (Points)")
+    ax.set_yticks(np.arange(num_sizes_tested) + center_offset)
+    ax.set_yticklabels(unique_size)
+
+    # Add speed labels for each cell
+    for i in range(grid.shape[0]):
+        for j in range(grid.shape[1]):
+            value = int(grid[i, j])
+            ax.text(
+                i + center_offset,
+                j + center_offset,
+                value,
+                ha="center",
+                va="center",
+                color="white" if value < 0.5 * max_speed else "black",
+                fontsize=10,
+            )
+
     colorbar = fig.colorbar(cax, ax=ax)
     colorbar.set_label("Speed (TFLOPS)")
-    ax.set_xlabel("Dataset Dimensionality")
-    ax.set_ylabel("Dataset Size (Points)")
-    ax.set_title("Speed vs Input Size")
-    plt.savefig("ExpoDataSpeedVsSize.pdf")
+    ax.set_title("Algorithm Performance")
+    plt.tight_layout()
+    # plt.savefig("ExpoDataSpeedVsSize.pdf")
     plt.show()
 
 
 if __name__ == "__main__":
-    parse_selectivity_vs_speed_data()
+    # parse_selectivity_vs_speed_data()
     parse_speed_vs_size_data()
