@@ -35,6 +35,7 @@ namespace SimSearch {
 __host__ void releaseGlobalMemory();
 
 struct Results {
+    double totalTime;               // The total time it took to run (excluding disk operations)
     double TFLOPS;                  // The estimated teraflops achieved
     unsigned long long pairsFound;  // How many pairs were found
     unsigned long long
@@ -562,12 +563,10 @@ void TransferPointsToGMem(const std::vector<Precision>& h_Query,
     size_t querySize = h_Query.size() * sizeof(Precision);
     size_t candidateSize = h_Candidate.size() * sizeof(Precision);
 
-    if (true) {
-        printf("Query vector has %lu elements\n", h_Query.size());
-        printf("Candidate vector has %lu elements\n", h_Candidate.size());
-        printf("Allocating %lu bytes for query points\n", querySize);
-        printf("Allocating %lu bytes for candidate points\n", candidateSize);
-    }
+    printf("Query vector has %lu elements\n", h_Query.size());
+    printf("Candidate vector has %lu elements\n", h_Candidate.size());
+    printf("Allocating %lu bytes for query points\n", querySize);
+    printf("Allocating %lu bytes for candidate points\n", candidateSize);
 
     // Release global memory before allocating over the top of it, if it has already been
     // allocated.
@@ -614,6 +613,7 @@ __global__ void initOnDemandRasterizer(Raster::OnDemandRasterizer* rasterizer,
  * \return The results of the search.
  */
 __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
+    double startTime = omp_get_wtime();
     // Push points from host to the GPU.
     if (!hostParams.skipPointsDownload) {
         allocateTransferPoints(hostParams.pointList.values, hostParams.pointList.values);
@@ -697,31 +697,38 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     // Synchronize then sort pairs and save them of
     gpuErrchk(cudaDeviceSynchronize());
     double sortStartTime = omp_get_wtime();
+    // Always sort pairs for benchmarking consistency
+    pairs.sort();
     if (hostParams.savePairs) {
-        pairs.sort();
         // Open file stream and write data to it
         std::string pairsPath = hostParams.outputPath + ".pairs";
         std::cout << "Output file is: " << pairsPath << std::endl;
         std::ofstream outFile(pairsPath);
         outFile << pairs;
+    } else {
+        // Not necessary, but want to transfer the pairs off the GPU for benchmarking purposes
+        pairs.getPairs();
     }
     unsigned long long pairsFound = pairs.getPairsFound();
     unsigned long long pairsStored = pairs.getPairsStored();
     pairs.release();
-    double sortEndTime = omp_get_wtime();
 
     gpuErrchk(cudaEventSynchronize(findPairsStop));
 
+    double sortEndTime = omp_get_wtime();
+
     // Compute result statistics
-    float elapsedTime, sumSquaredTime, findPairsTime, sortTime;
+    float elapsedTime, sumSquaredTime, findPairsTime;
     cudaEventElapsedTime(&elapsedTime, squaredSumsStart, findPairsStop);
     cudaEventElapsedTime(&sumSquaredTime, squaredSumsStart, squaredSumsStop);
     cudaEventElapsedTime(&findPairsTime, squaredSumsStop, findPairsStop);
-    sortTime = sortEndTime - sortStartTime;
+    float totalTime = sortEndTime - startTime;
+    float sortTime = sortEndTime - sortStartTime;
     elapsedTime /= 1000;
     sumSquaredTime /= 1000;
     findPairsTime /= 1000;
 
+    printf("Total Elapsed time: %f seconds\n", totalTime);
     printf("Total Kernel Elapsed time: %f seconds\n", elapsedTime);
     printf("SumSquard Kernel Elapsed time: %f seconds\n", sumSquaredTime);
     printf("FindPairs Kernel Elapsed time: %f seconds\n", findPairsTime);
@@ -741,7 +748,11 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaFree(d_BSqSums);
     cudaFree(d_rasterizer);
 
-    return Results{tflops, pairsFound, pairsStored, hostParams.inputSearchShape,
+    return Results{totalTime,
+                   tflops,
+                   pairsFound,
+                   pairsStored,
+                   hostParams.inputSearchShape,
                    hostParams.paddedSearchShape};
 }
 

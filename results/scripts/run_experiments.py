@@ -34,7 +34,7 @@ if __name__ == "__main__":
         SCRATCH_PATH,
         "cifar60k_unscaled.txt",
         [
-            SearchParameters(64, 0.62890625, True),
+            SearchParameters(64, 0.62890625, False),
             SearchParameters(128, 0.6591796875, False),
             SearchParameters(256, 0.69140625, False),
         ],
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         SCRATCH_PATH,
         "tiny5m_unscaled.txt",
         [
-            SearchParameters(64, 0.18310546875, True),
+            SearchParameters(64, 0.18310546875, False),
             SearchParameters(128, 0.20458984375, False),
             SearchParameters(256, 0.2275390625, False),
         ],
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         SCRATCH_PATH,
         "sift10m_unscaled.txt",
         [
-            SearchParameters(64, 122.5, True),
+            SearchParameters(64, 122.5, False),
             SearchParameters(128, 136.5, False),
             SearchParameters(256, 152.5, False),
         ],
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         SCRATCH_PATH,
         "gist_unscaled.txt",
         [
-            SearchParameters(64, 0.4736328125, True),
+            SearchParameters(64, 0.4736328125, False),
             SearchParameters(128, 0.529296875, False),
             SearchParameters(256, 0.59375, False),
         ],

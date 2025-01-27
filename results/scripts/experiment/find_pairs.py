@@ -35,6 +35,7 @@ class mmaShape(ctypes.Structure):
 # The result types
 class Results(ctypes.Structure):
     _fields_ = [
+        ("totalTime", ctypes.c_double),
         ("TFLOPS", ctypes.c_double),
         ("pairsFound", ctypes.c_ulonglong),
         ("pairsStored", ctypes.c_ulonglong),
@@ -43,7 +44,8 @@ class Results(ctypes.Structure):
     ]
 
     def __repr__(self):
-        return f"""Results(TFLOPS={self.TFLOPS}, pairsFound={self.pairsFound},
+        return f"""Results(totalTime={self.totalTime}, TFLOPS={self.TFLOPS},
+        pairsFound={self.pairsFound},
         pairsStored={self.pairsStored}, inputProblemShape={self.inputProblemShape},
         paddedProblemShape={self.paddedProblemShape})"""
 

@@ -441,10 +441,27 @@ class ExperimentRunner:
         results = self.run_time_trials(find_pairs, search_params, iterations)
         return results
 
+    def build_file_pairs_finder(
+        self, base_path: str, dataset: str
+    ) -> Callable[[float, bool], Results]:
+        """Builds a pairs finder that reads a dataset from file"""
+
+        pairs_finder = (
+            lambda epsilon, save_pairs: self._find_pairs.runFromFile(
+                str(Path(base_path) / dataset).encode("utf-8"),
+                epsilon,
+                save_pairs,
+            )
+        )
+        return pairs_finder
+
     def build_rerunnable_file_pairs_finder(
         self, base_path: str, dataset: str
     ) -> Callable[[float, bool], Results]:
-        """Builds a rerunnable pairs finder that reads a dataset from file"""
+        """Builds a rerunnable pairs finder that reads a dataset from file. Subsequent
+        iterations run faster, as the dataset is not read and downloaded to the GPU again.
+        This cannot be used for time trialing as the results will be shorter on
+        subsequent iterations."""
 
         pairs_finder = RerunnablePairsFinder(
             lambda epsilon, save_pairs: self._find_pairs.runFromFile(
@@ -466,9 +483,8 @@ class ExperimentRunner:
         a known epsilon value. Saves the results out to a file"""
 
         print(f"Running on dataset: {dataset}")
-        pairs_finder = self.build_rerunnable_file_pairs_finder(
-            dataset_path, dataset
-        )
+        # Don't rerun here, just load data from scratch so time trials are correct.
+        pairs_finder = self.build_file_pairs_finder(dataset_path, dataset)
 
         results = {}
         results = self.run_time_trials(pairs_finder, search_params, 3)
