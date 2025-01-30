@@ -640,10 +640,10 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaEventRecord(squaredSumsStop, 0);
 
     // Allocate place to store pairs to.
-    // Assume a certain amount of pairs will be found, 300 is a fair guess without
+    // Assume a certain amount of pairs will be found, 256 is a fair guess without
     // overflowing memory.
     size_t expectedPairs = static_cast<unsigned long long>(hostParams.inputSearchShape.m) *
-                           static_cast<unsigned long long>(300);
+                           static_cast<unsigned long long>(256);
     Pairs::Pairs pairs(expectedPairs);
     pairs.init();
 
@@ -694,21 +694,26 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     }
 
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
-    // Synchronize then sort pairs and save them of
+    // Synchronize then sort pairs and save them off
     gpuErrchk(cudaDeviceSynchronize());
     double sortStartTime = omp_get_wtime();
-    // Always sort pairs for benchmarking consistency
-    pairs.sort();
-    if (hostParams.savePairs) {
-        // Open file stream and write data to it
-        std::string pairsPath = hostParams.outputPath + ".pairs";
-        std::cout << "Output file is: " << pairsPath << std::endl;
-        std::ofstream outFile(pairsPath);
-        outFile << pairs;
-    } else {
-        // Not necessary, but want to transfer the pairs off the GPU for benchmarking purposes
-        pairs.getPairs();
+    try {
+        // Always sort pairs for benchmarking consistency
+        pairs.sort();
+        if (hostParams.savePairs) {
+            // Open file stream and write data to it
+            std::string pairsPath = hostParams.outputPath + ".pairs";
+            std::cout << "Output file is: " << pairsPath << std::endl;
+            std::ofstream outFile(pairsPath);
+            outFile << pairs;
+        } else {
+            // Not necessary, but want to transfer the pairs off the GPU for benchmarking purposes
+            pairs.getPairs();
+        }
+    } catch (std::exception& e) {
+        std::cout << "Failed to sort pairs: " << e.what() << std::endl;
     }
+
     unsigned long long pairsFound = pairs.getPairsFound();
     unsigned long long pairsStored = pairs.getPairsStored();
     pairs.release();
