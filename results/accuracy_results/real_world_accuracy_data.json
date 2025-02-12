@@ -1,0 +1,30 @@
+{
+    "cifar60k_unscaled_0.628906.txt, flattened_stripped_neighbortable_FP64_cifar60k_eps_0.62890625.txt": {
+        "both_sides": 3925240,
+        "right_only": 834,
+        "left_only": 838,
+        "total_test_pairs": 3926078,
+        "total_truth_pairs": 3926074
+    },
+    "gist_unscaled_0.473633.txt, flattened_stripped_neighbortable_FP64_gist_eps_0.4736328125.txt": {
+        "both_sides": 64908684,
+        "right_only": 3508,
+        "left_only": 5892,
+        "total_test_pairs": 64914576,
+        "total_truth_pairs": 64912192
+    },
+    "sift10m_unscaled_122.500000.txt, flattened_stripped_neighbortable_FP64_sift10m_eps_122.5.txt": {
+        "both_sides": 648401052,
+        "right_only": 0,
+        "left_only": 0,
+        "total_test_pairs": 648401052,
+        "total_truth_pairs": 648401052
+    },
+    "tiny5m_unscaled_0.183105.txt, flattened_stripped_neighbortable_FP64_tiny5m_eps_0.18310546875.txt": {
+        "both_sides": 323830700,
+        "right_only": 28232,
+        "left_only": 31118,
+        "total_test_pairs": 323861818,
+        "total_truth_pairs": 323858932
+    }
+}
