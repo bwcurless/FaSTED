@@ -58,6 +58,14 @@ def compare_row(left: np.ndarray, right: np.ndarray) -> CompareResult:
     
     return CompareResult.SAME
     
+def create_input_data_from_files(filepath1: str, filepath2: str) -> InputData:
+    file1 = np.loadtxt(filepath1, delimiter=',')
+    file2 = np.loadtxt(filepath2, delimiter=',')
+
+    input_data = InputData(file1, file2)
+
+    return input_data
+    
     
 def compute_pair_stats(data: InputData) -> PairsStats:
     results = PairsStats()
