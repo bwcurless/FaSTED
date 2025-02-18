@@ -31,7 +31,9 @@ TED_JOIN = "TED-Join"
 def parse_selectivity_vs_speed_data():
     """Read in the selectivity vs speed data and create plots for it"""
 
-    with open("../selectivityVsSpeed.json", "r", encoding="utf-8") as f:
+    with open(
+        "../speed_results/selectivityVsSpeed.json", "r", encoding="utf-8"
+    ) as f:
         selec_speed_results = json.load(f)
     # Pretty print json
     # print(json.dumps(selec_speed_results, indent=4))
@@ -57,7 +59,9 @@ def parse_speed_vs_size_data():
     """Read in the speed vs size data and create plots for it."""
 
     with open(
-        "../ExpoDataSpeedVsSize_OnDemandRasterizer.json", "r", encoding="utf-8"
+        "../speed_results/ExpoDataSpeedVsSize_OnDemandRasterizer.json",
+        "r",
+        encoding="utf-8",
     ) as f:
         speed_size_results = json.load(f)
     df = pd.json_normalize(speed_size_results)
@@ -138,10 +142,10 @@ def parse_speed_vs_size_data():
     # Get the current ticks (positions) of the colorbar
     ticks = colorbar.get_ticks()
     colorbar.set_ticks(ticks)
-    colorbar.set_ticklabels([f'{tick:.2f}' for tick in ticks])
+    colorbar.set_ticklabels([f"{tick:.2f}" for tick in ticks])
 
     plt.tight_layout()
-    # plt.savefig("ExpoDataSpeedVsSize.pdf")
+    plt.savefig("ExpoDataSpeedVsSize.pdf")
     plt.show()
 
 
@@ -163,18 +167,10 @@ def plot_real_world_data_speed_comparison():
             .mean()
             .drop(columns=["iteration"])
         )
-        ## I originally never saved the total time, so compute it backwards.
-        #averaged_results[TIME] = (
-        #    averaged_results[INPUT_SIZE_COL_M]
-        #    * averaged_results[INPUT_SIZE_COL_N]
-        #    * averaged_results[INPUT_DIM_COL]
-        #    * 2
-        #    / (averaged_results[SPEED_COL] * 10**12)
-        #)
+
         averaged_results[DATASET_NAME] = dataset_name
         # Mark these results as my own
         averaged_results[ALGORITHM] = MPTC_JOIN
-
         # Drop extraneous columns
         minimal_results = averaged_results[
             [ALGORITHM, DATASET_NAME, TIME, SEL_COL]
@@ -195,10 +191,10 @@ def plot_real_world_data_speed_comparison():
     gist = dataset_labels[3]
 
     mptc_files = [
-	    "cifar60k_unscaled.txt_results_1737956025.json",
-	    "gist_unscaled.txt_results_1738039369.json",
-	    "sift10m_unscaled.txt_results_1738048428.json",
-	    "tiny5m_unscaled.txt_results_1737960896.json",
+        "cifar60k_unscaled.txt_results_1737956025.json",
+        "gist_unscaled.txt_results_1738039369.json",
+        "sift10m_unscaled.txt_results_1738048428.json",
+        "tiny5m_unscaled.txt_results_1737960896.json",
     ]
 
     all_results = pd.DataFrame()
@@ -250,7 +246,9 @@ def plot_real_world_data_speed_comparison():
     # Create 4 subplots, one for each dataset
     plot_rows = 1
     plot_cols = 4
-    fig, ax = plt.subplots(plot_rows, plot_cols, layout="constrained", figsize=(10, 3))
+    fig, ax = plt.subplots(
+        plot_rows, plot_cols, layout="constrained", figsize=(10, 3)
+    )
 
     # Choose a colormap (e.g., "viridis", "plasma", "Greys", etc.)
     colormap = cm.get_cmap("Greys")
@@ -272,10 +270,10 @@ def plot_real_world_data_speed_comparison():
     ]
 
     figure_label_prefixes = [
-        '(a)',
-        '(b)',
-        '(c)',
-        '(d)',
+        "(a)",
+        "(b)",
+        "(c)",
+        "(d)",
     ]
 
     # Create all subplots
@@ -302,7 +300,6 @@ def plot_real_world_data_speed_comparison():
             by=ALGORITHM, ascending=False
         )
 
-
         x = np.arange(len(selectivities))  # the label locations
         width = 0.25  # the width of the bars
         multiplier = 0
@@ -326,14 +323,14 @@ def plot_real_world_data_speed_comparison():
         axis.set_ylim(0, y_limits[i])
         axis_label_fontsize = 9
         # Only label first y axis to reduce clutter
-        if(i == 0):
+        if i == 0:
             axis.set_ylabel("Time (s)", fontsize=axis_label_fontsize)
         figure_label = f"{figure_label_prefixes[i]} {dataset_name}"
         axis.set_title(figure_label, y=-0.5, fontsize=8)
         axis.set_xticks(x + width, selectivities)
         axis.set_xlabel("Selectivity", fontsize=axis_label_fontsize)
         # Decrease size of tick labels
-        axis.tick_params(axis='both', labelsize=axis_label_fontsize - 1)
+        axis.tick_params(axis="both", labelsize=axis_label_fontsize - 1)
 
         # Save this axis's labels and handles for the high level legend
         h, l = axis.get_legend_handles_labels()
@@ -353,11 +350,31 @@ def plot_real_world_data_speed_comparison():
     )
 
     plt.tight_layout(rect=[0, 0, 1, 0.9])
-    # plt.savefig("RealDataSetSpeedComparison.pdf")
+    plt.savefig("RealDataSetSpeedComparison.pdf")
     plt.show()
+
+
+def compute_iou():
+    """Given the accuracy data, compute the Intersection over the
+    union of the pairs."""
+    with open(
+        "../accuracy_results/real_world_accuracy_data.json", "r"
+    ) as file:
+        data = json.load(file)
+        accuracies = {
+            k.split("_")[0]: (
+                100
+                * v["both_sides"]
+                / (v["both_sides"] + v["left_only"] + v["right_only"])
+            )
+            for (k, v) in data.items()
+        }
+        print(accuracies)
+        # Convert data to a latex table.
 
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    # parse_speed_vs_size_data()
+    parse_speed_vs_size_data()
     plot_real_world_data_speed_comparison()
+    compute_iou()
