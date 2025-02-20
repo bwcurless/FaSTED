@@ -6,6 +6,7 @@ Description: Plots experimental results for publishing.
 import json
 import os
 from typing import List, Tuple
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -149,6 +150,14 @@ def parse_speed_vs_size_data():
     plt.show()
 
 
+@dataclass
+class SpeedResults:
+    """Used to give a json file with speed results a display friendly name"""
+
+    friendly_name: str
+    filepath: str
+
+
 def plot_real_world_data_speed_comparison():
     """Plots performance comparison between algorithms on real world
     datasets"""
@@ -178,27 +187,26 @@ def plot_real_world_data_speed_comparison():
 
         return minimal_results
 
-    # Assemble all mptc results
-    dataset_labels = [
-        "cifar60k",
-        "tiny5m",
-        "sift10m",
-        "gist1m",
+    dataset_results = [
+        SpeedResults(
+            "cifar60k", "cifar60k_unscaled.txt_results_1737956025.json"
+        ),
+        SpeedResults("tiny5m", "tiny5m_unscaled.txt_results_1737960896.json"),
+        SpeedResults(
+            "sift10m", "sift10m_unscaled.txt_results_1738048428.json"
+        ),
+        SpeedResults("gist1m", "gist_unscaled.txt_results_1738039369.json"),
     ]
-    cifar = dataset_labels[0]
-    tiny = dataset_labels[1]
-    sift = dataset_labels[2]
-    gist = dataset_labels[3]
 
-    mptc_files = [
-        "cifar60k_unscaled.txt_results_1737956025.json",
-        "gist_unscaled.txt_results_1738039369.json",
-        "sift10m_unscaled.txt_results_1738048428.json",
-        "tiny5m_unscaled.txt_results_1737960896.json",
-    ]
+    # Assemble all mptc results
+    cifar = dataset_results[0].friendly_name
+    tiny = dataset_results[1].friendly_name
+    sift = dataset_results[2].friendly_name
+    gist = dataset_results[3].friendly_name
 
     all_results = pd.DataFrame()
-    for file, dataset_name in zip(mptc_files, dataset_labels):
+    for result in dataset_results:
+        file, dataset_name = (result.filepath, result.friendly_name)
         all_results = pd.concat(
             [all_results, extract_mptc_results(file, dataset_name)],
             ignore_index=True,
@@ -278,7 +286,7 @@ def plot_real_world_data_speed_comparison():
 
     # Create all subplots
     for i, axis in enumerate(ax.flat):
-        dataset_name = dataset_labels[i]
+        dataset_name = dataset_results[i].friendly_name
         single_dataset = all_results[all_results[DATASET_NAME] == dataset_name]
         single_dataset_minimal_columns = single_dataset[
             [ALGORITHM, TIME, SEL_COL]
