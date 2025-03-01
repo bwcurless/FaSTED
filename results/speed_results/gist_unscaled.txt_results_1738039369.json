@@ -1,1 +1,191 @@
-[{"selectivity": 64, "epsilon": 0.4736328125, "iteration": 0, "results": {"totalTime": 15.284664154052734, "TFLOPS": 132.85238647460938, "pairsFound": 64914576, "pairsStored": 64914576, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 64, "epsilon": 0.4736328125, "iteration": 1, "results": {"totalTime": 15.17845630645752, "TFLOPS": 132.75482177734375, "pairsFound": 64914576, "pairsStored": 64914576, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 64, "epsilon": 0.4736328125, "iteration": 2, "results": {"totalTime": 15.213826179504395, "TFLOPS": 132.43594360351562, "pairsFound": 64914576, "pairsStored": 64914576, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 128, "epsilon": 0.529296875, "iteration": 0, "results": {"totalTime": 15.478888511657715, "TFLOPS": 132.84365844726562, "pairsFound": 128651604, "pairsStored": 128651604, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 128, "epsilon": 0.529296875, "iteration": 1, "results": {"totalTime": 15.505019187927246, "TFLOPS": 132.593017578125, "pairsFound": 128651604, "pairsStored": 128651604, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 128, "epsilon": 0.529296875, "iteration": 2, "results": {"totalTime": 15.478972434997559, "TFLOPS": 132.82577514648438, "pairsFound": 128651604, "pairsStored": 128651604, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 256, "epsilon": 0.59375, "iteration": 0, "results": {"totalTime": 16.057600021362305, "TFLOPS": 133.19195556640625, "pairsFound": 256918316, "pairsStored": 256000000, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 256, "epsilon": 0.59375, "iteration": 1, "results": {"totalTime": 16.01287078857422, "TFLOPS": 133.5897216796875, "pairsFound": 256918316, "pairsStored": 256000000, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}, {"selectivity": 256, "epsilon": 0.59375, "iteration": 2, "results": {"totalTime": 16.05970001220703, "TFLOPS": 133.1874542236328, "pairsFound": 256918316, "pairsStored": 256000000, "inputProblemShape": {"m": 1000000, "n": 1000000, "k": 960}, "paddedProblemShape": {"m": 1000448, "n": 1000448, "k": 960}}}]
+[
+  {
+    "selectivity": 64,
+    "epsilon": 0.4736328125,
+    "iteration": 0,
+    "results": {
+      "totalTime": 15.284664154052734,
+      "TFLOPS": 132.85238647460938,
+      "pairsFound": 64914576,
+      "pairsStored": 64914576,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 64,
+    "epsilon": 0.4736328125,
+    "iteration": 1,
+    "results": {
+      "totalTime": 15.17845630645752,
+      "TFLOPS": 132.75482177734375,
+      "pairsFound": 64914576,
+      "pairsStored": 64914576,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 64,
+    "epsilon": 0.4736328125,
+    "iteration": 2,
+    "results": {
+      "totalTime": 15.213826179504395,
+      "TFLOPS": 132.43594360351562,
+      "pairsFound": 64914576,
+      "pairsStored": 64914576,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 128,
+    "epsilon": 0.529296875,
+    "iteration": 0,
+    "results": {
+      "totalTime": 15.478888511657715,
+      "TFLOPS": 132.84365844726562,
+      "pairsFound": 128651604,
+      "pairsStored": 128651604,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 128,
+    "epsilon": 0.529296875,
+    "iteration": 1,
+    "results": {
+      "totalTime": 15.505019187927246,
+      "TFLOPS": 132.593017578125,
+      "pairsFound": 128651604,
+      "pairsStored": 128651604,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 128,
+    "epsilon": 0.529296875,
+    "iteration": 2,
+    "results": {
+      "totalTime": 15.478972434997559,
+      "TFLOPS": 132.82577514648438,
+      "pairsFound": 128651604,
+      "pairsStored": 128651604,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 256,
+    "epsilon": 0.59375,
+    "iteration": 0,
+    "results": {
+      "totalTime": 16.057600021362305,
+      "TFLOPS": 133.19195556640625,
+      "pairsFound": 256918316,
+      "pairsStored": 256000000,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 256,
+    "epsilon": 0.59375,
+    "iteration": 1,
+    "results": {
+      "totalTime": 16.01287078857422,
+      "TFLOPS": 133.5897216796875,
+      "pairsFound": 256918316,
+      "pairsStored": 256000000,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  },
+  {
+    "selectivity": 256,
+    "epsilon": 0.59375,
+    "iteration": 2,
+    "results": {
+      "totalTime": 16.05970001220703,
+      "TFLOPS": 133.1874542236328,
+      "pairsFound": 256918316,
+      "pairsStored": 256000000,
+      "inputProblemShape": {
+        "m": 1000000,
+        "n": 1000000,
+        "k": 960
+      },
+      "paddedProblemShape": {
+        "m": 1000448,
+        "n": 1000448,
+        "k": 960
+      }
+    }
+  }
+]

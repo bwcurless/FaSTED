@@ -1,1 +1,64 @@
-{"cifar60k_unscaled.txt": [{"selectivity": 64, "epsilon": 0.62890625, "iteration": 0, "results": {"TFLOPS": 42.893367767333984, "pairsFound": 3926078, "pairsStored": 3926078, "inputProblemShape": {"m": 60000, "n": 60000, "k": 512}, "paddedProblemShape": {"m": 60416, "n": 60416, "k": 512}}}, {"selectivity": 128, "epsilon": 0.6591796875, "iteration": 0, "results": {"TFLOPS": 41.830265045166016, "pairsFound": 7667154, "pairsStored": 7667154, "inputProblemShape": {"m": 60000, "n": 60000, "k": 512}, "paddedProblemShape": {"m": 60416, "n": 60416, "k": 512}}}, {"selectivity": 256, "epsilon": 0.69140625, "iteration": 0, "results": {"TFLOPS": 39.83153533935547, "pairsFound": 15272576, "pairsStored": 15272576, "inputProblemShape": {"m": 60000, "n": 60000, "k": 512}, "paddedProblemShape": {"m": 60416, "n": 60416, "k": 512}}}]}
+{
+  "cifar60k_unscaled.txt": [
+    {
+      "selectivity": 64,
+      "epsilon": 0.62890625,
+      "iteration": 0,
+      "results": {
+        "TFLOPS": 42.893367767333984,
+        "pairsFound": 3926078,
+        "pairsStored": 3926078,
+        "inputProblemShape": {
+          "m": 60000,
+          "n": 60000,
+          "k": 512
+        },
+        "paddedProblemShape": {
+          "m": 60416,
+          "n": 60416,
+          "k": 512
+        }
+      }
+    },
+    {
+      "selectivity": 128,
+      "epsilon": 0.6591796875,
+      "iteration": 0,
+      "results": {
+        "TFLOPS": 41.830265045166016,
+        "pairsFound": 7667154,
+        "pairsStored": 7667154,
+        "inputProblemShape": {
+          "m": 60000,
+          "n": 60000,
+          "k": 512
+        },
+        "paddedProblemShape": {
+          "m": 60416,
+          "n": 60416,
+          "k": 512
+        }
+      }
+    },
+    {
+      "selectivity": 256,
+      "epsilon": 0.69140625,
+      "iteration": 0,
+      "results": {
+        "TFLOPS": 39.83153533935547,
+        "pairsFound": 15272576,
+        "pairsStored": 15272576,
+        "inputProblemShape": {
+          "m": 60000,
+          "n": 60000,
+          "k": 512
+        },
+        "paddedProblemShape": {
+          "m": 60416,
+          "n": 60416,
+          "k": 512
+        }
+      }
+    }
+  ]
+}
