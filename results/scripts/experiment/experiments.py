@@ -1,5 +1,5 @@
 """
-File: exponentialStudy.py
+File: experiments.py
 Author: Brian Curless
 Description: Contains methods to be automatically determine epsilon values using different
 methods like volumetric scaling, and a binary search. Once a certain target selectivity 
