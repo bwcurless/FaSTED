@@ -244,12 +244,73 @@ def plot_real_world_data_speed_comparison():
     add_row(all_results, GDS_JOIN, gist, 359.6358573, 128)
     add_row(all_results, GDS_JOIN, gist, 444.5647683, 256)
 
+    # Manually compute the averages here
+    # Subtracts out the "Time to estimate batches" from "Time to join"
+    tj_tiny_64 = (
+        14195.661126
+        - 5562.255205
+        + 14190.259351
+        - 5559.080249
+        + 14183.869225
+        - 5551.792481
+    ) / 3.0
+
+    tj_tiny_128 = (
+        16476.701999
+        - 5611.305432
+        + 16475.117487
+        - 5608.609297
+        + 16474.570044
+        - 5607.122338
+    ) / 3.0
+
+    tj_tiny_256 = (
+        19298.439721
+        - 5603.901025
+        + 19316.790174
+        - 5620.080564
+        + 19314.235564
+        - 5619.702950
+    ) / 3.0
+
+    tj_sift_64 = (
+        10706.653007
+        - 2482.418047
+        + 10705.409744
+        - 2480.845796
+        + 10708.060327
+        - 2482.671413
+    ) / 3.0
+
+    tj_sift_128 = (
+        12514.143639
+        - 2539.549293
+        + 12514.728978
+        - 2537.274044
+        + 12511.698752
+        - 2538.492326
+    ) / 3.0
+    tj_sift_256 = (
+        14447.869670
+        - 2628.108349
+        + 14436.264242
+        - 2619.244253
+        + 14439.257269
+        - 2621.461369
+    ) / 3.0
+
+    add_row(all_results, TED_JOIN, tiny, tj_tiny_64, 64)
+    add_row(all_results, TED_JOIN, tiny, tj_tiny_128, 128)
+    add_row(all_results, TED_JOIN, tiny, tj_tiny_256, 256)
+
+    add_row(all_results, TED_JOIN, sift, tj_sift_64, 64)
+    add_row(all_results, TED_JOIN, sift, tj_sift_128, 128)
+    add_row(all_results, TED_JOIN, sift, tj_sift_256, 256)
+
     print(all_results)
 
-    # TODO Assemble all ted-join results
-
     # Create the figure
-    algorithms = [MPTC_JOIN, GDS_JOIN]
+    algorithms = [MPTC_JOIN, GDS_JOIN, TED_JOIN]
 
     # Create 4 subplots, one for each dataset
     plot_rows = 1
@@ -272,8 +333,8 @@ def plot_real_world_data_speed_comparison():
     # Hardcode y limits specific to data for better readability
     y_limits = [
         4,
-        1250,
-        6000,
+        15000,
+        15000,
         500,
     ]
 

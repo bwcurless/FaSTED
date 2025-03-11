@@ -1,0 +1,1059 @@
+rm utils.o dataset.o index.o sort_by_workload.o gpu_join.o kernel_join.o main.o
+rm main
+echo "Compiling for Monsoon cluster with A100 (CC=80)"
+Compiling for Monsoon cluster with A100 (CC=80)
+make all ARCH=compute_80 CODE=sm_80 BOOST=/home/bc2497/boost_1_76_0
+make[1]: Entering directory '/home/bc2497/ted-join-hipc22-fork'
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 utils.cu -c utils.o
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 dataset.cu -c dataset.o
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 index.cu -c index.o
+index.cu(77): warning: variable "greatest_variance_dim" was set but never used
+
+index.cu(233): warning: variable "errCode" was declared but never referenced
+
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:81:164: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::double_limb_type>
+                                                                                                                                                                    ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:134: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                      ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:177: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                                                                 ^
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 sort_by_workload.cu -c sort_by_workload.o
+sort_by_workload.cu(120): warning: variable "errCode" was declared but never referenced
+
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:81:164: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::double_limb_type>
+                                                                                                                                                                    ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:134: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                      ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:177: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                                                                 ^
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 gpu_join.cu -c gpu_join.o
+gpu_join.cu(475): warning: variable "ptr" is used before its value is set
+
+gpu_join.cu(475): warning: variable "ptr" is used before its value is set
+
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:81:164: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::double_limb_type>
+                                                                                                                                                                    ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:134: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                      ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:177: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                                                                 ^
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 kernel_join.cu -c kernel_join.o
+kernel_join.cu(451): warning: variable "totalSharedMemRequired" was declared but never referenced
+
+kernel_join.cu(453): warning: variable "print" was set but never used
+
+kernel_join.cu(454): warning: variable "batchToPrint" was declared but never referenced
+
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:81:164: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::double_limb_type>
+                                                                                                                                                                    ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:134: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                      ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:177: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                                                                 ^
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 main.cu -c main.o
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:81:164: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::double_limb_type>
+                                                                                                                                                                    ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:134: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                      ^
+/home/bc2497/boost_1_76_0/boost/multiprecision/cpp_int/cpp_int_config.hpp:86:177: warning: integer constant is too large for its type
+ class integer_traits<multiprecision::signed_double_limb_type>
+                                                                                                                                                                                 ^
+nvcc -std=c++14 -O3 -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DOUTPUT_NEIGHBORS=false -DINPUT_DATA_DIM=128 -DCOMPUTE_DIM=128 -arch=compute_80 -code=sm_80 -I/home/bc2497/boost_1_76_0 utils.o dataset.o index.o sort_by_workload.o gpu_join.o kernel_join.o main.o -o main
+make[1]: Leaving directory '/home/bc2497/ted-join-hipc22-fork'
+sift running
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 122.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 174.070725
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.619296
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 8000
+[Index] ~ Number of full cells (non-empty): 65
+[Index] ~ Full cells: 65 (0.008125, fraction full)
+[Index] ~ Empty cells: 7935 (0.991875, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000060
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 65
+[Main | Time] ~ Time to generate the index: 1.306248
+[Sort | Time] ~ Kernel time to determine the workload: 0.840704
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 99999949524574
+[Sort | Result] ~ Number of candidates: min = 1587429, median = 9999997, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 9999997
+   [Sort] ~ 30 = 9999997
+   [Sort] ~ 40 = 9999997
+   [Sort] ~ 50 = 9999997
+   [Sort] ~ 60 = 9999997
+   [Sort] ~ 70 = 9999997
+   [Sort] ~ 80 = 9999997
+   [Sort] ~ 90 = 9999997
+[Main | Time] ~ Time to sort the points by workload: 0.011024
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 64761906
+[GPU Est] ~ Estimated total result set size: 1135853732
+[GPU Est] ~ Estimated number of candidate points: 99999874762320
+[GPU Est] ~ Total number of batches: 6
+[GPU] ~ Time to estimate batches: 2482.418047
+[GPU] ~ In calling function: Estimated neighbors = 1135853732, num. batches = 6, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.649612
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 1666666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 107334745
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 110510475
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 102581749
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 111227036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105601540
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111145507
+[GPU | RESULT] ~ Compute time for the GPU: 8220.58
+[GPU] ~ Time freeing memory: 1.00197
+[Main | Time] ~ Time to join: 10706.653007
+[Main | Time] ~ Time to free memory: 0.006462
+[Main | Result] ~ Total execution time: 10733.260444
+[Main | Result] ~ Total result set size: 648401052 (S = 63)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 648401052
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 6
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 122.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 180.669066
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.458665
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 8000
+[Index] ~ Number of full cells (non-empty): 65
+[Index] ~ Full cells: 65 (0.008125, fraction full)
+[Index] ~ Empty cells: 7935 (0.991875, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000060
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 65
+[Main | Time] ~ Time to generate the index: 1.337498
+[Sort | Time] ~ Kernel time to determine the workload: 0.839680
+[Sort | Time] ~ Time to sort by workload: 0.000002
+[Sort | Result] ~ Total number of candidate points to refine: 99999949524574
+[Sort | Result] ~ Number of candidates: min = 1587429, median = 9999997, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 9999997
+   [Sort] ~ 30 = 9999997
+   [Sort] ~ 40 = 9999997
+   [Sort] ~ 50 = 9999997
+   [Sort] ~ 60 = 9999997
+   [Sort] ~ 70 = 9999997
+   [Sort] ~ 80 = 9999997
+   [Sort] ~ 90 = 9999997
+[Main | Time] ~ Time to sort the points by workload: 0.010420
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 64761906
+[GPU Est] ~ Estimated total result set size: 1135853732
+[GPU Est] ~ Estimated number of candidate points: 99999874762320
+[GPU Est] ~ Total number of batches: 6
+[GPU] ~ Time to estimate batches: 2480.845796
+[GPU] ~ In calling function: Estimated neighbors = 1135853732, num. batches = 6, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.650215
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 1666666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 107334745
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 110510475
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 102581749
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 111227036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105601540
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111145507
+[GPU | RESULT] ~ Compute time for the GPU: 8220.89
+[GPU] ~ Time freeing memory: 1.01942
+[Main | Time] ~ Time to join: 10705.409744
+[Main | Time] ~ Time to free memory: 0.005936
+[Main | Result] ~ Total execution time: 10731.888567
+[Main | Result] ~ Total result set size: 648401052 (S = 63)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 648401052
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 6
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 122.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 175.891904
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.479702
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 8000
+[Index] ~ Number of full cells (non-empty): 65
+[Index] ~ Full cells: 65 (0.008125, fraction full)
+[Index] ~ Empty cells: 7935 (0.991875, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000060
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 65
+[Main | Time] ~ Time to generate the index: 1.383908
+[Sort | Time] ~ Kernel time to determine the workload: 0.841728
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 99999949524574
+[Sort | Result] ~ Number of candidates: min = 1587429, median = 9999997, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 9999997
+   [Sort] ~ 30 = 9999997
+   [Sort] ~ 40 = 9999997
+   [Sort] ~ 50 = 9999997
+   [Sort] ~ 60 = 9999997
+   [Sort] ~ 70 = 9999997
+   [Sort] ~ 80 = 9999997
+   [Sort] ~ 90 = 9999997
+[Main | Time] ~ Time to sort the points by workload: 0.010654
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 64761906
+[GPU Est] ~ Estimated total result set size: 1135853732
+[GPU Est] ~ Estimated number of candidate points: 99999874762320
+[GPU Est] ~ Total number of batches: 6
+[GPU] ~ Time to estimate batches: 2482.671413
+[GPU] ~ In calling function: Estimated neighbors = 1135853732, num. batches = 6, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.680000
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 1666666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 107334745
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 110510475
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 102581749
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 111227036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105601540
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111145507
+[GPU | RESULT] ~ Compute time for the GPU: 8221.69
+[GPU] ~ Time freeing memory: 1.01559
+[Main | Time] ~ Time to join: 10708.060327
+[Main | Time] ~ Time to free memory: 0.005875
+[Main | Result] ~ Total execution time: 10734.493397
+[Main | Result] ~ Total result set size: 648401052 (S = 63)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 648401052
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 6
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 136.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 175.451018
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.546170
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.327349
+[Sort | Time] ~ Kernel time to determine the workload: 0.828416
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010925
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 130279044
+[GPU Est] ~ Estimated total result set size: 2258345828
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 12
+[GPU] ~ Time to estimate batches: 2539.549293
+[GPU] ~ In calling function: Estimated neighbors = 2258345828, num. batches = 12, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.667021
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 833333
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 106868271
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108457313
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107900172
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 100756398
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105502030
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 110357774
+Batch 6
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 109814947
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 109853784
+[GPU] ~ Using the Tensor Cores
+Batch 9
+[GPU] ~ Result set size within epsilon: 112403919
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112076331
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107066519
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 103388328
+[GPU | RESULT] ~ Compute time for the GPU: 9970.91
+[GPU] ~ Time freeing memory: 1.01239
+[Main | Time] ~ Time to join: 12514.143639
+[Main | Time] ~ Time to free memory: 0.005924
+[Main | Result] ~ Total execution time: 12540.659416
+[Main | Result] ~ Total result set size: 1294445786 (S = 128)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 1294445786
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 12
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 136.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 176.537033
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.592121
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.389396
+[Sort | Time] ~ Kernel time to determine the workload: 0.832512
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010424
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 130279044
+[GPU Est] ~ Estimated total result set size: 2258345828
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 12
+[GPU] ~ Time to estimate batches: 2537.274044
+[GPU] ~ In calling function: Estimated neighbors = 2258345828, num. batches = 12, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.683626
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 833333
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 106868271
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108457313
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107900172
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 100756398
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105502030
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 110357774
+Batch 6
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 109814947
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 109853784
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 112403919
+Batch 9
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112076331
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107066519
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 103388328
+[GPU | RESULT] ~ Compute time for the GPU: 9973.74
+[GPU] ~ Time freeing memory: 1.02927
+[Main | Time] ~ Time to join: 12514.728978
+[Main | Time] ~ Time to free memory: 0.005889
+[Main | Result] ~ Total execution time: 12541.311631
+[Main | Result] ~ Total result set size: 1294445786 (S = 128)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 1294445786
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 12
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 136.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 175.711466
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.604863
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.388684
+[Sort | Time] ~ Kernel time to determine the workload: 0.830464
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010554
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 130279044
+[GPU Est] ~ Estimated total result set size: 2258345828
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 12
+[GPU] ~ Time to estimate batches: 2538.492326
+[GPU] ~ In calling function: Estimated neighbors = 2258345828, num. batches = 12, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.687548
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 4, batchSize: 833333
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 106868271
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108457313
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107900172
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 100756398
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 105502030
+[GPU] ~ Using the Tensor Cores
+Batch 6
+[GPU] ~ Result set size within epsilon: 110357774
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 109814947
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 109853784
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 112403919
+Batch 9
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112076331
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107066519
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 103388328
+[GPU | RESULT] ~ Compute time for the GPU: 9969.49
+[GPU] ~ Time freeing memory: 1.02591
+[Main | Time] ~ Time to join: 12511.698752
+[Main | Time] ~ Time to free memory: 0.005524
+[Main | Result] ~ Total execution time: 12538.292026
+[Main | Result] ~ Total result set size: 1294445786 (S = 128)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 1294445786
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 12
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 152.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 177.252915
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.673060
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.310093
+[Sort | Time] ~ Kernel time to determine the workload: 0.829440
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010712
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 260077263
+[GPU Est] ~ Estimated total result set size: 4371692167
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 24
+[GPU] ~ Time to estimate batches: 2628.108349
+[GPU] ~ In calling function: Estimated neighbors = 4371692167, num. batches = 24, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.703341
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 16, batchSize: 416666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 105090354
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 106653914
+[GPU] ~ Result set size within epsilon: 109125350
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 110901949
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107423449
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111505104
+Batch 6
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 111354177
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 112573115
+[GPU] ~ Using the Tensor Cores
+Batch 9
+[GPU] ~ Result set size within epsilon: 108744518
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112967115
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115135857
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115369278
+Batch 12
+[GPU] ~ Using the Tensor Cores
+Batch 13
+Batch 14
+[GPU] ~ Result set size within epsilon: 119349176
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 118015469
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 126737615
+Batch 15
+[GPU] ~ Using the Tensor Cores
+Batch 16
+Batch 17
+[GPU] ~ Result set size within epsilon: 124922996
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108679854
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111503796
+Batch 18
+[GPU] ~ Using the Tensor Cores
+Batch 19
+Batch 20
+[GPU] ~ Result set size within epsilon: 109994036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115156553
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115570866
+Batch 21
+[GPU] ~ Using the Tensor Cores
+Batch 22
+Batch 23
+[GPU] ~ Result set size within epsilon: [GPU] ~ Using the Tensor Cores
+109122369
+[GPU] ~ Result set size within epsilon: 106175589
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 1043703
+[GPU | RESULT] ~ Compute time for the GPU: 11816
+[GPU] ~ Time freeing memory: 1.04336
+[Main | Time] ~ Time to join: 14447.869670
+[Main | Time] ~ Time to free memory: 0.005775
+[Main | Result] ~ Total execution time: 14474.491898
+[Main | Result] ~ Total result set size: 2593116202 (S = 258)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 2593116202
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 24
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 152.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 174.210957
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.706596
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.388247
+[Sort | Time] ~ Kernel time to determine the workload: 0.830464
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010646
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 260077263
+[GPU Est] ~ Estimated total result set size: 4371692167
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 24
+[GPU] ~ Time to estimate batches: 2619.244253
+[GPU] ~ In calling function: Estimated neighbors = 4371692167, num. batches = 24, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.708928
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 16, batchSize: 416666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 105090354
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 109125350
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 106653914
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 110901949
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107423449
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111505104
+Batch 6
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 111354177
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 112573115
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108744518
+Batch 9
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112967115
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115135857
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115369278
+Batch 12
+[GPU] ~ Using the Tensor Cores
+Batch 13
+Batch 14
+[GPU] ~ Result set size within epsilon: 119349176
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 118015469
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 126737615
+Batch 15
+[GPU] ~ Using the Tensor Cores
+Batch 16
+Batch 17
+[GPU] ~ Result set size within epsilon: 124922996
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108679854
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111503796
+Batch 18
+[GPU] ~ Using the Tensor Cores
+Batch 19
+Batch 20
+[GPU] ~ Result set size within epsilon: 109994036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115156553
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115570866
+Batch 21
+[GPU] ~ Using the Tensor Cores
+Batch 22
+Batch 23
+[GPU] ~ Result set size within epsilon: 109122369
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 106175589
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 1043703
+[GPU | RESULT] ~ Compute time for the GPU: 11813.3
+[GPU] ~ Time freeing memory: 1.02512
+[Main | Time] ~ Time to join: 14436.264242
+[Main | Time] ~ Time to free memory: 0.005517
+[Main | Result] ~ Total execution time: 14462.929944
+[Main | Result] ~ Total result set size: 2593116202 (S = 258)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 2593116202
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 24
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+
+
+========== TED-Join ==========
+
+
+[Main] ~ Dataset: /scratch/bc2497/datasets/sift10m_unscaled.txt
+[Main] ~ Epsilon: 152.500000
+[Main] ~ Search mode: 21
+Shared memory required to run distance calculation kernel: 46336
+[Main] ~ Importing the dataset
+[Main] ~ Number of query points read: 10000000
+[Main | Time] ~ Time to read the dataset: 172.774380
+[Main] ~ Reordering the dataset by the variance of its features
+[Main | Time] ~ Time to reorder the features by their variance: 23.605396
+[Index] ~ Number of dimensions data: 128, Number of dimensions indexed: 6
+[Main] ~ Total cells (including empty): 4096
+[Index] ~ Number of full cells (non-empty): 64
+[Index] ~ Full cells: 64 (0.015625, fraction full)
+[Index] ~ Empty cells: 4032 (0.984375, fraction empty)
+[Index] ~ Size of index that would be sent to GPU (GiB) -- (if full index sent), excluding the data lookup arr: 0.000031
+[Index] ~ Size of compressed index to be sent to GPU (GiB), excluding the data and grid lookup arr: 0.000000
+[Index] ~ When copying from entire index to compressed index: number of non-empty cells: 64
+[Main | Time] ~ Time to generate the index: 1.310004
+[Sort | Time] ~ Kernel time to determine the workload: 0.830464
+[Sort | Time] ~ Time to sort by workload: 0.000001
+[Sort | Result] ~ Total number of candidate points to refine: 100000000000000
+[Sort | Result] ~ Number of candidates: min = 10000000, median = 10000000, max = 10000000
+[Sort] ~ Deciles number of candidates:
+   [Sort] ~ 10 = 10000000
+   [Sort] ~ 20 = 10000000
+   [Sort] ~ 30 = 10000000
+   [Sort] ~ 40 = 10000000
+   [Sort] ~ 50 = 10000000
+   [Sort] ~ 60 = 10000000
+   [Sort] ~ 70 = 10000000
+   [Sort] ~ 80 = 10000000
+   [Sort] ~ 90 = 10000000
+[Main | Time] ~ Time to sort the points by workload: 0.010734
+[GPU Est] ~ Sample rate: 0.100000, offset: 10
+[GPU Est] ~ Result set size for estimating the number of batches (sampled): 260077263
+[GPU Est] ~ Estimated total result set size: 4371692167
+[GPU Est] ~ Estimated number of candidate points: 99999900000000
+[GPU Est] ~ Total number of batches: 24
+[GPU] ~ Time to estimate batches: 2621.461369
+[GPU] ~ In calling function: Estimated neighbors = 4371692167, num. batches = 24, GPU buffer size = 200000000
+[GPU] ~ Allocation pointIDKey and pointInDistValue on the GPU, size = 1600000000
+[GPU] ~ Time to allocated pinned memory for results: 2.687824
+[GPU] ~ Memory request for results on GPU: 4.470348 GiB
+[GPU] ~ Memory requested for results in main memory: 4.470348 GiB
+[GPU] ~ Batches that have one more GPU thread: 16, batchSize: 416666
+Batch 0
+[GPU] ~ Using the Tensor Cores
+Batch 1
+Batch 2
+[GPU] ~ Result set size within epsilon: 105090354
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 109125350
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 106653914
+Batch 3
+[GPU] ~ Using the Tensor Cores
+Batch 4
+Batch 5
+[GPU] ~ Result set size within epsilon: 110901949
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 107423449
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111505104
+Batch 6
+[GPU] ~ Using the Tensor Cores
+Batch 7
+Batch 8
+[GPU] ~ Result set size within epsilon: 111354177
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 112573115
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108744518
+Batch 9
+[GPU] ~ Using the Tensor Cores
+Batch 10
+Batch 11
+[GPU] ~ Result set size within epsilon: 112967115
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115135857
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115369278
+Batch 12
+[GPU] ~ Using the Tensor Cores
+Batch 13
+Batch 14
+[GPU] ~ Result set size within epsilon: 119349176
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 118015469
+[GPU] ~ Using the Tensor Cores
+Batch 15
+[GPU] ~ Result set size within epsilon: 126737615
+[GPU] ~ Using the Tensor Cores
+Batch 16
+Batch 17
+[GPU] ~ Result set size within epsilon: 124922996
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 108679854
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 111503796
+Batch 18
+[GPU] ~ Using the Tensor Cores
+Batch 19
+Batch 20
+[GPU] ~ Result set size within epsilon: 109994036
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115156553
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 115570866
+Batch 21
+[GPU] ~ Using the Tensor Cores
+Batch 22
+Batch 23
+[GPU] ~ Result set size within epsilon: 109122369
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 106175589
+[GPU] ~ Using the Tensor Cores
+[GPU] ~ Result set size within epsilon: 1043703
+[GPU | RESULT] ~ Compute time for the GPU: 11814.1
+[GPU] ~ Time freeing memory: 1.04266
+[Main | Time] ~ Time to join: 14439.257269
+[Main | Time] ~ Time to free memory: 0.005786
+[Main | Result] ~ Total execution time: 14465.859805
+[Main | Result] ~ Total result set size: 2593116202 (S = 258)
+   [Main | Result] ~ Total result set size CUDA cores: 0
+   [Main | Result] ~ Total result set size Tensor cores: 2593116202
+[Main | Result] ~ Query points:
+   [Main | Result] ~ Number of queries computed by CUDA cores: 0
+   [Main | Result] ~ Number of queries computed by Tensor cores: 10000000
+[Main | Result] ~ Kernel invocations:
+   [Main | Result] ~ Number of kernel invocations using CUDA cores: 0
+   [Main | Result] ~ Number of kernel invocations using Tensor cores: 24
+[Main | Result] ~ Refined candidate points:
+   [Main | Result] ~ Estimated number of candidate points refined by CUDA cores: 0
+   [Main | Result] ~ Estimated number of candidate points refined by Tensor cores: 0
+sift finished
