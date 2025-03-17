@@ -1,3 +1,22 @@
+# cuda
+*.cubin
+*.cudafe1.*
+*.gpu
+*.ptx
+*.fatbin
+*.fatbin.c
+*.module_id
+*.reg.c
+*.cpp1.ii
+*.cpp4.ii
+
+# Mac
+*.DS_Store
+
+# Vim 
+*.swp
+*.swo
+
 # Ignore all vscode folders
 *.vscode/
 
