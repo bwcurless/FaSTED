@@ -2,6 +2,7 @@
 \usepackage{tikz}
 \usepackage{xcolor}
 \usepackage{xparse}
+\usetikzlibrary{calc}
 
 % XOR routine taken from SO...
 \ExplSyntaxOn
@@ -71,6 +72,8 @@
 
 \def\blockHeight{1}
 \def\blockWidth{4}
+\pgfmathsetmacro{\halfBlockHeight}{\blockHeight / 2}
+\pgfmathsetmacro{\halfBlockWidth}{\blockWidth / 2}
 
 \def\dimColors{colColor0, colColor1, colColor2, colColor3, colColor4, colColor5, colColor6, colColor7}
 	
@@ -79,21 +82,32 @@
 	\foreach \color [count=\col from 0] in \dimColors {
 		\foreach \row in {0,..., 7}{
 
+			% Rectangle coordinates
 			\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
 			\pgfmathsetmacro{\xPos}{\col * \blockWidth}
-			\coordinate (ul) at (\xPos, \yPos);
-			\coordinate (br) at  (\xPos + \blockWidth, \yPos - \blockHeight);
-			\fill[color=\color] (ul) rectangle (br);
+			\coordinate (UL) at (\xPos, \yPos);
+			\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			% Center of rectangle
+			\coordinate (C) at ($ (UL)!.5!(BR) $);
 
-			\pgfmathparse{int((\row) * 8 + \col)}
-			\let\cellIndex\pgfmathresult
-			\node[anchor=north west, font=\tiny] at (ul) {T\cellIndex};
+			% Main rectangle
+			\fill[color=\color] (UL) rectangle (BR);
 
-			\pgfmathparse{int((\col) * 8 + 1)}
-			\let\baseDim\pgfmathresult
-			\pgfmathparse{int(\baseDim + 7)}
-			\let\maxDim\pgfmathresult
-			\node[anchor=south east, font=\large] at (br)  {\baseDim{} - \maxDim{}};
+			% Label rows with Point number
+			\ifnum\col=0
+				\pgfmathsetmacro{\pointIndex}{int(\row + 1)}
+				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+				\node[font=\large, xshift=\poffset cm] at (C) {P\pointIndex};
+			\fi
+
+			% Label with thread index
+			\pgfmathsetmacro{\cellIndex}{int((\row) * 8 + \col)}
+			\node[anchor=north west, font=\tiny] at (UL) {T\cellIndex};
+
+			% Add dimension labels
+			\pgfmathsetmacro{\baseDim}{int((\col) * 8 + 1)}
+			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+			\node[font=\large] at (C)  {\baseDim{} - \maxDim{}};
 
 	}};
 \end{tikzpicture}
@@ -103,24 +117,31 @@
 	\foreach \col in {0,...,7} {
 		\foreach \row in {0,..., 7}{
 
+			% Base calculations
 			\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
 			\pgfmathsetmacro{\xPos}{\col * \blockWidth}
-			\coordinate (ul) at (\xPos, \yPos);
-			\coordinate (br) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			\coordinate (UL) at (\xPos, \yPos);
+			\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			% Center of rectangle
+			\coordinate (C) at ($ (UL)!.5!(BR) $);
 
-			\pgfmathparse{int(\bitwiseXor{\col}{\row})}
-			\let\swizzledCol\pgfmathresult
+			% Compute swizzled column
+			\pgfmathsetmacro{\swizzledCol}{int(\bitwiseXor{\col}{\row})}
 
+			% Draw rect with appropriate column color
 			\def\cellColor{\getcolor{\swizzledCol}}
+			\fill[color=\cellColor] (UL) rectangle (BR);
 
-			\fill[color=\cellColor] (ul) rectangle (br);
+			% Label rows with Point number
+			\ifnum\col=0
+				\pgfmathsetmacro{\pointIndex}{int(\row + 1)}
+				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+				\node[font=\large, xshift=\poffset cm] at (C) {P\pointIndex};
+			\fi
 
-			\pgfmathparse{int(8 * \swizzledCol + 1)}
-			\let\baseDim\pgfmathresult
-
-			\pgfmathparse{int(\baseDim + 7)}
-			\let\maxDim\pgfmathresult
-			\node[anchor=south east, font=\large] at (br)  {\baseDim{} - \maxDim{}};
+			\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
+			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+			\node[font=\large] at (C)  {\baseDim{} - \maxDim{}};
 
 }};
 \end{tikzpicture}
