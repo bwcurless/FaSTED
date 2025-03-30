@@ -10,6 +10,13 @@
 *.cpp1.ii
 *.cpp4.ii
 
+#tex
+*.synctex.gz
+*.aux
+*.fdb_latexmk
+*.fls
+
+
 # Mac
 *.DS_Store
 
