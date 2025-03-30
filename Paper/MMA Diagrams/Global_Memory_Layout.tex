@@ -71,7 +71,7 @@
 
 
 \def\blockHeight{1}
-\def\blockWidth{4}
+\def\blockWidth{2}
 \pgfmathsetmacro{\halfBlockHeight}{\blockHeight / 2}
 \pgfmathsetmacro{\halfBlockWidth}{\blockWidth / 2}
 
@@ -91,13 +91,13 @@
 			\coordinate (C) at ($ (UL)!.5!(BR) $);
 
 			% Main rectangle
-			\fill[color=\color] (UL) rectangle (BR);
+			\fill[color=\color, draw=black] (UL) rectangle (BR);
 
 			% Label rows with Point number
 			\ifnum\col=0
-				\pgfmathsetmacro{\pointIndex}{int(\row + 1)}
+				\pgfmathsetmacro{\bankStart}{int(\row + 1)}
 				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {P\pointIndex};
+				\node[font=\large, xshift=\poffset cm] at (C) {P\bankStart};
 			\fi
 
 			% Label with thread index
@@ -107,13 +107,16 @@
 			% Add dimension labels
 			\pgfmathsetmacro{\baseDim}{int((\col) * 8 + 1)}
 			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-			\node[font=\large] at (C)  {\baseDim{} - \maxDim{}};
+			\node[font=\large] at (C)  {\baseDim -\maxDim};
 
 	}};
 \end{tikzpicture}
 
 % Shared Memory layout
 \begin{tikzpicture}[scale=1]
+	\node[font=\large] at (8, 0) {\underline{Shared Memory Banks (4B each)}};
+	\begin{scope}[shift={(0,-1.25)}]
+		
 	\foreach \col in {0,...,7} {
 		\foreach \row in {0,..., 7}{
 
@@ -130,20 +133,41 @@
 
 			% Draw rect with appropriate column color
 			\def\cellColor{\getcolor{\swizzledCol}}
-			\fill[color=\cellColor] (UL) rectangle (BR);
+			\fill[color=\cellColor, draw=black] (UL) rectangle (BR);
 
 			% Label rows with Point number
 			\ifnum\col=0
-				\pgfmathsetmacro{\pointIndex}{int(\row + 1)}
+				\pgfmathsetmacro{\bankStart}{int(\row + 1)}
 				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {P\pointIndex};
+				\node[font=\large, xshift=\poffset cm] at (C) {P\bankStart};
 			\fi
+
+			\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
+			% Label columns with bank number
+			\ifnum\row=0
+				\pgfmathsetmacro{\bankStart}{int(4*(\col)+1)}
+				\pgfmathsetmacro{\bankEnd}{int(\bankStart + 3)}
+				\node[font=\large, yshift=\headerOffset cm] at (C) {\bankStart-\bankEnd};
+			\fi
+
+			% Add XOR values to right side of figure
+			\ifnum\col=7
+				\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
+				% Add header for XOR column...
+				\ifnum\row=0
+					\node[anchor=west, font=\large, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
+				\fi
+				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
+				\node[anchor=west, font=\large, xshift=\xorOffset cm] at (C) {0b\binaryRow};
+			\fi
+
 
 			\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
 			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-			\node[font=\large] at (C)  {\baseDim{} - \maxDim{}};
+			\node[font=\large] at (C)  {\baseDim -\maxDim};
 
 }};
+	\end{scope}
 \end{tikzpicture}
 
 \end{document}
