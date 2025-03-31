@@ -4,6 +4,31 @@
 \usepackage{xparse}
 \usetikzlibrary{calc}
 
+% Binary value zero padding taken from SO
+\usepackage{xparse}
+\ExplSyntaxOn
+\int_new:N \g_fleet_number_of_zeros
+\NewDocumentCommand\SetZeros{m}
+  {
+    \int_gset:Nn \g_fleet_number_of_zeros {#1}
+  }
+\NewDocumentCommand\PrependZeros{om}
+  {
+    \IfValueTF{#1}
+      { \__fleet_count:ne {#1} {#2} }
+      { \__fleet_count:ne {\g_fleet_number_of_zeros} {#2} }
+  }
+\cs_new:Npn \__fleet_count:nn #1#2
+  {
+    \exp_args:Nf \__fleet_prepend:nn
+      { \int_max:nn { #1 - \str_count:n {#2} } { 0 } }
+      {#2}
+  }
+\cs_generate_variant:Nn \__fleet_count:nn { ne }
+\cs_new:Npn \__fleet_prepend:nn #1#2
+  { \prg_replicate:nn {#1}{0} #2 }
+\ExplSyntaxOff
+
 % XOR routine taken from SO...
 \ExplSyntaxOn
 \NewExpandableDocumentCommand{\bitwiseXor}{mm}
@@ -151,25 +176,31 @@
 			\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
 			% Label columns with bank number
 			\ifnum\row=0
+			% Add column number in binary
+				\pgfmathsetmacro{\binaryColumn}{int(bin(\col)}
+				\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
+
 				\pgfmathsetmacro{\bank}{int(\col+1)}
-				\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\bank $};
+				\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
 			\fi
 
+			\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
 			% Add XOR values to right side of figure
 			\ifnum\col=7
 				\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
 				% Add header for XOR column...
 				\ifnum\row=0
-					\node[anchor=west, font=\large, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
+					\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
 				\fi
-				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
-				\node[anchor=west, font=\large, xshift=\xorOffset cm] at (C) {0b\binaryRow};
+				\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
+				\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
 			\fi
 
-
+			% Add dimension range for each block
 			\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
 			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
 			\node[font=\large] at (C)  {\baseDim -\maxDim};
+
 
 }};
 	\end{scope}
