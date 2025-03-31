@@ -96,9 +96,9 @@
 
 			% Label rows with Point number
 			\ifnum\col=0
-				\pgfmathsetmacro{\bankStart}{int(\row + 1)}
+				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {P\bankStart};
+				\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
 			\fi
 
 
@@ -120,7 +120,7 @@
 
 % Shared Memory layout
 \begin{tikzpicture}[scale=1]
-	\node[font=\large] at (8, 0) {\underline{Shared Memory Banks (4B each)}};
+	\node[font=\large] at (8, 0) {\underline{Shared Memory Banks}};
 	\begin{scope}[shift={(0,-1.25)}]
 		
 	\foreach \col in {0,...,7} {
@@ -143,17 +143,16 @@
 
 			% Label rows with Point number
 			\ifnum\col=0
-				\pgfmathsetmacro{\bankStart}{int(\row + 1)}
+				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {P\bankStart};
+				\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
 			\fi
 
 			\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
 			% Label columns with bank number
 			\ifnum\row=0
-				\pgfmathsetmacro{\bankStart}{int(4*(\col)+1)}
-				\pgfmathsetmacro{\bankEnd}{int(\bankStart + 3)}
-				\node[font=\large, yshift=\headerOffset cm] at (C) {\bankStart-\bankEnd};
+				\pgfmathsetmacro{\bank}{int(\col+1)}
+				\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\bank $};
 			\fi
 
 			% Add XOR values to right side of figure
