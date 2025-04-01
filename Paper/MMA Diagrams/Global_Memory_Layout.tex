@@ -92,6 +92,7 @@
 \definecolor{colColor6}{RGB}{140, 90, 240}  % Muted Purple  
 \definecolor{colColor7}{RGB}{120, 70, 250}  % Gentle Blue-Purple  
 \definecolor{lastColColor}{RGB}{255, 255, 255}  % White
+\definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
 
 \newcommand{\getcolor}[1]{colColor#1}
 
@@ -204,6 +205,102 @@
 
 }};
 	\end{scope}
+\end{tikzpicture}
+
+% Fragment drawings common parameters
+
+% Base rectangle background
+\newcommand\whiteSpace{0.5}
+
+	% Compute width of a single register based on the fraction of a single chunk it takes up.
+\pgfmathsetmacro\registerWidth{0.75}
+\pgfmathsetmacro\registerHeight{0.375}
+\pgfmathsetmacro\halfRegisterWidth{\registerWidth / 2}
+\pgfmathsetmacro\halfRegisterHeight{\registerHeight / 2}
+
+\newcommand\phasesPercent{0.8}
+\pgfmathsetmacro\phaseWidth{\registerWidth * 4}
+\pgfmathsetmacro\phaseHeight{\registerHeight * 8}
+
+\pgfmathsetmacro\fragmentWidth{2 * \phaseWidth + (3 * \whiteSpace)}
+\pgfmathsetmacro\fragmentHeight{2 * \phaseHeight + (3 * \whiteSpace)}
+
+
+\newcommand\drawFragment[1]{
+	\draw[ultra thick, draw=AFragmentColor, rounded corners= 5pt] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
+
+	\begin{scope}[xshift=\whiteSpace cm, yshift=-\whiteSpace cm]
+
+	% Draw the four phases
+		\foreach \row in {0,  1} {
+			\foreach \col in {0,  1} {
+				\pgfmathsetmacro\xoffset{\col * (\phaseWidth + \whiteSpace)}
+				\pgfmathsetmacro\yoffset{-\row * (\phaseHeight + \whiteSpace)}
+				\begin{scope}[xshift=\xoffset cm, yshift=\yoffset cm]
+					\pgfmathsetmacro\phaseNum{int(\col * 2 + \row + 1)}
+					\node[anchor=south] at (\registerWidth * 2, 0) {Phase \phaseNum};
+					% Invoke the Phase drawing section now that we are in our local scope
+					#1{\phaseNum}
+				\end{scope}
+			}
+		}
+	\end{scope}
+}
+
+\newcommand\getPhaseColor[1]{%
+	\ifcase #1 \or colColor0%
+		\or white%
+		\or colColor1%
+		\or white%
+	\fi
+}
+
+% Chunk based fragment
+\begin{tikzpicture}
+
+	\newcommand\drawChunkPhase[1]{
+			% edef worked here because I was defining \def\phaseNum{\phaseNum} which recurses
+			% infinitely. \edef worked because it expanded \phaseNum before assigning it to 
+			% the new macro.
+		\def\phaseNumIn{#1}
+% Thread\register layout
+		\foreach \row in {0, ..., 7} {
+			\coordinate (C) at (0, -\row * \registerHeight);
+			\ifnum \phaseNumIn<3
+				\def\firstDim{1}
+			\else
+				\def\firstDim{9}
+			\fi
+			\pgfmathsetmacro\maxDim{int(\firstDim + 7)}
+
+			\def\chunkColor{\getPhaseColor{\phaseNumIn}}
+			\pgfmathsetmacro\thread{int((\phaseNumIn - 1) * 8 + \row)}
+			\filldraw[fill=\chunkColor, draw=black] (C) node[anchor=north west, font=\tiny] {\texttt{T\thread}} rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\small] {\firstDim-\maxDim} ;
+		}
+	}
+
+	\drawFragment{\drawChunkPhase}
+
+\end{tikzpicture}
+
+% Register based fragment
+\begin{tikzpicture}
+
+	\newcommand\drawThreadPhase[1]{
+		\edef\phaseNum{#1}
+% Thread\register layout
+		\foreach \phaseRow in {0, ..., 7} {
+			\foreach \phaseCol in {0, ..., 3}{
+				\coordinate (C) at (\phaseCol * \registerWidth, -\phaseRow * \registerHeight);
+				\pgfmathsetmacro\threadIndex{int(\phaseRow * 4 + \phaseCol)}
+				\def\chunkColor{\getPhaseColor{\phaseNum}}
+				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\small] {\texttt{T\threadIndex}};
+			}
+		}
+	}
+
+	\drawFragment{ \drawThreadPhase }
+
 \end{tikzpicture}
 
 \end{document}
