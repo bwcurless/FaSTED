@@ -4,6 +4,7 @@
 \usepackage{xparse}
 \usetikzlibrary{calc}
 \usetikzlibrary{matrix}
+\usetikzlibrary{arrows.meta}
 
 % Binary value zero padding taken from SO
 \usepackage{xparse}
@@ -95,7 +96,9 @@
 \definecolor{lastColColor}{RGB}{255, 255, 255}  % White
 \definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
 \definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
-\definecolor{DFragmentColor}{RGB}{0, 255, 0}  % Green
+\definecolor{DFragmentColor}{RGB}{0, 203, 74}  % Green
+
+\definecolor{blockTileColor}{RGB}{0, 255, 0}  % Light Green
 
 \newcommand{\getcolor}[1]{colColor#1}
 
@@ -137,7 +140,7 @@
 			\ifnum\col=8
 				\node[font=\large] at (C)  {\baseDim ...$d$};
 			\else
-				% Label with thread index
+				% Label with thread tileIndex
 				\pgfmathsetmacro{\cellIndex}{int((\row) * 8 + \col)}
 				\node[anchor=north west, font=\tiny] at (UL) {T\cellIndex};
 				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
@@ -367,6 +370,92 @@
 		\newcommand\fn{1}
 		\newcommand\fk{2}
 		
+\end{tikzpicture}
+
+% Block Tile Rasterization
+\begin{tikzpicture}
+		\newcommand\tileSpacing{1}
+		\newcommand\tileDim{1.5}
+
+		\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
+
+		% Remember the last node that we need to draw an arrow from
+		\def\lastNode{(0,0)}
+		\def\innerTiles{2}
+		\def\outerChunks{2}
+
+		% Outer square rasterized chunks
+		\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
+		
+		\foreach \outerRow in {0, ..., \outerRange} {
+				\foreach \outerCol in {0, ..., \outerRange} {
+						\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
+						\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
+										yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
+
+				% inner square rasterized chunks
+										\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
+										\foreach \row in {0, ..., \innerRange} {
+														\foreach \col in {0, ..., \innerRange} {
+																		\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
+																		\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
+
+																		\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
+																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\small, align=center] {Block\\ Tile\\ \tileIndex};
+
+																		% Compute left and right nodes for arrows
+																		\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
+																		\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
+																		\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
+																		\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
+																		\tikzstyle arrow=[arrows= -{Stealth}, ultra thick, rounded corners= 5pt]
+																% Draw connecting arrows
+																		\newcommand\arrowOffset{\tileSpacing / 2}
+
+																		\newcommand\drawOuterShortArrow{
+																						\ifnum \innerIndex=1
+																										\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
+																						\fi
+																		}
+																		\newcommand\drawOuterLongArrow{
+																						\ifnum \innerIndex=1
+																										\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
+																						\fi
+																		}
+																		% Draw outer-raster-square connecting arrows
+																		\ifnum \outerIndex=1
+																						\drawOuterShortArrow{}
+																		\fi
+																		\ifnum \outerIndex=2
+																						\drawOuterLongArrow{}
+																		\fi
+																		\ifnum \outerIndex=3
+																						\drawOuterShortArrow{}
+																		\fi
+																		% Draw normal inner connecting arrows
+																		\ifnum \col>0
+																										\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
+																		\fi
+																		% Draw last to first connecting arrows
+																		\ifnum \col=0
+																						\ifnum \row>0
+																										\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
+																						\fi
+																		\fi
+
+																		% Save the last right node for the next iteration to connect
+																		% arrows to it
+																		\coordinate (lastLeftNode) at (currentLeftNode);
+																		\coordinate (lastRightNode) at (currentRightNode);
+																		\coordinate (lastTopNode) at (currentTopNode);
+																		\coordinate (lastBottomNode) at (currentBottomNode);
+
+														}
+										}
+						\end{scope}
+				}
+		}
+
 \end{tikzpicture}
 
 \end{document}
