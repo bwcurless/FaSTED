@@ -3,6 +3,7 @@
 \usepackage{xcolor}
 \usepackage{xparse}
 \usetikzlibrary{calc}
+\usetikzlibrary{matrix}
 
 % Binary value zero padding taken from SO
 \usepackage{xparse}
@@ -93,6 +94,8 @@
 \definecolor{colColor7}{RGB}{120, 70, 250}  % Gentle Blue-Purple  
 \definecolor{lastColColor}{RGB}{255, 255, 255}  % White
 \definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
+\definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
+\definecolor{DFragmentColor}{RGB}{0, 255, 0}  % Green
 
 \newcommand{\getcolor}[1]{colColor#1}
 
@@ -225,9 +228,10 @@
 \pgfmathsetmacro\fragmentWidth{2 * \phaseWidth + (3 * \whiteSpace)}
 \pgfmathsetmacro\fragmentHeight{2 * \phaseHeight + (3 * \whiteSpace)}
 
+\tikzstyle fragment=[ultra thick, rounded corners= 5pt]
 
 \newcommand\drawFragment[1]{
-	\draw[ultra thick, draw=AFragmentColor, rounded corners= 5pt] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
+	\draw[style=fragment, draw=AFragmentColor] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
 
 	\begin{scope}[xshift=\whiteSpace cm, yshift=-\whiteSpace cm]
 
@@ -301,6 +305,68 @@
 
 	\drawFragment{ \drawThreadPhase }
 
+\end{tikzpicture}
+
+% Basic TC MMA
+\begin{tikzpicture}
+		\newcommand\fm{4.5}
+		\newcommand\fn{3}
+		\newcommand\fk{4.5}
+
+		% Draw B
+		\pgfmathsetmacro\bdXShift{1.5}
+		\draw[style=fragment,draw=BFragmentColor, ultra thick] (0, 0) rectangle +(\fn, -\fk);
+		\matrix (m) [xshift=\bdXShift cm, yshift=-2.25cm, 
+		matrix of math nodes,
+		row sep=0.5em, column sep=0em,
+		nodes={anchor=center}] {
+				C_{1,1} & \cdots & C_{8,1} \\
+				C_{1,2} & \cdots & C_{8,2} \\
+				\vdots & \ddots & \vdots \\
+				C_{1,15} & \cdots & C_{8,15} \\
+				C_{1,16} & \cdots & C_{8,16} \\
+};
+
+		% Draw D
+		\pgfmathsetmacro\dXShift{0}
+		\pgfmathsetmacro\dYShift{-\whiteSpace - \fk}
+		\draw[style=fragment,draw=DFragmentColor, xshift=\dXShift cm, yshift=\dYShift cm, ultra thick] (0, 0) rectangle +(\fn, -\fm);
+		\pgfmathsetmacro\adYShift{-7.25}
+		\matrix (m) [xshift=\bdXShift cm, yshift=\adYShift cm, 
+		matrix of math nodes,
+		row sep=0.5em, column sep=0em,
+		%left delimiter={[}, right delimiter={]},
+		nodes={anchor=center}] {
+				D_{1,1} & \cdots & D_{1,8} \\
+				D_{2,1} & \cdots & D_{2,8} \\
+				\vdots & \ddots & \vdots \\
+				D_{15,1} & \cdots & D_{15,8} \\
+				D_{16,1} & \cdots & D_{16,8} \\
+};
+
+		% Draw A
+		\pgfmathsetmacro\aXShift{-\whiteSpace - \fk}
+		\pgfmathsetmacro\aYShift{-\whiteSpace - \fm}
+		\draw[style=fragment,draw=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm, ultra thick] (0, 0) rectangle +(\fk, -\fm);
+		\matrix (m) [xshift=-2.75 cm, yshift=\adYShift cm, 
+		matrix of math nodes,
+		row sep=0.5em, column sep=0.5em,
+		nodes={anchor=center}] {
+				Q_{1,1} & Q_{1,2} & \cdots & Q_{1,16} \\
+				Q_{2,1} & Q_{2,2} & \cdots & Q_{2,16} \\
+				\vdots & \vdots & \ddots & \vdots \\
+				Q_{15,1} & Q_{15,2} & \cdots & Q_{15,16} \\
+				Q_{16,1} & Q_{16,2} & \cdots & Q_{16,16} \\
+};
+		
+\end{tikzpicture}
+
+% Warp MMA
+\begin{tikzpicture}
+		\newcommand\fm{2}
+		\newcommand\fn{1}
+		\newcommand\fk{2}
+		
 \end{tikzpicture}
 
 \end{document}
