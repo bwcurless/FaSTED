@@ -374,13 +374,19 @@
 
 % Block Tile Rasterization
 \begin{tikzpicture}
-		\newcommand\tileSpacing{1}
-		\newcommand\tileDim{1.5}
+    % Draw global memory layouts
+				\newcommand\kHeight{2}
+				\newcommand\mHeight{5.5}
+				\tikzstyle nodeStyle=[anchor=south east, align=center, font=\tiny]
+				\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[style=nodeStyle] {Query Points\\ (DRAM)};
+				\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[style=nodeStyle] {Candidate Points\\ (DRAM)};
+
+		\newcommand\tileSpacing{0.5}
+		\newcommand\tileDim{1}
 
 		\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
 
 		% Remember the last node that we need to draw an arrow from
-		\def\lastNode{(0,0)}
 		\def\innerTiles{2}
 		\def\outerChunks{2}
 
@@ -401,14 +407,14 @@
 																		\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
 
 																		\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
-																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\small, align=center] {Block\\ Tile\\ \tileIndex};
+																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center] {Block\\ Tile\\ \tileIndex};
 
 																		% Compute left and right nodes for arrows
 																		\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
 																		\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
 																		\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
 																		\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
-																		\tikzstyle arrow=[arrows= -{Stealth}, ultra thick, rounded corners= 5pt]
+																		\tikzstyle arrow=[arrows= -{Stealth[length=2mm]}, thick, rounded corners= 0.5mm]
 																% Draw connecting arrows
 																		\newcommand\arrowOffset{\tileSpacing / 2}
 
@@ -456,6 +462,12 @@
 				}
 		}
 
+\end{tikzpicture}
+
+% Warp Tile
+\begin{tikzpicture}
+				% Write a routine to draw a rectangle, and stack it a variable number of times.
+				
 \end{tikzpicture}
 
 \end{document}
