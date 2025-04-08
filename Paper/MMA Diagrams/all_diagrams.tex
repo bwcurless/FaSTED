@@ -97,6 +97,10 @@
 \definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
 \definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
 \definecolor{DFragmentColor}{RGB}{0, 203, 74}  % Green
+\definecolor{ASharedMemColor}{RGB}{200, 0, 0}  % Red
+\definecolor{BSharedMemColor}{RGB}{0, 0, 200}  % Blue
+\definecolor{WarpTileColor}{RGB}{0, 150, 74}  % Green
+\definecolor{BlockTileColor}{RGB}{0, 0, 0}  % Black
 
 \definecolor{blockTileColor}{RGB}{0, 255, 0}  % Light Green
 
@@ -377,9 +381,9 @@
     % Draw global memory layouts
 				\newcommand\kHeight{2}
 				\newcommand\mHeight{5.5}
-				\tikzstyle nodeStyle=[anchor=south east, align=center, font=\tiny]
-				\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[style=nodeStyle] {Query Points\\ (DRAM)};
-				\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[style=nodeStyle] {Candidate Points\\ (DRAM)};
+				\tikzstyle nodeStyle=[align=center, font=\tiny]
+				\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
+				\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
 
 		\newcommand\tileSpacing{0.5}
 		\newcommand\tileDim{1}
@@ -407,7 +411,7 @@
 																		\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
 
 																		\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
-																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center] {Block\\ Tile\\ \tileIndex};
+																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
 
 																		% Compute left and right nodes for arrows
 																		\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
@@ -466,15 +470,16 @@
 
 % Warp Tile
 \begin{tikzpicture}
-				\newcommand\drawStackableFragment[5]{%
-								\def\width{#1}
-								\def\height{#2}
-								\def\upperLeftContent{#3}
-								\def\bottomRightContent{#4}
-								\def\color{#5}
+	\newcommand\drawStackableFragment[5]{%
+		\def\width{#1}
+		\def\height{#2}
+		\def\upperLeftContent{#3}
+		\def\bottomRightContent{#4}
+		\def\color{#5}
 
-								\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\tiny, xshift=0.5 mm, yshift=-0.5 mm] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\tiny] {\upperLeftContent};
-				}
+		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\tiny, xshift=0.5 mm, yshift=-0.5 mm] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\tiny] {\upperLeftContent};
+	}
+
 
 				\newcommand\fullFragWidth{2}
 				\newcommand\fullFragHeight{2}
@@ -555,6 +560,62 @@
 
 \end{tikzpicture}
 
+% Block Tile last one!!!
+\begin{tikzpicture}
 
+\newcommand\drawBlockLevelFragment[6]{%
+	\def\width{#1}
+	\def\height{#2}
+	\def\upperLeftContent{#3}
+	\def\bottomRightContent{#4}
+	\def\color{#5}
+	\def\label{#6}
+
+	\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\small] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\small] {\upperLeftContent} node[midway, align=center, font=\small] {\label};
+}
+
+% Draw the entire block tile
+\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=9 cm] (0,0) rectangle (15, -15) node[anchor=south east] {Single Block Tile};
+
+	% Draw the 4 warp tiles in center
+	\newcommand\warpTileSize{4}
+	\newcommand\warpPadding{1}
+	\pgfmathtruncatemacro\paddedWarpTileSize{\warpTileSize + \warpPadding}
+
+
+	% Draw all Warp Tiles
+	\begin{scope}[xshift=0 cm, yshift=0 cm]
+		\foreach \row in {0, ..., 1} {
+			\foreach \col in {0, ..., 1} {
+				\begin{scope}[xshift=\paddedWarpTileSize * \col cm, yshift= -\paddedWarpTileSize * \row cm]
+					\pgfmathtruncatemacro\warpIndex{\row * 2 + \col + 1}
+					\pgfmathtruncatemacro\warpSize{48}
+					
+					\pgfmathtruncatemacro\minQueryPoint{\row * \warpSize + 1}
+					\pgfmathtruncatemacro\maxQueryPoint{\minQueryPoint + \warpSize - 1}
+					\pgfmathtruncatemacro\minCandPoint{\col * \warpSize + 1}
+					\pgfmathtruncatemacro\maxCandPoint{\minCandPoint + \warpSize - 1}
+					\def\minDim{1}
+					\def\maxDim{64}
+
+					\drawBlockLevelFragment{\warpTileSize}{\warpTileSize}{$D_{\minQueryPoint,\minCandPoint}$}{$D_{\maxQueryPoint,\maxCandPoint}$}{WarpTileColor}{Warp\\ \warpIndex}
+				\end{scope}
+			}
+		}
+	\end{scope}
+
+	% Draw the 64D shared memory chunks that have been paged in
+	% A Data
+	\begin{scope}[xshift=-5 cm, yshift=-5 cm]
+					\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,64}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
+	\end{scope}
+
+	% B Data
+	\begin{scope}[xshift=5 cm, yshift=5 cm]
+		\pgfmathsetmacro\blockWidth{2 * \warpTileSize + \warpPadding}
+		\drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$C_{1,1}$}{$C_{96,64}$}{BSharedMemColor}{Candidate Points\\ 64D k-slice (SMEM)}
+	\end{scope}
+
+\end{tikzpicture}
 
 \end{document}
