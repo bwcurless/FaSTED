@@ -497,13 +497,13 @@
 		\def\fragIndex{#4}
 		\def\fragName{#5}
 
-								% Draw each fragment as a stack of 4
+		% Draw each fragment as a stack of 4
 		\newcommand\stacks{4}
 		\newcommand\stackOffset{0.4}
 		\pgfmathsetmacro\maxStackIndex{int(\stacks - 1)}
 
 		\foreach \i in {0, ..., \maxStackIndex} {
-								% Stack up and to the left
+			% Stack up and to the left
 			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
 				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
 				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
@@ -518,10 +518,13 @@
 		}
 	}
 
+% Draw the entire warp tile for future reference
+	\draw[color=WarpTileColor, style=fragment, xshift=-4 cm, yshift=7 cm] (0,0) rectangle (13, -16) node[anchor=south east, color=black] {Single Warp Tile Iteration};
+
 	\newcommand\fragXShift{1.5}
 	\newcommand\fragYShift{4}
 
-								% Draw all D Fragments
+	% Draw all D Fragments
 	\begin{scope}[xshift=1 cm, yshift=0 cm]
 		\foreach \row in {0, ..., 2} {
 			\foreach \col in {0, ..., 5} {
@@ -538,7 +541,7 @@
 		}
 	\end{scope}
 
-				% Draw all 3 A Fragments
+	% Draw all 3 A Fragments
 	\begin{scope}[xshift=-1 cm, yshift=0 cm]
 		\foreach \fragment in {0, ..., 2} {
 			\begin{scope}[yshift=-\fragYShift * \fragment cm]
@@ -547,7 +550,7 @@
 		}
 	\end{scope}
 
-				% Draw all 6 B Fragments
+	% Draw all 6 B Fragments
 	\begin{scope}[xshift=1 cm, yshift=3 cm]
 		\foreach \fragment in {0, ..., 5} {
 			\begin{scope}[xshift=\fragXShift * \fragment cm]
@@ -575,7 +578,7 @@
 	}
 
 % Draw the entire block tile
-	\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=9 cm] (0,0) rectangle (15, -15) node[anchor=south east] {Single Block Tile};
+	\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=10 cm] (0,0) rectangle (15, -16) node[anchor=south east] {Single Block Tile};
 
 	% Draw the 4 warp tiles in center
 	\newcommand\warpTileSize{4}
@@ -598,22 +601,35 @@
 					\def\minDim{1}
 					\def\maxDim{64}
 
-					\drawBlockLevelFragment{\warpTileSize}{\warpTileSize}{$D_{\minQueryPoint,\minCandPoint}$}{$D_{\maxQueryPoint,\maxCandPoint}$}{WarpTileColor}{Warp\\ \warpIndex}
+					\drawBlockLevelFragment{\warpTileSize}{\warpTileSize}{$D_{\minQueryPoint,\minCandPoint}$}{$D_{\maxQueryPoint,\maxCandPoint}$}{WarpTileColor}{Warp Tile\\ \warpIndex}
 				\end{scope}
 			}
 		}
 	\end{scope}
 
+	\def\sliceYShift{0.55}
+	\def\sliceXShift{0.25}
+	\pgfmathtruncatemacro\numSlices{3 - 1}
 	% Draw the 64D shared memory chunks that have been paged in
 	% A Data
 	\begin{scope}[xshift=-5 cm, yshift=-5 cm]
-		\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,64}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
+		\foreach \i in {0, ..., \numSlices} {
+			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+				\pgfmathtruncatemacro\maxDim{64 * 3 - 64 * \i}
+				\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,\maxDim}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
+			\end{scope}
+		}
 	\end{scope}
 
 	% B Data
 	\begin{scope}[xshift=5 cm, yshift=5 cm]
 		\pgfmathsetmacro\blockWidth{2 * \warpTileSize + \warpPadding}
-		\drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$C_{1,1}$}{$C_{96,64}$}{BSharedMemColor}{Candidate Points\\ 64D k-slice (SMEM)}
+		\foreach \i in {0, ..., \numSlices} {
+			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+				\pgfmathtruncatemacro\maxDim{64 * 3 - 64 * \i}
+		\drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$C_{1,1}$}{$C_{96,\maxDim}$}{BSharedMemColor}{Candidate Points\\ 64D k-slice (SMEM)}
+			\end{scope}
+		}
 	\end{scope}
 
 \end{tikzpicture}
