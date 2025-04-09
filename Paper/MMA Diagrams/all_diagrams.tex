@@ -11,75 +11,75 @@
 \ExplSyntaxOn
 \int_new:N \g_fleet_number_of_zeros
 \NewDocumentCommand\SetZeros{m}
-  {
-    \int_gset:Nn \g_fleet_number_of_zeros {#1}
-  }
+{
+	\int_gset:Nn \g_fleet_number_of_zeros {#1}
+}
 \NewDocumentCommand\PrependZeros{om}
-  {
-    \IfValueTF{#1}
-      { \__fleet_count:ne {#1} {#2} }
-      { \__fleet_count:ne {\g_fleet_number_of_zeros} {#2} }
-  }
+{
+	\IfValueTF{#1}
+	{ \__fleet_count:ne {#1} {#2} }
+	{ \__fleet_count:ne {\g_fleet_number_of_zeros} {#2} }
+}
 \cs_new:Npn \__fleet_count:nn #1#2
-  {
-    \exp_args:Nf \__fleet_prepend:nn
-      { \int_max:nn { #1 - \str_count:n {#2} } { 0 } }
-      {#2}
-  }
+{
+	\exp_args:Nf \__fleet_prepend:nn
+	{ \int_max:nn { #1 - \str_count:n {#2} } { 0 } }
+	{#2}
+}
 \cs_generate_variant:Nn \__fleet_count:nn { ne }
 \cs_new:Npn \__fleet_prepend:nn #1#2
-  { \prg_replicate:nn {#1}{0} #2 }
+{ \prg_replicate:nn {#1}{0} #2 }
 \ExplSyntaxOff
 
 % XOR routine taken from SO...
 \ExplSyntaxOn
 \NewExpandableDocumentCommand{\bitwiseXor}{mm}
- {
-  \recuenco_bitwise_xor:nn { #1 } { #2 }
- }
+{
+	\recuenco_bitwise_xor:nn { #1 } { #2 }
+}
 
 \cs_new:Nn \recuenco_bitwise_xor:nn
- {
-  \int_from_bin:e
-   {
-    \__recuenco_bitwise_xor:ee { \int_to_bin:n { #1 } } { \int_to_bin:n { #2 } }
-   }
- }
+{
+	\int_from_bin:e
+	{
+		\__recuenco_bitwise_xor:ee { \int_to_bin:n { #1 } } { \int_to_bin:n { #2 } }
+	}
+}
 \cs_generate_variant:Nn \int_from_bin:n { e }
 
 \cs_new:Nn \__recuenco_bitwise_xor:nn
- {
-  \__recuenco_bitwise_xor_binary:ee
-   {
-    \prg_replicate:nn
-     {
-      \int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #1 }
-     }
-     { 0 }
-     #1
-   }
-   {
-    \prg_replicate:nn
-     {
-      \int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #2 }
-     }
-     { 0 }
-     #2
-   }
- }
+{
+	\__recuenco_bitwise_xor_binary:ee
+	{
+		\prg_replicate:nn
+		{
+			\int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #1 }
+		}
+		{ 0 }
+		#1
+	}
+	{
+		\prg_replicate:nn
+		{
+			\int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #2 }
+		}
+		{ 0 }
+		#2
+	}
+}
 \cs_generate_variant:Nn \__recuenco_bitwise_xor:nn { ee }
 
 \cs_new:Nn \__recuenco_bitwise_xor_binary:nn
- {
-  \__recuenco_bitwise_xor_binary:w #1;#2;
- }
+{
+	\__recuenco_bitwise_xor_binary:w #1;#2;
+}
 \cs_generate_variant:Nn \__recuenco_bitwise_xor_binary:nn { ee }
 
 \cs_new:Npn \__recuenco_bitwise_xor_binary:w #1#2;#3#4;
- {
-  \int_abs:n { #1-#3 }
-  \tl_if_empty:nF { #2 } { \__recuenco_bitwise_xor_binary:w #2;#4; }
- }
+{
+	\int_abs:n { #1-#3 }
+	\tl_if_empty:nF { #2 } { \__recuenco_bitwise_xor_binary:w #2;#4; }
+}
 
 \ExplSyntaxOff
 
@@ -113,7 +113,7 @@
 \pgfmathsetmacro{\halfBlockWidth}{\blockWidth / 2}
 
 \def\dimColors{colColor0, colColor1, colColor2, colColor3, colColor4, colColor5, colColor6, colColor7, lastColColor}
-	
+
 % Global Memory layout
 \begin{tikzpicture}[scale=1]
 	\foreach \color [count=\col from 0] in \dimColors {
@@ -158,62 +158,62 @@
 \begin{tikzpicture}[scale=1]
 	\node[font=\large] at (8, 0) {\underline{Shared Memory Banks}};
 	\begin{scope}[shift={(0,-1.25)}]
-		
-	\foreach \col in {0,...,7} {
-		\foreach \row in {0,..., 7}{
+
+		\foreach \col in {0,...,7} {
+			\foreach \row in {0,..., 7}{
 
 			% Base calculations
-			\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
-			\pgfmathsetmacro{\xPos}{\col * \blockWidth}
-			\coordinate (UL) at (\xPos, \yPos);
-			\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+				\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
+				\pgfmathsetmacro{\xPos}{\col * \blockWidth}
+				\coordinate (UL) at (\xPos, \yPos);
+				\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
 			% Center of rectangle
-			\coordinate (C) at ($ (UL)!.5!(BR) $);
+				\coordinate (C) at ($ (UL)!.5!(BR) $);
 
 			% Compute swizzled column
-			\pgfmathsetmacro{\swizzledCol}{int(\bitwiseXor{\col}{\row})}
+				\pgfmathsetmacro{\swizzledCol}{int(\bitwiseXor{\col}{\row})}
 
 			% Draw rect with appropriate column color
-			\def\cellColor{\getcolor{\swizzledCol}}
-			\fill[color=\cellColor, draw=black] (UL) rectangle (BR);
+				\def\cellColor{\getcolor{\swizzledCol}}
+				\fill[color=\cellColor, draw=black] (UL) rectangle (BR);
 
 			% Label rows with Point number
-			\ifnum\col=0
-				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
-				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
-			\fi
-
-			\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
-			% Label columns with bank number
-			\ifnum\row=0
-			% Add column number in binary
-				\pgfmathsetmacro{\binaryColumn}{int(bin(\col)}
-				\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
-
-				\pgfmathsetmacro{\bank}{int(\col+1)}
-				\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
-			\fi
-
-			\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
-			% Add XOR values to right side of figure
-			\ifnum\col=7
-				\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
-				% Add header for XOR column...
-				\ifnum\row=0
-					\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
+				\ifnum\col=0
+					\pgfmathsetmacro{\pointNum}{int(\row + 1)}
+					\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+					\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
 				\fi
-				\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
-				\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
-			\fi
+
+				\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
+			% Label columns with bank number
+				\ifnum\row=0
+			% Add column number in binary
+					\pgfmathsetmacro{\binaryColumn}{int(bin(\col)}
+					\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
+
+					\pgfmathsetmacro{\bank}{int(\col+1)}
+					\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
+				\fi
+
+				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
+			% Add XOR values to right side of figure
+				\ifnum\col=7
+					\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
+				% Add header for XOR column...
+					\ifnum\row=0
+						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
+					\fi
+					\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
+					\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
+				\fi
 
 			% Add dimension range for each block
-			\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
-			\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-			\node[font=\large] at (C)  {\baseDim -\maxDim};
+				\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
+				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+				\node[font=\large] at (C)  {\baseDim -\maxDim};
 
 
-}};
+		}};
 	\end{scope}
 \end{tikzpicture}
 
@@ -316,155 +316,155 @@
 
 % Basic TC MMA
 \begin{tikzpicture}
-		\newcommand\fm{4.5}
-		\newcommand\fn{3}
-		\newcommand\fk{4.5}
+	\newcommand\fm{4.5}
+	\newcommand\fn{3}
+	\newcommand\fk{4.5}
 
 		% Draw B
-		\pgfmathsetmacro\bdXShift{1.5}
-		\draw[style=fragment,draw=BFragmentColor, ultra thick] (0, 0) rectangle +(\fn, -\fk);
-		\matrix (m) [xshift=\bdXShift cm, yshift=-2.25cm, 
-		matrix of math nodes,
-		row sep=0.5em, column sep=0em,
-		nodes={anchor=center}] {
-				C_{1,1} & \cdots & C_{8,1} \\
-				C_{1,2} & \cdots & C_{8,2} \\
-				\vdots & \ddots & \vdots \\
-				C_{1,15} & \cdots & C_{8,15} \\
-				C_{1,16} & \cdots & C_{8,16} \\
-};
+	\pgfmathsetmacro\bdXShift{1.5}
+	\draw[style=fragment,draw=BFragmentColor, ultra thick] (0, 0) rectangle +(\fn, -\fk);
+	\matrix (m) [xshift=\bdXShift cm, yshift=-2.25cm, 
+	matrix of math nodes,
+	row sep=0.5em, column sep=0em,
+	nodes={anchor=center}] {
+		C_{1,1} & \cdots & C_{8,1} \\
+		C_{1,2} & \cdots & C_{8,2} \\
+		\vdots & \ddots & \vdots \\
+		C_{1,15} & \cdots & C_{8,15} \\
+		C_{1,16} & \cdots & C_{8,16} \\
+	};
 
 		% Draw D
-		\pgfmathsetmacro\dXShift{0}
-		\pgfmathsetmacro\dYShift{-\whiteSpace - \fk}
-		\draw[style=fragment,draw=DFragmentColor, xshift=\dXShift cm, yshift=\dYShift cm, ultra thick] (0, 0) rectangle +(\fn, -\fm);
-		\pgfmathsetmacro\adYShift{-7.25}
-		\matrix (m) [xshift=\bdXShift cm, yshift=\adYShift cm, 
-		matrix of math nodes,
-		row sep=0.5em, column sep=0em,
+	\pgfmathsetmacro\dXShift{0}
+	\pgfmathsetmacro\dYShift{-\whiteSpace - \fk}
+	\draw[style=fragment,draw=DFragmentColor, xshift=\dXShift cm, yshift=\dYShift cm, ultra thick] (0, 0) rectangle +(\fn, -\fm);
+	\pgfmathsetmacro\adYShift{-7.25}
+	\matrix (m) [xshift=\bdXShift cm, yshift=\adYShift cm, 
+	matrix of math nodes,
+	row sep=0.5em, column sep=0em,
 		%left delimiter={[}, right delimiter={]},
-		nodes={anchor=center}] {
-				D_{1,1} & \cdots & D_{1,8} \\
-				D_{2,1} & \cdots & D_{2,8} \\
-				\vdots & \ddots & \vdots \\
-				D_{15,1} & \cdots & D_{15,8} \\
-				D_{16,1} & \cdots & D_{16,8} \\
-};
+	nodes={anchor=center}] {
+		D_{1,1} & \cdots & D_{1,8} \\
+		D_{2,1} & \cdots & D_{2,8} \\
+		\vdots & \ddots & \vdots \\
+		D_{15,1} & \cdots & D_{15,8} \\
+		D_{16,1} & \cdots & D_{16,8} \\
+	};
 
 		% Draw A
-		\pgfmathsetmacro\aXShift{-\whiteSpace - \fk}
-		\pgfmathsetmacro\aYShift{-\whiteSpace - \fm}
-		\draw[style=fragment,draw=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm, ultra thick] (0, 0) rectangle +(\fk, -\fm);
-		\matrix (m) [xshift=-2.75 cm, yshift=\adYShift cm, 
-		matrix of math nodes,
-		row sep=0.5em, column sep=0.5em,
-		nodes={anchor=center}] {
-				Q_{1,1} & Q_{1,2} & \cdots & Q_{1,16} \\
-				Q_{2,1} & Q_{2,2} & \cdots & Q_{2,16} \\
-				\vdots & \vdots & \ddots & \vdots \\
-				Q_{15,1} & Q_{15,2} & \cdots & Q_{15,16} \\
-				Q_{16,1} & Q_{16,2} & \cdots & Q_{16,16} \\
-};
-		
+	\pgfmathsetmacro\aXShift{-\whiteSpace - \fk}
+	\pgfmathsetmacro\aYShift{-\whiteSpace - \fm}
+	\draw[style=fragment,draw=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm, ultra thick] (0, 0) rectangle +(\fk, -\fm);
+	\matrix (m) [xshift=-2.75 cm, yshift=\adYShift cm, 
+	matrix of math nodes,
+	row sep=0.5em, column sep=0.5em,
+	nodes={anchor=center}] {
+		Q_{1,1} & Q_{1,2} & \cdots & Q_{1,16} \\
+		Q_{2,1} & Q_{2,2} & \cdots & Q_{2,16} \\
+		\vdots & \vdots & \ddots & \vdots \\
+		Q_{15,1} & Q_{15,2} & \cdots & Q_{15,16} \\
+		Q_{16,1} & Q_{16,2} & \cdots & Q_{16,16} \\
+	};
+
 \end{tikzpicture}
 
 % Warp MMA
 \begin{tikzpicture}
-		\newcommand\fm{2}
-		\newcommand\fn{1}
-		\newcommand\fk{2}
-		
+	\newcommand\fm{2}
+	\newcommand\fn{1}
+	\newcommand\fk{2}
+
 \end{tikzpicture}
 
 % Block Tile Rasterization
 \begin{tikzpicture}
-    % Draw global memory layouts
-				\newcommand\kHeight{2}
-				\newcommand\mHeight{5.5}
-				\tikzstyle nodeStyle=[align=center, font=\tiny]
-				\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
-				\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
+		% Draw global memory layouts
+	\newcommand\kHeight{2}
+	\newcommand\mHeight{5.5}
+	\tikzstyle nodeStyle=[align=center, font=\tiny]
+	\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
+	\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
 
-		\newcommand\tileSpacing{0.5}
-		\newcommand\tileDim{1}
+	\newcommand\tileSpacing{0.5}
+	\newcommand\tileDim{1}
 
-		\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
+	\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
 
 		% Remember the last node that we need to draw an arrow from
-		\def\innerTiles{2}
-		\def\outerChunks{2}
+	\def\innerTiles{2}
+	\def\outerChunks{2}
 
 		% Outer square rasterized chunks
-		\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
-		
-		\foreach \outerRow in {0, ..., \outerRange} {
-				\foreach \outerCol in {0, ..., \outerRange} {
-						\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
-						\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
-										yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
+	\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
+
+	\foreach \outerRow in {0, ..., \outerRange} {
+		\foreach \outerCol in {0, ..., \outerRange} {
+			\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
+			\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
+				yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
 
 				% inner square rasterized chunks
-										\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
-										\foreach \row in {0, ..., \innerRange} {
-														\foreach \col in {0, ..., \innerRange} {
-																		\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
-																		\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
+				\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
+				\foreach \row in {0, ..., \innerRange} {
+					\foreach \col in {0, ..., \innerRange} {
+						\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
+						\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
 
-																		\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
-																		\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
+						\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
+						\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
 
 																		% Compute left and right nodes for arrows
-																		\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
-																		\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
-																		\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
-																		\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
-																		\tikzstyle arrow=[arrows= -{Stealth[length=2mm]}, thick, rounded corners= 0.5mm]
+						\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
+						\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
+						\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
+						\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
+						\tikzstyle arrow=[arrows= -{Stealth[length=2mm]}, thick, rounded corners= 0.5mm]
 																% Draw connecting arrows
-																		\newcommand\arrowOffset{\tileSpacing / 2}
+						\newcommand\arrowOffset{\tileSpacing / 2}
 
-																		\newcommand\drawOuterShortArrow{
-																						\ifnum \innerIndex=1
-																										\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
-																						\fi
-																		}
-																		\newcommand\drawOuterLongArrow{
-																						\ifnum \innerIndex=1
-																										\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
-																						\fi
-																		}
+						\newcommand\drawOuterShortArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
+							\fi
+						}
+						\newcommand\drawOuterLongArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
+							\fi
+						}
 																		% Draw outer-raster-square connecting arrows
-																		\ifnum \outerIndex=1
-																						\drawOuterShortArrow{}
-																		\fi
-																		\ifnum \outerIndex=2
-																						\drawOuterLongArrow{}
-																		\fi
-																		\ifnum \outerIndex=3
-																						\drawOuterShortArrow{}
-																		\fi
+						\ifnum \outerIndex=1
+							\drawOuterShortArrow{}
+						\fi
+						\ifnum \outerIndex=2
+							\drawOuterLongArrow{}
+						\fi
+						\ifnum \outerIndex=3
+							\drawOuterShortArrow{}
+						\fi
 																		% Draw normal inner connecting arrows
-																		\ifnum \col>0
-																										\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
-																		\fi
+						\ifnum \col>0
+							\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
+						\fi
 																		% Draw last to first connecting arrows
-																		\ifnum \col=0
-																						\ifnum \row>0
-																										\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
-																						\fi
-																		\fi
+						\ifnum \col=0
+							\ifnum \row>0
+								\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
+							\fi
+						\fi
 
 																		% Save the last right node for the next iteration to connect
 																		% arrows to it
-																		\coordinate (lastLeftNode) at (currentLeftNode);
-																		\coordinate (lastRightNode) at (currentRightNode);
-																		\coordinate (lastTopNode) at (currentTopNode);
-																		\coordinate (lastBottomNode) at (currentBottomNode);
+						\coordinate (lastLeftNode) at (currentLeftNode);
+						\coordinate (lastRightNode) at (currentRightNode);
+						\coordinate (lastTopNode) at (currentTopNode);
+						\coordinate (lastBottomNode) at (currentBottomNode);
 
-														}
-										}
-						\end{scope}
+					}
 				}
+			\end{scope}
 		}
+	}
 
 \end{tikzpicture}
 
@@ -481,81 +481,81 @@
 	}
 
 
-				\newcommand\fullFragWidth{2}
-				\newcommand\fullFragHeight{2}
-				\newcommand\halfFragWidth{1}
-				\newcommand\halfFragPoints{8}
-				\newcommand\fullFragPoints{16}
+	\newcommand\fullFragWidth{2}
+	\newcommand\fullFragHeight{2}
+	\newcommand\halfFragWidth{1}
+	\newcommand\halfFragPoints{8}
+	\newcommand\fullFragPoints{16}
 				% All fragments have 16 dimensions
-				\newcommand\fragmentDims{16}
+	\newcommand\fragmentDims{16}
 
 				% Can be used to draw stacks of fragments for A or B matrices
-				\newcommand\drawFragmentStack[5]{%
-								\def\fragColor{#1}
-								\def\fragWidth{#2}
-								\def\fragWidthInPoints{#3}
-								\def\fragIndex{#4}
-								\def\fragName{#5}
+	\newcommand\drawFragmentStack[5]{%
+		\def\fragColor{#1}
+		\def\fragWidth{#2}
+		\def\fragWidthInPoints{#3}
+		\def\fragIndex{#4}
+		\def\fragName{#5}
 
 								% Draw each fragment as a stack of 4
-								\newcommand\stacks{4}
-								\newcommand\stackOffset{0.4}
-								\pgfmathsetmacro\maxStackIndex{int(\stacks - 1)}
-								
-								\foreach \i in {0, ..., \maxStackIndex} {
+		\newcommand\stacks{4}
+		\newcommand\stackOffset{0.4}
+		\pgfmathsetmacro\maxStackIndex{int(\stacks - 1)}
+
+		\foreach \i in {0, ..., \maxStackIndex} {
 								% Stack up and to the left
-												\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
-																\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
-																\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
+			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
+				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
+				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
 
 																% Kind of a hack, but we stack upwards so later fragments cover earlier, have
 																% to count backwards for dimensions for this to work out cleanly
-																\pgfmathtruncatemacro\maxDim{64 - (\i * \fragmentDims)}
-																\pgfmathtruncatemacro\minDim{\maxDim - \fragmentDims + 1}
+				\pgfmathtruncatemacro\maxDim{64 - (\i * \fragmentDims)}
+				\pgfmathtruncatemacro\minDim{\maxDim - \fragmentDims + 1}
 
-																\drawStackableFragment{\fragWidth}{\fullFragHeight}{$\fragName_{\minPoint,\minDim}$}{$\fragName_{\maxPoint,\maxDim}$}{\fragColor}
-												\end{scope}
-								}
-				}
+				\drawStackableFragment{\fragWidth}{\fullFragHeight}{$\fragName_{\minPoint,\minDim}$}{$\fragName_{\maxPoint,\maxDim}$}{\fragColor}
+			\end{scope}
+		}
+	}
 
-				\newcommand\fragXShift{1.5}
-				\newcommand\fragYShift{4}
+	\newcommand\fragXShift{1.5}
+	\newcommand\fragYShift{4}
 
 								% Draw all D Fragments
-				\begin{scope}[xshift=1 cm, yshift=0 cm]
-								\foreach \row in {0, ..., 2} {
-												\foreach \col in {0, ..., 5} {
-																\begin{scope}[xshift=\fragXShift * \col cm, yshift= -\fragYShift * \row cm]
-																				\pgfmathtruncatemacro\firstQueryPoint{\row * \fullFragPoints + 1}
-																				\pgfmathtruncatemacro\lastQueryPoint{\firstQueryPoint + \fullFragPoints - 1}
-																				\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
-																				\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
-																				
-																				
-																\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$D_{\firstQueryPoint,\firstCandPoint}$}{$D_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}
-																\end{scope}
-												}
-								}
+	\begin{scope}[xshift=1 cm, yshift=0 cm]
+		\foreach \row in {0, ..., 2} {
+			\foreach \col in {0, ..., 5} {
+				\begin{scope}[xshift=\fragXShift * \col cm, yshift= -\fragYShift * \row cm]
+					\pgfmathtruncatemacro\firstQueryPoint{\row * \fullFragPoints + 1}
+					\pgfmathtruncatemacro\lastQueryPoint{\firstQueryPoint + \fullFragPoints - 1}
+					\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
+					\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
+
+
+					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$D_{\firstQueryPoint,\firstCandPoint}$}{$D_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}
 				\end{scope}
+			}
+		}
+	\end{scope}
 
 				% Draw all 3 A Fragments
-				\begin{scope}[xshift=-1 cm, yshift=0 cm]
-				\foreach \fragment in {0, ..., 2} {
-								\begin{scope}[yshift=-\fragYShift * \fragment cm]
-												\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
-								\end{scope}
-				}
-				\end{scope}
+	\begin{scope}[xshift=-1 cm, yshift=0 cm]
+		\foreach \fragment in {0, ..., 2} {
+			\begin{scope}[yshift=-\fragYShift * \fragment cm]
+				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
+			\end{scope}
+		}
+	\end{scope}
 
 				% Draw all 6 B Fragments
-				\begin{scope}[xshift=1 cm, yshift=3 cm]
-								\foreach \fragment in {0, ..., 5} {
-												\begin{scope}[xshift=\fragXShift * \fragment cm]
-																\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}
-												\end{scope}
-								}
+	\begin{scope}[xshift=1 cm, yshift=3 cm]
+		\foreach \fragment in {0, ..., 5} {
+			\begin{scope}[xshift=\fragXShift * \fragment cm]
+				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}
+			\end{scope}
+		}
 
-				\end{scope}
+	\end{scope}
 
 
 \end{tikzpicture}
@@ -563,19 +563,19 @@
 % Block Tile last one!!!
 \begin{tikzpicture}
 
-\newcommand\drawBlockLevelFragment[6]{%
-	\def\width{#1}
-	\def\height{#2}
-	\def\upperLeftContent{#3}
-	\def\bottomRightContent{#4}
-	\def\color{#5}
-	\def\label{#6}
+	\newcommand\drawBlockLevelFragment[6]{%
+		\def\width{#1}
+		\def\height{#2}
+		\def\upperLeftContent{#3}
+		\def\bottomRightContent{#4}
+		\def\color{#5}
+		\def\label{#6}
 
-	\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\small] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\small] {\upperLeftContent} node[midway, align=center, font=\small] {\label};
-}
+		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\small] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\small] {\upperLeftContent} node[midway, align=center, font=\small] {\label};
+	}
 
 % Draw the entire block tile
-\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=9 cm] (0,0) rectangle (15, -15) node[anchor=south east] {Single Block Tile};
+	\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=9 cm] (0,0) rectangle (15, -15) node[anchor=south east] {Single Block Tile};
 
 	% Draw the 4 warp tiles in center
 	\newcommand\warpTileSize{4}
@@ -590,7 +590,7 @@
 				\begin{scope}[xshift=\paddedWarpTileSize * \col cm, yshift= -\paddedWarpTileSize * \row cm]
 					\pgfmathtruncatemacro\warpIndex{\row * 2 + \col + 1}
 					\pgfmathtruncatemacro\warpSize{48}
-					
+
 					\pgfmathtruncatemacro\minQueryPoint{\row * \warpSize + 1}
 					\pgfmathtruncatemacro\maxQueryPoint{\minQueryPoint + \warpSize - 1}
 					\pgfmathtruncatemacro\minCandPoint{\col * \warpSize + 1}
@@ -607,7 +607,7 @@
 	% Draw the 64D shared memory chunks that have been paged in
 	% A Data
 	\begin{scope}[xshift=-5 cm, yshift=-5 cm]
-					\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,64}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
+		\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,64}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
 	\end{scope}
 
 	% B Data
