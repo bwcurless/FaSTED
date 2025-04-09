@@ -376,97 +376,7 @@
 
 \end{tikzpicture}
 
-% Block Tile Rasterization
-\begin{tikzpicture}
-		% Draw global memory layouts
-	\newcommand\kHeight{2}
-	\newcommand\mHeight{5.5}
-	\tikzstyle nodeStyle=[align=center, font=\tiny]
-	\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
-	\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
 
-	\newcommand\tileSpacing{0.5}
-	\newcommand\tileDim{1}
-
-	\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
-
-		% Remember the last node that we need to draw an arrow from
-	\def\innerTiles{2}
-	\def\outerChunks{2}
-
-		% Outer square rasterized chunks
-	\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
-
-	\foreach \outerRow in {0, ..., \outerRange} {
-		\foreach \outerCol in {0, ..., \outerRange} {
-			\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
-			\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
-				yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
-
-				% inner square rasterized chunks
-				\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
-				\foreach \row in {0, ..., \innerRange} {
-					\foreach \col in {0, ..., \innerRange} {
-						\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
-						\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
-
-						\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
-						\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
-
-																		% Compute left and right nodes for arrows
-						\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
-						\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
-						\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
-						\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
-						\tikzstyle arrow=[arrows= -{Stealth[length=2mm]}, thick, rounded corners= 0.5mm]
-																% Draw connecting arrows
-						\newcommand\arrowOffset{\tileSpacing / 2}
-
-						\newcommand\drawOuterShortArrow{
-							\ifnum \innerIndex=1
-								\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
-							\fi
-						}
-						\newcommand\drawOuterLongArrow{
-							\ifnum \innerIndex=1
-								\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
-							\fi
-						}
-																		% Draw outer-raster-square connecting arrows
-						\ifnum \outerIndex=1
-							\drawOuterShortArrow{}
-						\fi
-						\ifnum \outerIndex=2
-							\drawOuterLongArrow{}
-						\fi
-						\ifnum \outerIndex=3
-							\drawOuterShortArrow{}
-						\fi
-																		% Draw normal inner connecting arrows
-						\ifnum \col>0
-							\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
-						\fi
-																		% Draw last to first connecting arrows
-						\ifnum \col=0
-							\ifnum \row>0
-								\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
-							\fi
-						\fi
-
-																		% Save the last right node for the next iteration to connect
-																		% arrows to it
-						\coordinate (lastLeftNode) at (currentLeftNode);
-						\coordinate (lastRightNode) at (currentRightNode);
-						\coordinate (lastTopNode) at (currentTopNode);
-						\coordinate (lastBottomNode) at (currentBottomNode);
-
-					}
-				}
-			\end{scope}
-		}
-	}
-
-\end{tikzpicture}
 
 % Warp Tile
 \begin{tikzpicture}
@@ -631,6 +541,98 @@
 			\end{scope}
 		}
 	\end{scope}
+
+\end{tikzpicture}
+
+% Block Tile Rasterization
+\begin{tikzpicture}
+		% Draw global memory layouts
+	\newcommand\kHeight{2}
+	\newcommand\mHeight{5.5}
+	\tikzstyle nodeStyle=[align=center, font=\tiny]
+	\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
+	\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
+
+	\newcommand\tileSpacing{0.5}
+	\newcommand\tileDim{1}
+
+	\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
+
+		% Remember the last node that we need to draw an arrow from
+	\def\innerTiles{2}
+	\def\outerChunks{2}
+
+		% Outer square rasterized chunks
+	\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
+
+	\foreach \outerRow in {0, ..., \outerRange} {
+		\foreach \outerCol in {0, ..., \outerRange} {
+			\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
+			\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
+				yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
+
+				% inner square rasterized chunks
+				\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
+				\foreach \row in {0, ..., \innerRange} {
+					\foreach \col in {0, ..., \innerRange} {
+						\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
+						\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
+
+						\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
+						\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
+
+																		% Compute left and right nodes for arrows
+						\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
+						\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
+						\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
+						\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
+						\tikzstyle arrow=[arrows= -{Stealth[length=2mm]}, thick, rounded corners= 0.5mm]
+																% Draw connecting arrows
+						\newcommand\arrowOffset{\tileSpacing / 2}
+
+						\newcommand\drawOuterShortArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
+							\fi
+						}
+						\newcommand\drawOuterLongArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
+							\fi
+						}
+																		% Draw outer-raster-square connecting arrows
+						\ifnum \outerIndex=1
+							\drawOuterShortArrow{}
+						\fi
+						\ifnum \outerIndex=2
+							\drawOuterLongArrow{}
+						\fi
+						\ifnum \outerIndex=3
+							\drawOuterShortArrow{}
+						\fi
+																		% Draw normal inner connecting arrows
+						\ifnum \col>0
+							\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
+						\fi
+																		% Draw last to first connecting arrows
+						\ifnum \col=0
+							\ifnum \row>0
+								\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
+							\fi
+						\fi
+
+																		% Save the last right node for the next iteration to connect
+																		% arrows to it
+						\coordinate (lastLeftNode) at (currentLeftNode);
+						\coordinate (lastRightNode) at (currentRightNode);
+						\coordinate (lastTopNode) at (currentTopNode);
+						\coordinate (lastBottomNode) at (currentBottomNode);
+
+					}
+				}
+			\end{scope}
+		}
+	}
 
 \end{tikzpicture}
 
