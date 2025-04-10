@@ -12,8 +12,6 @@
 		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\small] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\small] {\upperLeftContent} node[midway, align=center, font=\footnotesize] {\label};
 	}
 
-% Draw the entire block tile
-	\draw[color=BlockTileColor, style=fragment, xshift=-5 cm, yshift=5.5 cm] (0,0) rectangle (8, -9) node[anchor=south east] {Single Block Tile};
 
 	% Draw the 4 warp tiles in center
 	\newcommand\warpTileSize{2}
@@ -66,5 +64,8 @@
 			\end{scope}
 		}
 	\end{scope}
+
+  % Draw the entire block tile
+	\drawLabeledBoundingBox{color=BlockTileColor, style=fragment}{Single Block Tile}
 
 \end{tikzpicture}

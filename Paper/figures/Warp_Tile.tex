@@ -34,7 +34,7 @@
 
 		\foreach \i in {0, ..., \maxStackIndex} {
 			% Stack up and to the left
-			\begin{scope}[xshift=-\i * \stackOffset * 0.125 cm, yshift=\i * \stackOffset cm]
+			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
 				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
 				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
 
@@ -48,22 +48,23 @@
 		}
 	}
 
-% Draw the entire warp tile for future reference
-	\draw[color=WarpTileColor, style=fragment, xshift=-2 cm, yshift=5 cm] (0,0) rectangle (8.5, -12) node[anchor=south east, color=black] {Single Warp Tile Iteration};
 
-	\newcommand\fragXShift{1}
+	\newcommand\fragXShift{1.25}
 	\newcommand\fragYShift{3}
+	\newcommand\numAFragments{2}
+	\pgfmathtruncatemacro\aFragmentsMaxIndex{\numAFragments - 1}
+	\newcommand\numBFragments{4}
+	\pgfmathtruncatemacro\bFragmentsMaxIndex{\numBFragments - 1}
 
 	% Draw all D Fragments
 	\begin{scope}[xshift=1 cm, yshift=0 cm]
-		\foreach \row in {0, ..., 2} {
-			\foreach \col in {0, ..., 5} {
+		\foreach \row in {0, ..., \aFragmentsMaxIndex} {
+			\foreach \col in {0, ..., \bFragmentsMaxIndex} {
 				\begin{scope}[xshift=\fragXShift * \col cm, yshift= -\fragYShift * \row cm]
 					\pgfmathtruncatemacro\firstQueryPoint{\row * \fullFragPoints + 1}
 					\pgfmathtruncatemacro\lastQueryPoint{\firstQueryPoint + \fullFragPoints - 1}
 					\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
 					\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
-
 
 					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$D_{\firstQueryPoint,\firstCandPoint}$}{$D_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}
 				\end{scope}
@@ -73,7 +74,7 @@
 
 	% Draw all 3 A Fragments
 	\begin{scope}[xshift=0 cm, yshift=0 cm]
-		\foreach \fragment in {0, ..., 2} {
+		\foreach \fragment in {0, ..., \aFragmentsMaxIndex} {
 			\begin{scope}[yshift=-\fragYShift * \fragment cm]
 				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
 			\end{scope}
@@ -82,7 +83,7 @@
 
 	% Draw all 6 B Fragments
 	\begin{scope}[xshift=1 cm, yshift=2 cm]
-		\foreach \fragment in {0, ..., 5} {
+		\foreach \fragment in {0, ..., \bFragmentsMaxIndex} {
 			\begin{scope}[xshift=\fragXShift * \fragment cm]
 				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}
 			\end{scope}
@@ -90,5 +91,7 @@
 
 	\end{scope}
 
+  % Draw the entire warp tile for future reference
+	\drawLabeledBoundingBox{color=WarpTileColor, style=fragment, inner sep=0.25 cm}{Single Warp Tile Iteration}
 
 \end{tikzpicture}

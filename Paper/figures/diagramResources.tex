@@ -151,3 +151,9 @@
 		\or white%
 	\fi
 }
+
+% Bounding box around some of my diagrams
+\newcommand\bbPad{0.7}
+\newcommand\drawLabeledBoundingBox[2]{%
+	\draw[#1] ($(current bounding box.north west) + (-\bbPad,\bbPad)$) rectangle ($(current bounding box.south east) + (\bbPad, -\bbPad)$) node[anchor=south east, color=black, yshift=-0.125 cm] {#2};
+}
