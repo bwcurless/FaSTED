@@ -1,0 +1,21 @@
+
+
+% Register based fragment
+\begin{tikzpicture}
+
+	\newcommand\drawThreadPhase[1]{
+		\edef\phaseNum{#1}
+% Thread\register layout
+		\foreach \phaseRow in {0, ..., 7} {
+			\foreach \phaseCol in {0, ..., 3}{
+				\coordinate (C) at (\phaseCol * \registerWidth, -\phaseRow * \registerHeight);
+				\pgfmathsetmacro\threadIndex{int(\phaseRow * 4 + \phaseCol)}
+				\def\chunkColor{\getPhaseColor{\phaseNum}}
+				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\small] {\texttt{T\threadIndex}};
+			}
+		}
+	}
+
+	\drawFragment{ \drawThreadPhase }
+
+\end{tikzpicture}

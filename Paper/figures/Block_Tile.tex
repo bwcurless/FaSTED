@@ -1,0 +1,72 @@
+
+
+% Block Tile last one!!!
+\begin{tikzpicture}
+
+	\newcommand\drawBlockLevelFragment[6]{%
+		\def\width{#1}
+		\def\height{#2}
+		\def\upperLeftContent{#3}
+		\def\bottomRightContent{#4}
+		\def\color{#5}
+		\def\label{#6}
+
+		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\small] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\small] {\upperLeftContent} node[midway, align=center, font=\small] {\label};
+	}
+
+% Draw the entire block tile
+	\draw[color=BlockTileColor, style=fragment, xshift=-9 cm, yshift=10 cm] (0,0) rectangle (15, -16) node[anchor=south east] {Single Block Tile};
+
+	% Draw the 4 warp tiles in center
+	\newcommand\warpTileSize{4}
+	\newcommand\warpPadding{1}
+	\pgfmathtruncatemacro\paddedWarpTileSize{\warpTileSize + \warpPadding}
+
+
+	% Draw all Warp Tiles
+	\begin{scope}[xshift=0 cm, yshift=0 cm]
+		\foreach \row in {0, ..., 1} {
+			\foreach \col in {0, ..., 1} {
+				\begin{scope}[xshift=\paddedWarpTileSize * \col cm, yshift= -\paddedWarpTileSize * \row cm]
+					\pgfmathtruncatemacro\warpIndex{\row * 2 + \col + 1}
+					\pgfmathtruncatemacro\warpSize{48}
+
+					\pgfmathtruncatemacro\minQueryPoint{\row * \warpSize + 1}
+					\pgfmathtruncatemacro\maxQueryPoint{\minQueryPoint + \warpSize - 1}
+					\pgfmathtruncatemacro\minCandPoint{\col * \warpSize + 1}
+					\pgfmathtruncatemacro\maxCandPoint{\minCandPoint + \warpSize - 1}
+					\def\minDim{1}
+					\def\maxDim{64}
+
+					\drawBlockLevelFragment{\warpTileSize}{\warpTileSize}{$D_{\minQueryPoint,\minCandPoint}$}{$D_{\maxQueryPoint,\maxCandPoint}$}{WarpTileColor}{Warp Tile\\ \warpIndex}
+				\end{scope}
+			}
+		}
+	\end{scope}
+
+	\def\sliceYShift{0.55}
+	\def\sliceXShift{0.25}
+	\pgfmathtruncatemacro\numSlices{3 - 1}
+	% Draw the 64D shared memory chunks that have been paged in
+	% A Data
+	\begin{scope}[xshift=-5 cm, yshift=-5 cm]
+		\foreach \i in {0, ..., \numSlices} {
+			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+				\pgfmathtruncatemacro\maxDim{64 * 3 - 64 * \i}
+				\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$Q_{1,1}$}{$Q_{96,\maxDim}$}{ASharedMemColor}{Query Points\\ 64D k-slice\\ (SMEM)}
+			\end{scope}
+		}
+	\end{scope}
+
+	% B Data
+	\begin{scope}[xshift=5 cm, yshift=5 cm]
+		\pgfmathsetmacro\blockWidth{2 * \warpTileSize + \warpPadding}
+		\foreach \i in {0, ..., \numSlices} {
+			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+				\pgfmathtruncatemacro\maxDim{64 * 3 - 64 * \i}
+		\drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$C_{1,1}$}{$C_{96,\maxDim}$}{BSharedMemColor}{Candidate Points\\ 64D k-slice (SMEM)}
+			\end{scope}
+		}
+	\end{scope}
+
+\end{tikzpicture}

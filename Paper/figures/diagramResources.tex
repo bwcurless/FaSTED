@@ -1,0 +1,154 @@
+% Binary value zero padding taken from SO
+\ExplSyntaxOn
+\int_new:N \g_fleet_number_of_zeros
+\NewDocumentCommand\SetZeros{m}
+{
+	\int_gset:Nn \g_fleet_number_of_zeros {#1}
+}
+\NewDocumentCommand\PrependZeros{om}
+{
+	\IfValueTF{#1}
+	{ \__fleet_count:ne {#1} {#2} }
+	{ \__fleet_count:ne {\g_fleet_number_of_zeros} {#2} }
+}
+\cs_new:Npn \__fleet_count:nn #1#2
+{
+	\exp_args:Nf \__fleet_prepend:nn
+	{ \int_max:nn { #1 - \str_count:n {#2} } { 0 } }
+	{#2}
+}
+\cs_generate_variant:Nn \__fleet_count:nn { ne }
+\cs_new:Npn \__fleet_prepend:nn #1#2
+{ \prg_replicate:nn {#1}{0} #2 }
+\ExplSyntaxOff
+
+% XOR routine taken from SO...
+\ExplSyntaxOn
+\NewExpandableDocumentCommand{\bitwiseXor}{mm}
+{
+	\recuenco_bitwise_xor:nn { #1 } { #2 }
+}
+
+\cs_new:Nn \recuenco_bitwise_xor:nn
+{
+	\int_from_bin:e
+	{
+		\__recuenco_bitwise_xor:ee { \int_to_bin:n { #1 } } { \int_to_bin:n { #2 } }
+	}
+}
+\cs_generate_variant:Nn \int_from_bin:n { e }
+
+\cs_new:Nn \__recuenco_bitwise_xor:nn
+{
+	\__recuenco_bitwise_xor_binary:ee
+	{
+		\prg_replicate:nn
+		{
+			\int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #1 }
+		}
+		{ 0 }
+		#1
+	}
+	{
+		\prg_replicate:nn
+		{
+			\int_max:nn { \tl_count:n { #1 } } { \tl_count:n { #2 } } - \tl_count:n { #2 }
+		}
+		{ 0 }
+		#2
+	}
+}
+\cs_generate_variant:Nn \__recuenco_bitwise_xor:nn { ee }
+
+\cs_new:Nn \__recuenco_bitwise_xor_binary:nn
+{
+	\__recuenco_bitwise_xor_binary:w #1;#2;
+}
+\cs_generate_variant:Nn \__recuenco_bitwise_xor_binary:nn { ee }
+
+\cs_new:Npn \__recuenco_bitwise_xor_binary:w #1#2;#3#4;
+{
+	\int_abs:n { #1-#3 }
+	\tl_if_empty:nF { #2 } { \__recuenco_bitwise_xor_binary:w #2;#4; }
+}
+
+\ExplSyntaxOff
+
+
+\definecolor{colColor0}{RGB}{255, 102, 102} % Soft Red  
+\definecolor{colColor1}{RGB}{255, 140, 115} % Coral  
+\definecolor{colColor2}{RGB}{255, 178, 140} % Soft Orange  
+\definecolor{colColor3}{RGB}{230, 153, 190} % Warm Pink  
+\definecolor{colColor4}{RGB}{200, 130, 220} % Light Orchid  
+\definecolor{colColor5}{RGB}{170, 110, 230} % Soft Violet  
+\definecolor{colColor6}{RGB}{140, 90, 240}  % Muted Purple  
+\definecolor{colColor7}{RGB}{120, 70, 250}  % Gentle Blue-Purple  
+\definecolor{lastColColor}{RGB}{255, 255, 255}  % White
+\definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
+\definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
+\definecolor{DFragmentColor}{RGB}{0, 203, 74}  % Green
+\definecolor{ASharedMemColor}{RGB}{200, 0, 0}  % Red
+\definecolor{BSharedMemColor}{RGB}{0, 0, 200}  % Blue
+\definecolor{WarpTileColor}{RGB}{0, 150, 74}  % Green
+\definecolor{BlockTileColor}{RGB}{0, 0, 0}  % Black
+
+\definecolor{blockTileColor}{RGB}{0, 255, 0}  % Light Green
+
+\newcommand{\getcolor}[1]{colColor#1}
+
+
+\def\blockHeight{1}
+\def\blockWidth{2}
+\pgfmathsetmacro{\halfBlockHeight}{\blockHeight / 2}
+\pgfmathsetmacro{\halfBlockWidth}{\blockWidth / 2}
+
+\def\dimColors{colColor0, colColor1, colColor2, colColor3, colColor4, colColor5, colColor6, colColor7, lastColColor}
+
+% Fragment drawings common parameters
+
+% Base rectangle background
+\newcommand\whiteSpace{0.5}
+
+	% Compute width of a single register based on the fraction of a single chunk it takes up.
+\pgfmathsetmacro\registerWidth{0.75}
+\pgfmathsetmacro\registerHeight{0.375}
+\pgfmathsetmacro\halfRegisterWidth{\registerWidth / 2}
+\pgfmathsetmacro\halfRegisterHeight{\registerHeight / 2}
+
+\newcommand\phasesPercent{0.8}
+\pgfmathsetmacro\phaseWidth{\registerWidth * 4}
+\pgfmathsetmacro\phaseHeight{\registerHeight * 8}
+
+\pgfmathsetmacro\fragmentWidth{2 * \phaseWidth + (3 * \whiteSpace)}
+\pgfmathsetmacro\fragmentHeight{2 * \phaseHeight + (3 * \whiteSpace)}
+
+\tikzstyle fragment=[ultra thick, rounded corners= 5pt]
+
+\newcommand\drawFragment[1]{
+	\draw[style=fragment, draw=AFragmentColor] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
+
+	\begin{scope}[xshift=\whiteSpace cm, yshift=-\whiteSpace cm]
+
+	% Draw the four phases
+		\foreach \row in {0,  1} {
+			\foreach \col in {0,  1} {
+				\pgfmathsetmacro\xoffset{\col * (\phaseWidth + \whiteSpace)}
+				\pgfmathsetmacro\yoffset{-\row * (\phaseHeight + \whiteSpace)}
+				\begin{scope}[xshift=\xoffset cm, yshift=\yoffset cm]
+					\pgfmathsetmacro\phaseNum{int(\col * 2 + \row + 1)}
+					\node[anchor=south] at (\registerWidth * 2, 0) {Phase \phaseNum};
+					% Invoke the Phase drawing section now that we are in our local scope
+					#1{\phaseNum}
+				\end{scope}
+			}
+		}
+	\end{scope}
+}
+
+\newcommand\getPhaseColor[1]{%
+	\ifcase #1 \or colColor0%
+		\or white%
+		\or colColor1%
+		\or white%
+	\fi
+}

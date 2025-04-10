@@ -1,0 +1,28 @@
+
+% Chunk based fragment
+\begin{tikzpicture}
+
+	\newcommand\drawChunkPhase[1]{
+			% edef worked here because I was defining \def\phaseNum{\phaseNum} which recurses
+			% infinitely. \edef worked because it expanded \phaseNum before assigning it to 
+			% the new macro.
+		\def\phaseNumIn{#1}
+% Thread\register layout
+		\foreach \row in {0, ..., 7} {
+			\coordinate (C) at (0, -\row * \registerHeight);
+			\ifnum \phaseNumIn<3
+				\def\firstDim{1}
+			\else
+				\def\firstDim{9}
+			\fi
+			\pgfmathsetmacro\maxDim{int(\firstDim + 7)}
+
+			\def\chunkColor{\getPhaseColor{\phaseNumIn}}
+			\pgfmathsetmacro\thread{int((\phaseNumIn - 1) * 8 + \row)}
+			\filldraw[fill=\chunkColor, draw=black] (C) node[anchor=north west, font=\tiny] {\texttt{T\thread}} rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\small] {\firstDim-\maxDim} ;
+		}
+	}
+
+	\drawFragment{\drawChunkPhase}
+
+\end{tikzpicture}

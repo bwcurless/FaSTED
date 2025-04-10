@@ -1,0 +1,40 @@
+
+% Global Memory layout
+\begin{tikzpicture}[scale=1]
+	\foreach \color [count=\col from 0] in \dimColors {
+		\foreach \row in {0,..., 7}{
+
+			% Rectangle coordinates
+			\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
+			\pgfmathsetmacro{\xPos}{\col * \blockWidth}
+			\coordinate (UL) at (\xPos, \yPos);
+			\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			% Center of rectangle
+			\coordinate (C) at ($ (UL)!.5!(BR) $);
+
+			% Main rectangle
+			\fill[color=\color, draw=black] (UL) rectangle (BR);
+
+			% Label rows with Point number
+			\ifnum\col=0
+				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
+				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+				\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
+			\fi
+
+
+			% Add dimension labels
+			\pgfmathsetmacro{\baseDim}{int((\col) * 8 + 1)}
+			% Handle last col differently since it goes to d
+			\ifnum\col=8
+				\node[font=\large] at (C)  {\baseDim ...$d$};
+			\else
+				% Label with thread tileIndex
+				\pgfmathsetmacro{\cellIndex}{int((\row) * 8 + \col)}
+				\node[anchor=north west, font=\tiny] at (UL) {T\cellIndex};
+				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+				\node[font=\large] at (C)  {\baseDim -\maxDim};
+			\fi
+
+	}};
+\end{tikzpicture}

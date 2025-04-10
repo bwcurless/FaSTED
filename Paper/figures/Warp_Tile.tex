@@ -1,0 +1,94 @@
+% Warp Tile
+\begin{tikzpicture}
+	\newcommand\drawStackableFragment[5]{%
+		\def\width{#1}
+		\def\height{#2}
+		\def\upperLeftContent{#3}
+		\def\bottomRightContent{#4}
+		\def\color{#5}
+
+		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\tiny, xshift=0.5 mm, yshift=-0.5 mm] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\tiny] {\upperLeftContent};
+	}
+
+
+	\newcommand\fullFragWidth{2}
+	\newcommand\fullFragHeight{2}
+	\newcommand\halfFragWidth{1}
+	\newcommand\halfFragPoints{8}
+	\newcommand\fullFragPoints{16}
+				% All fragments have 16 dimensions
+	\newcommand\fragmentDims{16}
+
+				% Can be used to draw stacks of fragments for A or B matrices
+	\newcommand\drawFragmentStack[5]{%
+		\def\fragColor{#1}
+		\def\fragWidth{#2}
+		\def\fragWidthInPoints{#3}
+		\def\fragIndex{#4}
+		\def\fragName{#5}
+
+		% Draw each fragment as a stack of 4
+		\newcommand\stacks{4}
+		\newcommand\stackOffset{0.4}
+		\pgfmathsetmacro\maxStackIndex{int(\stacks - 1)}
+
+		\foreach \i in {0, ..., \maxStackIndex} {
+			% Stack up and to the left
+			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
+				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
+				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
+
+																% Kind of a hack, but we stack upwards so later fragments cover earlier, have
+																% to count backwards for dimensions for this to work out cleanly
+				\pgfmathtruncatemacro\maxDim{64 - (\i * \fragmentDims)}
+				\pgfmathtruncatemacro\minDim{\maxDim - \fragmentDims + 1}
+
+				\drawStackableFragment{\fragWidth}{\fullFragHeight}{$\fragName_{\minPoint,\minDim}$}{$\fragName_{\maxPoint,\maxDim}$}{\fragColor}
+			\end{scope}
+		}
+	}
+
+% Draw the entire warp tile for future reference
+	\draw[color=WarpTileColor, style=fragment, xshift=-4 cm, yshift=7 cm] (0,0) rectangle (13, -16) node[anchor=south east, color=black] {Single Warp Tile Iteration};
+
+	\newcommand\fragXShift{1.5}
+	\newcommand\fragYShift{4}
+
+	% Draw all D Fragments
+	\begin{scope}[xshift=1 cm, yshift=0 cm]
+		\foreach \row in {0, ..., 2} {
+			\foreach \col in {0, ..., 5} {
+				\begin{scope}[xshift=\fragXShift * \col cm, yshift= -\fragYShift * \row cm]
+					\pgfmathtruncatemacro\firstQueryPoint{\row * \fullFragPoints + 1}
+					\pgfmathtruncatemacro\lastQueryPoint{\firstQueryPoint + \fullFragPoints - 1}
+					\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
+					\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
+
+
+					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$D_{\firstQueryPoint,\firstCandPoint}$}{$D_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}
+				\end{scope}
+			}
+		}
+	\end{scope}
+
+	% Draw all 3 A Fragments
+	\begin{scope}[xshift=-1 cm, yshift=0 cm]
+		\foreach \fragment in {0, ..., 2} {
+			\begin{scope}[yshift=-\fragYShift * \fragment cm]
+				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
+			\end{scope}
+		}
+	\end{scope}
+
+	% Draw all 6 B Fragments
+	\begin{scope}[xshift=1 cm, yshift=3 cm]
+		\foreach \fragment in {0, ..., 5} {
+			\begin{scope}[xshift=\fragXShift * \fragment cm]
+				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}
+			\end{scope}
+		}
+
+	\end{scope}
+
+
+\end{tikzpicture}
