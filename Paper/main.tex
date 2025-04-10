@@ -583,7 +583,7 @@ Shared memory consists of 32 discrete 4B banks that can be read by a warp in a s
 \begin{figure}[H]
     \centering
     \include{figures/Shared_Memory_Layout.tex}
-    \caption{The first 8 rows of shared memory containing a single 64D k-slice of data is shown. One can see that the point data is copied over row-by-row. However, each 8 dimension chunk of data is reordered in an XOR "swizzled" fashion. The memory address of each row is XOR'd by $RowNumber \mod{8}$. Each column in the table represents a group of 4 of the 32 shared memory lanes that can only have a single value stored/read from it in a single memory wavefront. Reordering the data in this fashion allows the \texttt{ldmatrix} instruction to access 8 unique lanes in each phase of its operation. The access patterns during the first and third phase of \texttt{ldmatrix} are outlined in blue and black.}
+    \caption{The first 8 rows of shared memory containing a single 64D k-slice of data is shown. One can see that the point data is copied over row-by-row. However, each 8 dimension chunk of data is reordered in an XOR "swizzled" fashion. The memory address of each row is XOR'd by $RowNumber \mod{8}$. Each column in the table represents a group of 4 of the 32 shared memory lanes that can only have a single value stored/read from it in a single memory wavefront. Reordering the data in this fashion allows the \texttt{ldmatrix} instruction to access 8 unique lanes in each phase of its operation. The access patterns during the first and third phase of \texttt{ldmatrix} are outlined in blue and black. }
     \label{fig:shared_memory}
 \end{figure}
 
@@ -593,7 +593,7 @@ Shared memory consists of 32 discrete 4B banks that can be read by a warp in a s
     \centering
 		% TODO I haven't made a replacement for this, not sure if I need it, it might be good
 		% to round out my explanation
-    \includegraphics[width=\linewidth / 2]{figures/fragment_phase_layout}
+    %\includegraphics[width=\linewidth / 2]{figures/fragment_phase_layout}
     \caption{The 4 fragments shown in Figure \ref{fig:warp_mma} need 4 \texttt{ldmatrix} $16\times16$ instructions to be populated. Each of the four \texttt{ldmatrix} operations is further broken down by the memory controller into 4 phases. Each phase must be bank-conflict free to maximize throughput.}
     \label{fig:fragment_layout}
 \end{figure}

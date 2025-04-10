@@ -1,7 +1,7 @@
 
 % Shared Memory layout
 \begin{tikzpicture}[scale=1]
-	\node[font=\large] at (8, 0) {\underline{Shared Memory Banks}};
+	\node[font=\large] at (3.75, 0) {\underline{Shared Memory Banks}};
 	\begin{scope}[shift={(0,-1.25)}]
 
 		\foreach \col in {0,...,7} {
@@ -26,10 +26,10 @@
 				\ifnum\col=0
 					\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 					\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-					\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
+					\node[font=\small, xshift=\poffset cm] at (C) {$P_\pointNum$};
 				\fi
 
-				\pgfmathsetmacro{\headerOffset}{(\halfBlockHeight + 0.5)}
+				\pgfmathsetmacro\headerOffset{\halfBlockHeight + 0.5}
 			% Label columns with bank number
 				\ifnum\row=0
 			% Add column number in binary
@@ -37,7 +37,7 @@
 					\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
 
 					\pgfmathsetmacro{\bank}{int(\col+1)}
-					\node[font=\large, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
+					\node[font=\small, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
 				\fi
 
 				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
@@ -46,7 +46,7 @@
 					\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
 				% Add header for XOR column...
 					\ifnum\row=0
-						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset cm] at (C) {\underline{XOR}};
+						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset + -0.01 cm] at (C) {\underline{XOR}};
 					\fi
 					\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
 					\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
@@ -55,7 +55,7 @@
 			% Add dimension range for each block
 				\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
 				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-				\node[font=\large] at (C)  {\baseDim -\maxDim};
+				\node[font=\small] at (C)  {\baseDim -\maxDim};
 
 
 		}};

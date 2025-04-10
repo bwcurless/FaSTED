@@ -11,15 +11,15 @@
 	}
 
 
-	\newcommand\fullFragWidth{2}
-	\newcommand\fullFragHeight{2}
-	\newcommand\halfFragWidth{1}
+	\newcommand\fullFragWidth{1.5}
+	\newcommand\fullFragHeight{1.5}
+	\newcommand\halfFragWidth{0.75}
 	\newcommand\halfFragPoints{8}
 	\newcommand\fullFragPoints{16}
-				% All fragments have 16 dimensions
+	% All fragments have 16 dimensions
 	\newcommand\fragmentDims{16}
 
-				% Can be used to draw stacks of fragments for A or B matrices
+	% Can be used to draw stacks of fragments for A or B matrices
 	\newcommand\drawFragmentStack[5]{%
 		\def\fragColor{#1}
 		\def\fragWidth{#2}
@@ -34,7 +34,7 @@
 
 		\foreach \i in {0, ..., \maxStackIndex} {
 			% Stack up and to the left
-			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
+			\begin{scope}[xshift=-\i * \stackOffset * 0.125 cm, yshift=\i * \stackOffset cm]
 				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
 				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
 
@@ -49,10 +49,10 @@
 	}
 
 % Draw the entire warp tile for future reference
-	\draw[color=WarpTileColor, style=fragment, xshift=-4 cm, yshift=7 cm] (0,0) rectangle (13, -16) node[anchor=south east, color=black] {Single Warp Tile Iteration};
+	\draw[color=WarpTileColor, style=fragment, xshift=-2 cm, yshift=5 cm] (0,0) rectangle (8.5, -12) node[anchor=south east, color=black] {Single Warp Tile Iteration};
 
-	\newcommand\fragXShift{1.5}
-	\newcommand\fragYShift{4}
+	\newcommand\fragXShift{1}
+	\newcommand\fragYShift{3}
 
 	% Draw all D Fragments
 	\begin{scope}[xshift=1 cm, yshift=0 cm]
@@ -72,7 +72,7 @@
 	\end{scope}
 
 	% Draw all 3 A Fragments
-	\begin{scope}[xshift=-1 cm, yshift=0 cm]
+	\begin{scope}[xshift=0 cm, yshift=0 cm]
 		\foreach \fragment in {0, ..., 2} {
 			\begin{scope}[yshift=-\fragYShift * \fragment cm]
 				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
@@ -81,7 +81,7 @@
 	\end{scope}
 
 	% Draw all 6 B Fragments
-	\begin{scope}[xshift=1 cm, yshift=3 cm]
+	\begin{scope}[xshift=1 cm, yshift=2 cm]
 		\foreach \fragment in {0, ..., 5} {
 			\begin{scope}[xshift=\fragXShift * \fragment cm]
 				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}

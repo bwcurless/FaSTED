@@ -5,7 +5,7 @@
 		% Draw global memory layouts
 	\newcommand\kHeight{2}
 	\newcommand\mHeight{5.5}
-	\tikzstyle nodeStyle=[align=center, font=\tiny]
+	\tikzstyle nodeStyle=[align=center, font=\footnotesize]
 	\draw[xshift=-2.25 cm, yshift=0 cm, style=fragment, draw=red] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
 	\draw[xshift=0 cm, yshift=0.25 cm, style=fragment, draw=blue] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Candidate Points\\ (DRAM)};
 
@@ -35,7 +35,7 @@
 						\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
 
 						\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
-						\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
+						\draw[style=fragment, draw=black] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\footnotesize, align=center, color=BlockTileColor] {Block\\ Tile\\ \tileIndex};
 
 																		% Compute left and right nodes for arrows
 						\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);

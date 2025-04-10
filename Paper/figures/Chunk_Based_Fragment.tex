@@ -19,7 +19,7 @@
 
 			\def\chunkColor{\getPhaseColor{\phaseNumIn}}
 			\pgfmathsetmacro\thread{int((\phaseNumIn - 1) * 8 + \row)}
-			\filldraw[fill=\chunkColor, draw=black] (C) node[anchor=north west, font=\tiny] {\texttt{T\thread}} rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\small] {\firstDim-\maxDim} ;
+			\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\tiny] {\firstDim-\maxDim} node[midway, anchor=west, xshift=-0.8 cm, font=\tiny] {\texttt{T\thread}}  ;
 		}
 	}
 

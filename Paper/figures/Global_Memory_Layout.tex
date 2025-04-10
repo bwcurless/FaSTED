@@ -1,6 +1,7 @@
 
 % Global Memory layout
 \begin{tikzpicture}[scale=1]
+	\node[font=\large] at (3.75, 0.5) {\underline{Global Memory Layout}};
 	\foreach \color [count=\col from 0] in \dimColors {
 		\foreach \row in {0,..., 7}{
 
@@ -19,7 +20,7 @@
 			\ifnum\col=0
 				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-				\node[font=\large, xshift=\poffset cm] at (C) {$P_\pointNum$};
+				\node[font=\small, xshift=\poffset cm] at (C) {$P_\pointNum$};
 			\fi
 
 
@@ -27,13 +28,13 @@
 			\pgfmathsetmacro{\baseDim}{int((\col) * 8 + 1)}
 			% Handle last col differently since it goes to d
 			\ifnum\col=8
-				\node[font=\large] at (C)  {\baseDim ...$d$};
+				\node[font=\small] at (C)  {\baseDim ...$d$};
 			\else
 				% Label with thread tileIndex
 				\pgfmathsetmacro{\cellIndex}{int((\row) * 8 + \col)}
-				\node[anchor=north west, font=\tiny] at (UL) {T\cellIndex};
+				\node[anchor=north west, font=\tiny, xshift=-0.05 cm, yshift=0.05 cm] at (UL) {T\cellIndex};
 				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-				\node[font=\large] at (C)  {\baseDim -\maxDim};
+				\node[font=\small] at (C)  {\baseDim -\maxDim};
 			\fi
 
 	}};

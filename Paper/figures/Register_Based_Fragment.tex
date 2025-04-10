@@ -11,7 +11,7 @@
 				\coordinate (C) at (\phaseCol * \registerWidth, -\phaseRow * \registerHeight);
 				\pgfmathsetmacro\threadIndex{int(\phaseRow * 4 + \phaseCol)}
 				\def\chunkColor{\getPhaseColor{\phaseNum}}
-				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\small] {\texttt{T\threadIndex}};
+				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\tiny] {\texttt{T\threadIndex}};
 			}
 		}
 	}
