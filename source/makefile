@@ -28,7 +28,7 @@ DBGFLAGS = -std=c++17 -keep --debug --device-debug -Xptxas=-v -Xcompiler -fopenm
 RELDIR = release
 RELEXE = $(RELDIR)/$(EXE)
 RELOBJS = $(addprefix $(RELDIR)/, $(OBJECTS))
-RELFLAGS = -std=c++17 -keep -O3 -Xptxas=-v -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
+RELFLAGS = -std=c++17 -keep -O3 -Xptxas=-v -Xcompiler -fopenmp -lcuda -lineinfo -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES --maxrregcount 128
 
 .PHONY: all clean debug prep release remake
 

@@ -63,13 +63,15 @@ make
 #srun nvidia-smi
 #srun ./release/main "/scratch/bc2497/datasets/tiny5m_unscaled.txt" 0.2
 #srun ./release/main "/home/bc2497/datasets/expo_16D_2000000.txt" 0.035
-#srun ./release/main -e  1000000 4096 0.001
+#srun ./release/main -e  100000 4096 0.003
 #compute-sanitizer --tool=memcheck ./release/main "/scratch/bc2497/datasets/bigcross.txt" 0.03
 #compute-sanitizer --tool=memcheck --launch-timeout=4000 ./release/main -e 1000000 4096 0.001
 #compute-sanitizer --tool=racecheck ./release/main "$HOME/datasets/expo_16D_200000.txt" 0.001
 # -f overwrite profile if it exists
 # --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables
-srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set full ./release/main -e 100000 2048 0.003
+srun ncu --list-sets
+srun ncu --list-sections
+#srun ncu -f -o "MMAPTXTest_profile_%i" --import-source yes --source-folder . --clock-control=none --set pmsampling_warpstates ./release/main -e 100000 2048 0.003
 #srun nsys profile ./main
 
 
