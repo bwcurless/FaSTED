@@ -3,7 +3,7 @@
 // make in the range 0-1, so we don't need to re-normalize for Super-EGO
 
 // Makefile:
-// g++ -std=c++17 -O3 dataset_gen_fixed_len_expo_dist.cpp -o dataset_gen_fixed_len_expo_dist
+// g++ -std=c++17 -O3 dataset_gen_fixed_len_expo_dist.cpp -o dataset_gen_fixed_len_expo_dist -lstdc++fs
 //
 
 #include <math.h>
