@@ -4,6 +4,7 @@ Description: Plots experimental results for publishing.
 """
 
 import json
+import math
 import os
 from typing import List, Tuple
 from dataclasses import dataclass
@@ -32,9 +33,7 @@ TED_JOIN = "TED-Join"
 def parse_selectivity_vs_speed_data():
     """Read in the selectivity vs speed data and create plots for it"""
 
-    with open(
-        "../speed_results/selectivityVsSpeed.json", "r", encoding="utf-8"
-    ) as f:
+    with open("../speed_results/selectivityVsSpeed.json", "r", encoding="utf-8") as f:
         selec_speed_results = json.load(f)
     # Pretty print json
     # print(json.dumps(selec_speed_results, indent=4))
@@ -46,9 +45,7 @@ def parse_selectivity_vs_speed_data():
     )
     print(averaged_results)
     plt.figure(1)
-    plt.plot(
-        averaged_results[SEL_COL], averaged_results[SPEED_COL], marker="."
-    )
+    plt.plot(averaged_results[SEL_COL], averaged_results[SPEED_COL], marker=".")
     plt.xlabel("Selectivity Level")
     plt.ylabel("TFLOPS")
     plt.ylim(0, 300)
@@ -181,27 +178,22 @@ def plot_real_world_data_speed_comparison():
         # Mark these results as my own
         averaged_results[ALGORITHM] = MPTC_JOIN
         # Drop extraneous columns
-        minimal_results = averaged_results[
-            [ALGORITHM, DATASET_NAME, TIME, SEL_COL]
-        ]
+        minimal_results = averaged_results[[ALGORITHM, DATASET_NAME, TIME, SEL_COL]]
 
         return minimal_results
 
+    # Order to go low to high dimensionality sift, tiny, cifar, gist
     dataset_results = [
-        SpeedResults(
-            "cifar60k", "cifar60k_unscaled.txt_results_1737956025.json"
-        ),
+        SpeedResults("sift10m", "sift10m_unscaled.txt_results_1738048428.json"),
         SpeedResults("tiny5m", "tiny5m_unscaled.txt_results_1737960896.json"),
-        SpeedResults(
-            "sift10m", "sift10m_unscaled.txt_results_1738048428.json"
-        ),
+        SpeedResults("cifar60k", "cifar60k_unscaled.txt_results_1737956025.json"),
         SpeedResults("gist1m", "gist_unscaled.txt_results_1738039369.json"),
     ]
 
     # Assemble all mptc results
-    cifar = dataset_results[0].friendly_name
+    sift = dataset_results[0].friendly_name
     tiny = dataset_results[1].friendly_name
-    sift = dataset_results[2].friendly_name
+    cifar = dataset_results[2].friendly_name
     gist = dataset_results[3].friendly_name
 
     all_results = pd.DataFrame()
@@ -315,27 +307,24 @@ def plot_real_world_data_speed_comparison():
     # Create 4 subplots, one for each dataset
     plot_rows = 1
     plot_cols = 4
-    fig, ax = plt.subplots(
-        plot_rows, plot_cols, layout="constrained", figsize=(10, 3)
-    )
+    fig, ax = plt.subplots(plot_rows, plot_cols, layout="constrained", figsize=(10, 3))
 
     # Choose a colormap (e.g., "viridis", "plasma", "Greys", etc.)
     colormap = cm.get_cmap("Greys")
 
     # Normalize the colors to map them to the colormap
-    colors = dict(
-        zip(algorithms, colormap(np.linspace(0.5, 1, len(algorithms))))
-    )
+    colors = dict(zip(algorithms, colormap(np.linspace(0.5, 1, len(algorithms)))))
 
     # Collect all handles and labels from each axis to create only one legend
     handles, labels = [], []
 
     # Hardcode y limits specific to data for better readability
+    # These are based on the original order, should maybe reorder these earlier
     y_limits = [
+        15000,
+        16000,
         4,
-        15000,
-        15000,
-        500,
+        600,
     ]
 
     figure_label_prefixes = [
@@ -365,30 +354,57 @@ def plot_real_world_data_speed_comparison():
         )
 
         # Reorder so my algorithm appears first on charts
+        algo_order = [MPTC_JOIN, GDS_JOIN, TED_JOIN]
         reordered_collapsed_data = collapsed_data.sort_values(
-            by=ALGORITHM, ascending=False
+            by=ALGORITHM,
+            key=lambda col: col.map({name: i for i, name in enumerate(algo_order)}),
         )
 
         x = np.arange(len(selectivities))  # the label locations
         width = 0.25  # the width of the bars
         multiplier = 0
+
+        def getTimes(algorithm: str):
+            return reordered_collapsed_data.loc[
+                reordered_collapsed_data[ALGORITHM] == algorithm, TIME
+            ].iloc[0]
+
+        # Find mptc times to compute speedup
+        mptc_times = getTimes(MPTC_JOIN)
+        print(f"MPTC times: {mptc_times}")
+
         for algorithm, times in zip(
             reordered_collapsed_data[ALGORITHM],
             reordered_collapsed_data[TIME],
         ):
             offset = width * multiplier
-            axis.bar(
+
+            rects = axis.bar(
                 x + offset,
                 times,
                 width,
                 label=algorithm,
                 color=colors[algorithm],
             )
+
+            def round_sig(x, sig=2):
+                if x == 0:
+                    return "0"
+                return f"{round(x, sig - int(math.floor(math.log10(abs(x)))) - 1):g}"
+
+            # Put speedup labels in for quick reference
+            if algorithm == GDS_JOIN or algorithm == TED_JOIN:
+                this_algo_times = getTimes(algorithm)
+                speedups = [
+                    round_sig(x / y) for x, y in zip(this_algo_times, mptc_times)
+                ]
+                axis.bar_label(rects, labels=speedups, fontsize="x-small", padding=2)
+
             multiplier += 1
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
         axis.set_axisbelow(True)
-        axis.grid(axis="y")
+        # axis.grid(axis="y")
         axis.set_ylim(0, y_limits[i])
         axis_label_fontsize = 9
         # Only label first y axis to reduce clutter
@@ -426,9 +442,7 @@ def plot_real_world_data_speed_comparison():
 def compute_iou():
     """Given the accuracy data, compute the Intersection over the
     union of the pairs."""
-    with open(
-        "../accuracy_results/real_world_accuracy_data.json", "r"
-    ) as file:
+    with open("../accuracy_results/real_world_accuracy_data.json", "r") as file:
         data = json.load(file)
         accuracies = {
             k.split("_")[0]: (
