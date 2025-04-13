@@ -9,17 +9,23 @@
 		\def\phaseNumIn{#1}
 % Thread\register layout
 		\foreach \row in {0, ..., 7} {
-			\coordinate (C) at (0, -\row * \registerHeight);
 			\ifnum \phaseNumIn<3
 				\def\firstDim{1}
 			\else
 				\def\firstDim{9}
 			\fi
 			\pgfmathsetmacro\maxDim{int(\firstDim + 7)}
+            
+			\pgfmathsetmacro\thread{int((\phaseNumIn - 1) * 8 + \row)}
+                \pgfmathtruncatemacro\pointIndex{\thread + 1}
+			\coordinate (C) at (0, -\row * \registerHeight);
+                \coordinate (L) at ($(C)+(0, -\halfRegisterHeight)$);
 
 			\def\chunkColor{\getPhaseColor{\phaseNumIn}}
-			\pgfmathsetmacro\thread{int((\phaseNumIn - 1) * 8 + \row)}
-			\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\tiny] {\firstDim-\maxDim} node[midway, anchor=west, xshift=-0.8 cm, font=\tiny] {\texttt{T\thread}}  ;
+			\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\tiny] {\firstDim-\maxDim} node[midway, anchor=west, xshift=-0.8 cm, font=\tiny] {\texttt{T\thread}} ;
+            \ifnum \phaseNumIn<3
+                \node[anchor=west, xshift=-0.45cm, font=\tiny] at (L) {$P_{\pointIndex}$};
+            \fi
 		}
 	}
 

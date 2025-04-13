@@ -46,7 +46,8 @@
 					\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
 				% Add header for XOR column...
 					\ifnum\row=0
-						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\headerOffset + -0.01 cm] at (C) {\underline{XOR}};
+					    \pgfmathsetmacro\xorYOffset{\headerOffset - 0.05}
+						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\xorYOffset cm] at (C) {\underline{XOR}};
 					\fi
 					\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
 					\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};

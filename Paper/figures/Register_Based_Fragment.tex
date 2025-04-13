@@ -12,6 +12,16 @@
 				\pgfmathsetmacro\threadIndex{int(\phaseRow * 4 + \phaseCol)}
 				\def\chunkColor{\getPhaseColor{\phaseNum}}
 				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\tiny] {\texttt{T\threadIndex}};
+                % Draw node labels for how A[n] matches up to this layout.
+                \ifnum \threadIndex=0
+                \coordinate (LabelPos) at ($(C)+(-0.15, 0.2)$);
+                \coordinate (ArrowEnd) at ($(C)+(\halfRegisterWidth, 0)$);
+                
+                \pgfmathtruncatemacro\indexNum{\phaseNum - 1}
+                \node[font=\tiny] (label) at (LabelPos) {\texttt{A[\indexNum]}};
+                \draw[arrows= -{Stealth[length=1mm]}] (label.east) .. controls +(0.12, 0) .. (ArrowEnd);
+                \fi
+                
 			}
 		}
 	}

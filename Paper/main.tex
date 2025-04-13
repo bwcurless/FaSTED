@@ -45,7 +45,7 @@
 %% for your publication.
 %%
 %%
-\documentclass[sigconf, screen, review]{acmart}
+\documentclass[sigconf]{acmart}
 
 %%
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -58,25 +58,28 @@
 %% values in them; it is your responsibility as an author to replace
 %% the commands and values with those provided to you when you
 %% complete the rights form.
-\setcopyright{none} 
-%\setcopyright{acmlicensed}
-\copyrightyear{2025}
-\acmYear{2025}
+\setcopyright{acmlicensed}
+\copyrightyear{2018}
+\acmYear{2018}
 \acmDOI{XXXXXXX.XXXXXXX}
+%% These commands are for a PROCEEDINGS abstract or paper.
+\acmConference[Conference acronym 'XX]{Make sure to enter the correct
+  conference title from your rights confirmation email}{June 03--05,
+  2018}{Woodstock, NY}
 
 %% These commands are for a PROCEEDINGS abstract or paper.
-\acmConference['ICS 2025']{The 39th ACM International Conference on
-  Supercomputing}{June 9--11, 2025}{Salt Lake City, USA}
 %%
 %%  Uncomment \acmBooktitle if the title of the proceedings is different
 %%  from ``Proceedings of ...''!
 %%
-\acmISBN{000-0-0000-0000-0/00/00}
+\acmISBN{978-1-4503-XXXX-X/2018/06}
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %custom commands
+% For importing pgf plots
+\usepackage[utf8]{inputenc}
 
 \usepackage{amsmath,amsfonts}
 \usepackage{algorithm}
@@ -92,6 +95,7 @@
 \usepackage{subfigure}
 \usepackage{subcaption}
 \usepackage{pgfplots}
+
 \usepackage{tikzscale}
 % \usepackage[disable]{todonotes} %disable
 \usepackage[]{todonotes} %enable
@@ -151,6 +155,31 @@ showstringspaces=false,
 \def\uniform{\textit{Uniform}\xspace} 
 \def\expo{\textit{Expo}\xspace} 
 
+
+\definecolor{OliveGreen}{cmyk}{0.64,0,0.95,0.40}
+\definecolor{CadetBlue}{cmyk}{0.62,0.57,0.23,0}
+\definecolor{lightlightgray}{gray}{0.93}
+\lstset{
+language=C++,                          % Code langugage
+basicstyle=\ttfamily,                   % Code font, Examples: \footnotesize, \ttfamily
+keywordstyle=\color{OliveGreen},        % Keywords font ('*' = uppercase)
+commentstyle=\color{gray},              % Comments font
+numbers=left,                           % Line nums position
+numberstyle=\tiny,                      % Line-numbers fonts
+stepnumber=1,                           % Step between two line-numbers
+numbersep=5pt,                          % How far are line-numbers from code
+backgroundcolor=\color{lightlightgray}, % Choose background color
+frame=none,                             % A frame around the code
+tabsize=2,                              % Default tab size
+captionpos=t,                           % Caption-position = bottom
+breaklines=true,                        % Automatic line breaking?
+breakatwhitespace=false,                % Automatic breaks only at whitespace?
+showspaces=false,                       % Dont make spaces visible
+showtabs=false,                         % Dont make tabls visible
+columns=flexible,                       % Column format
+morekeywords={__global__, __device__},  % CUDA specific keywords
+}
+
 %end custom
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -185,8 +214,8 @@ showstringspaces=false,
 %% Uncommenting
 %% the next command will enable that style.
 %%\citestyle{acmauthoryear}
-\settopmatter{printfolios=true}
-\settopmatter{printacmref=false}
+% \settopmatter{printfolios=true}
+% \settopmatter{printacmref=false}
 %\pagestyle{plain}
 
 
@@ -201,9 +230,7 @@ showstringspaces=false,
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{Mixed Precision Euclidean Distance Calculations using GPU Tensor Cores and Application to Similarity Searches}
-\subtitle{\normalsize{ICS 2025 Submission
-    \textbf{\#NaN} -- Confidential Draft -- Do NOT Distribute!!}}
+\title{Mixed Precision Euclidean Distance Calculations using GPU Tensor Cores and Applications to Similarity Searches}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Uncomment upon acceptance
@@ -245,8 +272,19 @@ showstringspaces=false,
 %%
 %% The abstract is a short summary of the work to be presented in the
 %% article.
+
+\renewcommand{\shortauthors}{Trovato et al.}
+
+
 \begin{abstract}
-Tensor cores (TCs) have been shown to offer speedups over typical CUDA core-based distance similarity self-join problems. However, past work has only investigated using FP64 operands for computation. Modern TCs have the ability to operate on lower precision floating point operands as well. Ampere architecture GPUs can even compute matrix multiplications with half-precision inputs (FP16), while accumulating the results of the computation in single precision (FP32). This mixed-precision configuration offers the highest computational throughput out of all floating-point Tensor core configurations available on the Ampere architecture. To achieve the maximum throughput of 312 teraflops, one needs to carefully design their algorithm for significant hierarchical reuse of data, and maximize memory utilization at every level (global, shared, registers). Previous work utilizes a search index data structure to pare the search space down and reduce the number of computations required. In order to maximize the use of GPU hardware, the problem lends itself to a cohesive brute force strategy. This paper compares our cohesive brute force, mixed-precision Tensor core distance similarity self-join algorithm to a state of the art double precision (FP64) Tensor core algorithm, and a state of the art single precision (FP32) cuda core algorithm. We find that on high-dimensional datasets, the brute force approach outperforms the state of the art by a factor of 4-16, depending on the dataset. Additionally, we quantify the accuracy loss of our reduced precision algorithm to be <0.04\%.
+Modern GPUs are equipped with tensor cores (TCs) that are used for matrix multiplication tasks that are most common in artificial intelligence workloads. TCs have significantly higher computational throughput compared to CUDA cores, so exploiting them for a broader range of algorithms and workloads can lead to significant performance gains. In this paper, we examine using TCs to compute Euclidean distance calculations, which are used in many large-scale data analytics applications. Prior work in this area has only investigated using 64~bit floating point (FP64) operands for computation; however, modern TCs have the ability to operate on lower/mixed precision floating point operands as well (i.e., matrix multiplication in 16 bits and accumulation in 32 bits), which we hereafter refer to as FP16-32. The peak throughput of FP16-32 operations is much higher than for FP64 operations and so these lower precision data types present a major challenge for TC utilization, as it presents a major memory bottleneck, as the TCs are starved for data.
+To achieve high computational throughput, we carefully design our algorithm for significant hierarchical reuse of data, and maximize memory utilization at every level (global memory, shared memory, and registers). This paper compares our mixed-precision TC Euclidean distance algorithm to other brute-force methods and also examines the application of similarity searches which typically employ an indexing data structure to eliminate superfluous Euclidean distance calculations. We compare to the state-of-the-art TC Euclidean distance algorithm in the literature that employs FP64, using both brute force and indexing strategies, and a single precision (FP32) CUDA core algorithm that employs an index. We find that across four real-world high-dimensional datasets spanning 128-960 dimensions, the brute force approach achieves a speedup over the state-of-the-art algorithms by a factor of 4--16$\times$, depending on the dataset. Additionally, we quantify the accuracy loss of our mixed precision algorithm to be $<$0.04\% compared to the FP64 baseline.
+
+% similarity self-join algorithm to a state of the art double precision (FP64) Tensor core algorithm, and a state of the art single precision (FP32) cuda core algorithm. 
+
+% Ampere architecture GPUs can even compute matrix multiplications with half-precision inputs (FP16), while accumulating the results of the computation in single precision (FP32). This mixed-precision configuration offers the highest computational throughput out of all floating-point Tensor core configurations available on the Ampere architecture. 
+
+% Previous work utilizes a search index data structure to pare the search space down and reduce the number of computations required. In order to maximize the use of GPU hardware, the problem lends itself to a cohesive brute force strategy. 
 \end{abstract}
 
 %%
@@ -286,7 +324,7 @@ Tensor cores (TCs) have been shown to offer speedups over typical CUDA core-base
 %%
 %% Keywords. The author(s) should pick words that accurately describe
 %% the work being presented. Separate the keywords with commas.
-\keywords{CUDA, Euclidean Distance, GPU, Mixed Precision Floating Point, Self-Join, Tensor Cores}
+\keywords{CUDA, Euclidean Distance, GPU, Mixed Precision Floating Point, Self-Join, Similarity Search, Tensor Cores}
 %% A "teaser" image appears between the author and affiliation
 %% information and the body of the document, and typically spans the
 %% page.
@@ -313,17 +351,19 @@ Tensor cores (TCs) have been shown to offer speedups over typical CUDA core-base
 \mike{Experiments: need to add the increased shared memory allocation for TED-Join}
 \brian{I added this to the Tedjoin section}
 
-\mike{From Brian's preliminary results it looks like the time for his algorithm may be less than the time needed to index with GDS-Join!!}
+
+\section{A few latex formatting notes (see latex source):}
+\begin{itemize}
+\item Quotes: Should be formatted as ``my quoted text'' and not "my quoted text"
+\item Line breaks and tilde: typically you don't want a reference to a figure, equation, or table number to break over a line. So you should write Table~\ref{tab:WMMA_vs_PTX} and not Table \ref{tab:WMMA_vs_PTX}, i.e., use the tilde to keep the word Table and 1 together.
+\end{itemize}
+
 \section{Introduction}\label{sec:intro}
-\mike{Define TCs at the beginning}
+Euclidean distance calculations are fundamental to numerous applications. For example, in the area of data analytics, they are employed for distance similarity searches~\cite{gowanlock2023optimization}, outlier detection~\cite{zimek2012survey}, k-nearest neighbor searches~\cite{Samet2008}, and clustering~\cite{bottesch2016speeding}, among other tasks. The Euclidean distance calculation is often a major bottleneck in an application, and given the numerous algorithms that rely on Euclidean distance subroutines, improving the performance of this fundamental operation can have a significant impact on numerous application domains.
 
+In this paper, we propose \ouralg, which is a highly optimized GPU tensor core (TC) algorithm that computes Euclidean distance calculations and which is designed for moderate to high dimensional datasets\footnote{The code will be made publicly available after paper acceptance.}. We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only return those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed in many of the data analytics applications described above. 
 
-
-Euclidean distance calculations are fundamental to numerous applications. For example, in the area of data analytics, they are employed for similarity searches~\cite{gowanlock2023optimization}, outlier detection~\cite{zimek2012survey}, k-nearest neighbor searches~\cite{Samet2008}, and clustering~\cite{bottesch2016speeding}, among other tasks. The Euclidean distance calculation is often a major bottleneck in an application, and given the numerous algorithms that rely on Euclidean distance subroutines, improving the performance of this fundamental operation may have a significant impact on numerous application domains.
-
-In this paper, we propose \ouralg, which is a highly optimized GPU tensor core (TC) algorithm that computes Euclidean distance calculations and which is designed for moderate to high dimensional datasets. We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only return those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed or employed as an optimization technique in many of the data analytics applications described above. 
-
-Peak throughput, defined here as the maximum number of Tera Floating Point Operations Per Second (TFLOPS) yields an upper bound on performance, as it is the maximum throughput achievable based on hardware constraints. The Nvidia A100 GPU that we use in our evaluation has a peak throughput using FP32 (single precision floats) on CUDA cores of 19.5 TFLOPS, whereas TCs can achieve a throughput of 312 TFLOPS using mixed precision floats (FP16 operands and FP32 accumulation)~\cite{A100}. Given that the peak throughput of TCs outlined above is a factor 16 higher than CUDA cores, it is clear that if they can be efficiently exploited to compute Euclidean distances, there is immense potential for significant performance improvements over the state-of-the-art methods that only employ CUDA cores.
+Peak throughput, defined here as the maximum number of Tera Floating Point Operations Per Second (TFLOPS) yields an upper bound on performance, as it is the maximum throughput achievable based on hardware constraints. The Nvidia A100 GPU that we use in our evaluation has a peak throughput using FP32 on CUDA cores of 19.5 TFLOPS, whereas TCs can achieve a throughput of 312 TFLOPS using FP16-32~\cite{A100}\footnote{We use CUDA terminology throughout this paper.}. Given that the peak throughput of TCs outlined above is a factor 16 greater than CUDA cores, it is clear that if they can be efficiently exploited to compute Euclidean distances, there is immense potential for significant performance improvements over the state-of-the-art methods that only employ CUDA cores.
 
 
 
@@ -332,12 +372,12 @@ Based on our investigation, we find that there are three major challenges that l
 % [label={{\bf D\arabic*}}]
 \begin{enumerate}
 \item \bfseries{Memory Bottlenecks --} A major challenge that we identify is that the TCs will be underutilized if the data is not efficiently transferred between each level of the GPU's memory hierarchy, i.e., from global memory, to shared memory, and then into registers for computation on TCs. We find that the coordinates of data points need to be stored and accessed in a manner that maximizes bandwidth utilization and eliminates shared memory bank conflicts during loading and storing.
-\item \bfseries{Insufficient Programming Flexibility using the Warp Matrix Multiply Accumulate (WMMA) API --} The WMMA API~\cite{wmmaNvidia} provides programmatic access to TCs where threads in a warp cooperate to execute MMA operations on matrix fragments. These fragments are arrays of registers that represent a subset of a larger matrix. The WMMA API has rigid load/store options that yield the bank conflict problem outlined above, and hide important details about how data flows into TCs.
+\item \bfseries{Insufficient Programming Flexibility using the Warp Matrix Multiply Accumulate (WMMA) API --} The WMMA API~\cite{wmmaNvidia} provides programmatic access to TCs where threads in a warp cooperate to execute MMA operations on matrix fragments. These fragments are arrays of registers that represent a subset of a larger matrix. The WMMA API has rigid load/store options that yield the bank conflict problem outlined above, and hide important details regarding accessing registers and shared memory.
 
 
 %\mike{Brian: See (3) below. It seems to me that GeMM has an $O(N^3)$ time complexity, whereas Euclidean distance calculations have $O(|D|^2)$. Therefore one would expect that GeMM would be able to better utilize TCs. But, in our paper, we really have a hidden factor $d$, where the time complexity is $O(d\cdot|D|^2)$. But, in practice $d\ll|D|$, so we ignore $d$. But I know you've said that Euclidean distance calculations take the same work as matrix multiply, so I think I'm missing something here.}
 %\brian{I think everything you wrote is correct, I think it must be something small that you are missing. GeMM requires $m*n*k$ computations, and distance requires $d*|D|^2$. In this case though, $d = k$ and $m = n = |D|$. So they are identical computations, with the euclidian distance having the sum of the square values added in at the end (which we can ignore when considering complexity). Also, I adjusted (3), hopefully that helps clear things up.}
-\item \bfseries{Insufficient Data Reuse --} General Matrix Multiplication, one of the primary applications of TCs, has a high compute to memory access ratio because of its data reuse, and so the peak throughput achievable on TCs is very high. The highest time complexity component of computing the Euclidean distance between all pairs of points in a dataset can be formulated as a GEMM. In order to ensure the TCs are not idle and waiting for registers to be loaded with data elements, the data reuse has to be carefully designed at all levels including DRAM, L2 Cache, Shared Memory, and registers.
+\item \bfseries{Insufficient Data Reuse --} General Matrix Multiplication (GEMM), one of the primary applications of TCs, has a high compute to memory access ratio because of its data reuse, and so the peak throughput achievable on TCs is very high. The highest time complexity component of computing the Euclidean distance between all pairs of points in a dataset can be formulated as a GEMM. In order to ensure the TCs are not idle and waiting for registers to be loaded with data elements, the data reuse has to be carefully designed at all levels including global memory (DRAM), L2 cache, shared memory, and registers.
 
 
 
@@ -347,11 +387,10 @@ Based on our investigation, we find that there are three major challenges that l
 In this paper, we address the challenges above and make the following contributions.
 
 \begin{enumerate}
-\item When copying matrix data into the streaming multiprocessors, we optimize the entire data path from global memory into registers. We employ inline Parallel Thread Execution (PTX) instructions that provide the flexibility of non-standard memory access patterns, such that load/store instructions do not cause shared memory bank conflicts.
+\item When copying matrix data into the streaming multiprocessors (SMs), we optimize the entire data path from global memory into registers. We employ inline Parallel Thread Execution (PTX) instructions that provide the flexibility of non-standard memory access patterns, such that load/store instructions do not cause shared memory bank conflicts.
 \item We design a two stage pipeline that includes asynchronous memory copies for loading data from global memory into shared memory and then into registers, such that each warp overlaps TC computation with asynchronous loads. This reduces the duration of memory stalls from global memory, and memory pressure on limited shared memory resources.
-\item We optimize storing data, such that each CUDA block stores multiple "k-slices" of matrix data in shared memory, and each warp stores multiple matrix fragments in registers that create data reuse. We also dispatch the work in a specific order to achieve high L2 cache reuse that obviates global memory accesses. 
-\item We show that \ouralg can achieve up to XXX\% of peak mixed precision TC performance. We compare \ouralg, to both TC and CUDA core implementations in the literature and demonstrate that it is superior in most experimental scenarios.
-\item We demonstrate that when compared with an algorithm using double precision operands, a mixed precision algorithm can produce highly accurate results on real world datasets.
+\item We optimize storing data, such that each CUDA block stores multiple ``k-slices'' of matrix data in shared memory, and each warp stores multiple matrix fragments in registers that create data reuse. We also dispatch the work in a specific order to achieve high L2 cache reuse that obviates slow global memory accesses. 
+\item We show that \ouralg can achieve up to 49\% of peak FP16-32 TC performance. We compare \ouralg to both TC and CUDA core state-of-the-art algorithms and demonstrate that it is superior in most experimental scenarios. Furthermore, our FP16-32 approach yields negligible accuracy loss compared to the FP64 baseline.
 \end{enumerate} 
 
 The paper is outlined as follows. Section~\ref{sec:background} outlines background material, including definitions, the operation of tensor cores, and related work. Section~\ref{sec:our_algorithm} outlines our proposed Euclidean distance algorithm using TCs. Section~\ref{sec:evaluation} evaluates our algorithm and compares it to the state-of-the-art. Finally, Section~\ref{sec:conclusion} concludes the work and outlines future research directions.
@@ -360,11 +399,11 @@ The paper is outlined as follows. Section~\ref{sec:background} outlines backgrou
 
 
 \subsection{Definitions and Problem Statement}\label{sec:problem_statement}
-\noindent\textbf{Definition of a dataset and data points --} Let $D$ be a dataset containing $|D|$ points, where each point is defined as $p_i\in D$, and $i=1, 2, \ldots, |D|$. Each point, $p_i$, is defined by coordinates in $d$ dimensions. We define the coordinates for point $p_i$ as $x_j$, where $j=1, 2, \ldots, d$, and therefore, $x_j=\{x_1, x_2, \ldots, x_d\}$.
+\noindent\textbf{Definition of a dataset and data points --} Let $D$ be a dataset containing $|D|$ points, where each point is defined as $p_i\in D$, and where $i=1, 2, \ldots, |D|$. Each point, $p_i$, is defined by coordinates in $d$ dimensions. We define the coordinates for point $p_i$ as $x_j$, where $j=1, 2, \ldots, d$, and therefore, $x_j=\{x_1, x_2, \ldots, x_d\}$.
 
 
 
-\noindent\textbf{Definition of the Euclidean Distance --} In what follows, we outline the definition of the Euclidean distance, where we first describe the standard definition and then describe the definition that can be computed on tensor cores. Let $p\in D$ and $q \in D$ be two points in the dataset, $D$, where $p_j$ and $q_j$ refer to the $j^{th}$ coordinates of points $p$ and $q$, respectively. The Euclidean distance between $p$ and $q$ is typically defined as follows:
+\noindent\textbf{Definition of the Euclidean Distance --} In what follows, we outline the definition of the Euclidean distance, where we describe the standard definition and then describe the definition that can be computed on TCs. Let $p\in D$ and $q \in D$ be two points in the dataset, $D$, where $p_j$ and $q_j$ refer to the $j^{th}$ coordinates of points $p$ and $q$, respectively. The Euclidean distance between $p$ and $q$ is typically defined as follows:
     
     
 \begin{equation}
@@ -372,18 +411,18 @@ dist(p, q) = \sqrt{\sum^{d}_{j=1}(p_j - q_j)^2}.
 \label{eqn:euclidean_distance}
 \end{equation}
 
-While this definition is impossible to compute on TCs, a simple expansion yields a form that can be easily computed on TCs: ~\cite{gallet2022leveraging}:
+While this definition is impossible to compute on TCs, a simple expansion yields a form that can be computed on TCs: ~\cite{gallet2022leveraging}:
 
 \begin{equation}
 dist(p, q) = \sqrt{\sum^{d}_{j=1}p_j^2 - 2p_jq_j + q_j^2}.
 \label{eqn:euclidean_distance_TCs}
 \end{equation}
 
-\noindent\textbf{Definition of queries and the self-join --} In this paper we compare all points $p_i \in D$ to each other, which is a high throughput operation that is well-suited to the GPU. In database terminology, this is referred to as a self-join, where conceptually $D$ can be considered a database table, and it is joined on itself. A straightforward implementation of this operation requires three nested for loops. 
+\noindent\textbf{Definition of queries and the distance similarity self-join --} In this paper we compare all points $p_i \in D$ to each other, which is a high throughput operation that is well-suited to the GPU. In database terminology, this is referred to as a self-join, where conceptually $D$ can be considered a database table, and it is joined on itself. A straightforward implementation of this operation requires three nested for loops (two for comparing each point to every other point, and one for the distance calculation between each pair of points). 
 
 
-\subsection{Two Scenarios for Euclidean Distance Calculations}
-There are numerous applications that require the calculation of Euclidean distances (Section~\ref{sec:intro}). We describe three common application scenarios below.
+\subsection{Scenarios for Euclidean Distance Calculations}
+There are numerous applications that require the calculation of Euclidean distances (Section~\ref{sec:intro}). We describe two common application scenarios below.
 
 
 
@@ -394,17 +433,36 @@ In this scenario, all points are searched in a dataset $D$ (containing $|D|$ poi
 
 
 \subsubsection{Scenario 2: Index-Supported Distance Similarity Searches}\label{sec:scenario2_index}
-To improve the performance of brute force similarity searches (described above), algorithms will typically first construct an indexing data structure that is used to prune the search between points that are sufficiently far from each other in the data space. Then, when a given query point is compared to all other points in the dataset, it only needs to consider a subset of the $|D|$ points, thus reducing the total number of distance comparisons that are required of a brute force search. While our proposed algorithm, \ouralg, does not use an index, we compare it to state-of-the-art GPU implementations do use one.
+To improve the performance of brute force similarity searches (described above), algorithms will typically first construct an indexing data structure that is used to prune the search between points that are sufficiently far from each other in the data space. Then, when a given query point is compared to all other points in the dataset, it only needs to consider a subset of the $|D|$ points, thus reducing the total number of distance comparisons that are required of a brute force search. While our proposed algorithm, \ouralg, does not use an index, we compare it to GPU algorithms that use an index.
 
 \subsection{GPU Tensor Cores}\label{sec:background_TCs}
 
-In this section, we discuss the operation of TCs and how they are programmed on Nvidia GPUs. Tensor Cores can operate on many different kinds of floating point data including FP64, FP32, and FP16-FP32 mixed precision operands. There are several libraries that directly employ TCs for linear algebra operations, including cuBLAS~\cite{cublas} and CUTLASS~\cite{cutlass}. These libraries are suitable when their subroutines can be directly embedded into an algorithm. However, they are unsuitable for our purposes, as they do not offer sufficient granularity and control. There are two other ways to use TCs that provide more flexibility, the WMMA API, and inline PTX instructions.~\cite{wmmaNvidia}. 
-\brian{This citation might need PTX instrucitons added too.}
+In this section, we discuss the operation of TCs and how they are programmed on Nvidia GPUs. TCs can operate on different floating point data types including FP64, FP32, and FP16-32. There are several libraries that directly employ TCs for linear algebra operations, including cuBLAS~\cite{cublas} and CUTLASS~\cite{cutlass}. These libraries are suitable when their subroutines can be directly embedded into an algorithm. However, they are unsuitable for our purposes, as they do not offer sufficient granularity and control. There are two other ways to use TCs that provide more flexibility, the WMMA API, and inline PTX instructions~\cite{wmmaNvidia, ptxNvidia}. 
 
-The WMMA API and PTX instructions both move data from shared memory into registers that are shared across the entire warp to compute small submatrices. However, the WMMA API is limited to larger matrix sizes~\cite{tensorcoresizes}, does not specify the register layout, and gives less control over memory addressing. The focus of this paper is on using the PTX instructions as they provide the most flexibility to achieve the highest throughput.
+
+The WMMA API and PTX instructions both load data from shared memory into registers that are shared across an entire warp to compute small submatrices. However, the WMMA API is limited to larger matrix sizes (see Table~\ref{tab:WMMA_vs_PTX} for a comparison), does not specify the register layout, and yields less control over memory addressing. In this paper, we use PTX instructions as they provide the most flexibility to achieve the highest throughput.
+
+
+\begin{table}[!t]
+\caption{Comparison of WMMA and PTX matrix sizes for FP16-32 (16~bit matrix multiplication and 32~bit accumulation)~\cite{tensorcoresizes, ptxNvidia}.}
+\footnotesize
+    \centering
+        \begin{tabularx}{\columnwidth}{|L|l|l|} 
+        \hline
+        Size ($m$-$n$-$k$)&WMMA&PTX\\\hline
+        16$\times$16$\times$16&\checkmark&\\
+        32$\times$8$\times$16&\checkmark&\\
+        8$\times$32$\times$16&\checkmark&\\
+        \hline
+        \end{tabularx}
+    \label{tab:WMMA_vs_PTX}
+
 \brian{We probably want to reference the PTX tensor core sizes here to compare WMMA to PTX}
+\mike{Agreed. Can you update the table with the matrix sizes for PTX from here? I don't want to make an error. Link commented in source below}
+% https://docs.nvidia.com/cuda/parallel-thread-execution/#asynchronous-multiply-and-accumulate-instruction-wgmma-mma-async    
+\end{table}
 
-There are two main PTX instructions for using TCs. The first is \texttt{ldmatrix} which creates a fragment of a matrix that is stored in registers shared across a warp. The second is \texttt{mma.sync} which computes $D=A\times B+C$, where $A$, $B$, $C$, and $D$ are each fragments that were created by prior \texttt{ldmatrix} instructions. The $D$ fragment can be substituted for $C$ to accumulate the result of the multiplication in place. In mixed-precision modes, the data stored in matrices $A$ and $B$ are represented in FP16 as $16\times16$ and $16\times8$ fragments while the accumulator matrices, $C$ and $D$, are represented in FP32 as $16\times8$ fragments.
+There are two main PTX instructions for using TCs. The first is \texttt{ldmatrix} which creates a fragment of a matrix that is stored in registers shared across a warp. The second is \texttt{mma.sync} which computes $D=A\times B+C$, where $A$, $B$, $C$, and $D$ are each fragments that were created by prior \texttt{ldmatrix} instructions. The $D$ fragment can be substituted for $C$ to accumulate the result of the multiplication in place. Using FP16-32 instructions, the data stored in matrices $A$ and $B$ are represented in FP16 as 16$\times$16 and 16$\times$8 fragments while the accumulator matrices, $C$ and $D$, are represented in FP32 as 16$\times$8 fragments.
 
 % WMMA supports matrix fragment sizes that are a function of floating point precision. These sizes are summarized in Table~\ref{tab:matrix_sizes}, where there are three options for multiplying in FP16 and accumulating in FP32. There is only one size option for FP64 multiplication and accumulation. In our evaluation, we will examine how matrix sizes impact performance.
 
@@ -413,7 +471,7 @@ There are two main PTX instructions for using TCs. The first is \texttt{ldmatrix
 % \begin{table}[!t]
 % \caption{Summary of data types and matrix fragment sizes that we consider in this paper. For additional sizes see the CUDA documentation~\cite{tensorcoresizes}. FP16 refers to half precision, FP32 refers to full precision, and FP64 refers to double precision.}
 % \mike{Brian double check that these are all the matrix sizes and combinations that we consider in the paper. For example, we don't attempt to accumulate in FP16, right?}
-% \brian{You are correct we don't attempt to accumulate in FP16 ever, it is the same throughput supposedly as accumulating in FP32. I am actually only looking at $16\times8\times16$ in my algorithm though. The only other option for inline ptx is 16x8x8. Those other options that are in the table, are only for the WMMA API I believe.}
+% \brian{You are correct we don't attempt to accumulate in FP16 ever, it is the same throughput supposedly as accumulating in FP32. I am actually only looking at 16$\times$8$\times$16 in my algorithm though. The only other option for inline ptx is 16x8x8. Those other options that are in the table, are only for the WMMA API I believe.}
 % \mike{Got it, I'll remove the table.}
 % \footnotesize
 %     \centering
@@ -433,7 +491,7 @@ There are two main PTX instructions for using TCs. The first is \texttt{ldmatrix
 
 
 
-\subsection{Literature on Expanding the use of Tensor Cores}
+\subsection{Literature on Expanding TC Applications}
 There are few papers in the literature that extend GPU TCs to address algorithms and application scenarios beyond matrix multiplication and accumulation operations. Most of the papers below are not directly related to this paper, as they examine differing use cases for TCs; however, we summarize these developments to give the reader a broader picture of the burgeoning utility of GPU TCs. 
 
 \mike{Note to self: See if there are any other papers that should be cited here}
@@ -442,7 +500,7 @@ A pioneering paper by Dakkak et al.~\cite{dakkak2019accelerating} used the matri
 
 {\bf The most relevant paper in the literature regarding TC performance optimization --} Cui~\cite{cui2024acceleration} proposes using TCs for finite element methods (FEM) which are computationally expensive and thus a good target for GPU TCs. The paper uses the WMMA API to carry out the calculations on TCs, and as described in Section~\ref{sec:background_TCs}, the WMMA API uses fragments which are arrays of registers that are accessed across a warp. Cui~\cite{cui2024acceleration} makes the observation that data copies between shared memory and registers can be a bottleneck if there are shared memory bank conflicts. The WMMA API requires that data are accessed in row- or column-major order and so solely employing the WMMA API is likely to reduce performance due to unresolvable shared memory bank conflicts. 
 
-To address the shared memory bank conflict problem, Cui~\cite{cui2024acceleration} proposes using inline Parallel Thread Execution (PTX) instructions that are more flexible and can be used to produce more sophisticated load/store patterns between shared memory and registers that eliminate bank conflicts. They achieve 45\% of the peak throughput of FP64 TCs on the Nvidia A100  GPU (roughly 8 TFLOPS). The paper leaves the efficient data transfer from global to shared memory for future work.
+To address the shared memory bank conflict problem, Cui~\cite{cui2024acceleration} proposes using inline PTX instructions that are more flexible and can be used to produce more sophisticated load/store patterns between shared memory and registers that eliminate bank conflicts. They achieve 45\% of the peak throughput of FP64 TCs on the Nvidia A100  GPU (roughly 8 TFLOPS). The paper leaves the efficient data transfer from global to shared memory for future work.
 
 The paper by Cui~\cite{cui2024acceleration} is very illustrative. They find that the WMMA API can lead to inefficient memory copies from shared memory to registers and thus PTX instructions are warranted to eliminate shared memory bank conflicts and achieve better performance owing to higher TC utilization. 
 
@@ -455,17 +513,18 @@ In this paper, we employ inline PTX instructions to eliminate bank conflicts whe
 \subsection{Related Work on using Tensor Cores for Euclidean Distance Calculations}\label{sec:background_tedjoin}
 To our knowledge, there is one paper in the literature on employing TCs to compute Euclidean distances. The paper proposes ``Tensor Euclidean Distance Join'' (\tedjoin)~\cite{gallet2022leveraging} which is used to compute the Euclidean distances between all points in a dataset for similarity searches (the two scenarios outlined in Sections~\ref{sec:scenario1_brute_with_epsilon}--\ref{sec:scenario2_index}). 
 
-\tedjoin~\cite{gallet2022leveraging} is designed for FP64 calculations and uses the WMMA API. It was found to perform best when the data dimensionality ($d$) is low rather than high. One possible explanation for this performance niche is that the matrix fragment sizes in WMMA are small for FP64 calculations (8$\times$8$\times$4) and so the algorithm needs to perform numerous iterations of tensor core calculations when $d>4$, which are inefficient compared to larger matrix sizes that are obtained using mixed (FP16+FP32) precision. 
+\tedjoin~\cite{gallet2022leveraging} is designed for FP64 calculations and uses the WMMA API. It was found to perform best when the data dimensionality ($d$) is low rather than high. One possible explanation for this performance niche is that the matrix fragment sizes in WMMA are small for FP64 calculations (8$\times$8$\times$4) and so the algorithm needs to perform numerous iterations of tensor core calculations when $d>4$, which are inefficient compared to larger matrix sizes that are obtained using FP16-32. 
 \brian{So did Ted-Join fall off a cliff with higher dimension data? It seems like it should just get linearly worse with increasingly higher dimensions. We might want to think if there is a better explanation here.}
 
 
 % Furthermore, the peak throughput of TC FP64 operations compared to standard CUDA cores is smaller than the peak throughput of mixed precision (FP16+FP32) compared to CUDA cores, and so \tedjoin can perform worse than the same algorithm using CUDA cores.
 
-Given that \tedjoin is the only other TC algorithm in the literature, we compare to \tedjoin in the experimental evaluation.
+Given that \tedjoin is the only other TC algorithm in the literature, we compare \ouralg to \tedjoin in the evaluation.
 
 
 \subsection{Related Work on Distance Similarity Searches}\label{sec:related_work_gpu_similarity_searches}
 \mike{Reference mistic and coss here?}
+\mike{Brian: Should I ask Brian Donnelly to run Mistic?}
 
  
 \gdsjoin~\cite{gowanlock2019gpu,gowanlock2023optimization} is a CUDA core GPU algorithm that uses a grid-based index for performing the distance similarity self-join as defined in Section~\ref{sec:scenario2_index}. The authors illustrate a trade-off between index search overhead and distance calculation cost. In short, if the data dimensionality, $d$, is large, and all dimensions are indexed, then the algorithm will spend most of its time performing index searches rather than distance calculations. To address this, the authors reduce the number of dimensions that are indexed which decreases index search overhead but increases the total number of distance calculations needed to carry out the computation. 
@@ -483,12 +542,14 @@ In this section, we present \ouralg. We begin with a description of employing TC
 
 \subsection{Overview of Euclidean Distance Calculations on Tensor Cores}
 \brian{I took a stab at rewriting the equations, the formatting is a bit funky, and we can double check that my notation makes sense.}
+\mike{I made a pass, this looks good to me.}
+\mike{Do we need to mention anything regarding the square root? We reference Eqn 2 that has a square root.}
 
 \begin{figure}[!t]
     \centering
     \include{figures/tensorCalculation.tex}
     \vspace*{-0.2cm}
-    \caption{Outline of Euclidean distance calculations on tensor cores. For illustrative purposes we show 4$\times$4 matrices; however, the actual A matrix is $16\times16$ and the actual B matrix is 16x8. For clarity, the coordinates of a given point are shown using the same color.}
+    \caption{Outline of Euclidean distance calculations on tensor cores. For illustrative purposes we show 4$\times$4 matrices; however, the actual $A$ matrix is 16$\times$16 and the actual $B$ matrix is 16$\times$8. For clarity, the coordinates of a given point are shown using the same color.}
     \label{fig:euclidean_distance_TC_overview}
 \end{figure}
 
@@ -497,43 +558,49 @@ In this section, we present \ouralg. We begin with a description of employing TC
 
 
 
-We provide a brief overview of how we are computing Euclidean distances on TCs. However, we refer to prior work~\cite{gallet2022leveraging,gallet2023dissertation} for additional detail. 
-\brian{Should we call out that what we are doing is a bit different when we refer to prior work? Like we are not planning on short circuiting so that we can have less computation cycles.}
-\brian{We should just remove the reference to the other work and say how we are doing it.}
-Figure~\ref{fig:euclidean_distance_TC_overview} illustrates the calculation of Euclidean distances in $d=4$ dimensions, where the distances between points $a, b, c, d$ and $e, f, g, h$ are computed. Thus, the computation results in a total of 16 Euclidean distances between the two sets of four points. 
+% We provide a brief overview of how we are computing Euclidean distances on TCs. 
+% \brian{Should we call out that what we are doing is a bit different when we refer to prior work? Like we are not planning on short circuiting so that we can have less computation cycles.}
+% \brian{We should just remove the reference to the other work and say how we are doing it.}
+As an illustrative example, Figure~\ref{fig:euclidean_distance_TC_overview} shows the calculation of Euclidean distances in $d=4$ dimensions, where the distances between points $a, b, c, d$ and $e, f, g, h$ are computed. Thus, the computation results in a total of 16 Euclidean distances between the two sets of four points. 
 
-We refer to Figure~\ref{fig:euclidean_distance_TC_overview}. We store in row-major order, the coordinates of points $a, b, c, d$ in matrix $A$ and the coordinates of points $e, f, g, h$ in matrix $B$. {\bf Step~1:} We pre-compute the sum of the squared values in each row of matrix $A$ and store it in global memory. {\bf Step~2:} We do the same for matrix $B$. These pre-calculated values are computed on CUDA cores.
+Referring to Figure~\ref{fig:euclidean_distance_TC_overview}, we store in row-major order the coordinates of points $a, b, c, d$ in matrix $A$ and the coordinates of points $e, f, g, h$ in matrix $B$, and then we perform the following steps. {\bf Step~1:} On CUDA cores, we pre-compute the sum of the squared values in each row of matrix $A$ and store it in global memory. {\bf Step~2:} We do the same for matrix $B$. {\bf Step~3:} The matrix $D$ is initialized with zeros, and then we use TCs to compute $D = A \times B^{t} + D$ over many iterations.  We only show $4$ dimensional data for illustrative purposes, but in practice we need to accumulate into $D$ across multiple iterations because TCs can only compute inner products in 16 dimensions. {\bf Step~4:} Once this is complete, the results $D_{ij}$ are multiplied by $-2.0$, and their corresponding sum of squared terms (steps 1--2) are added. This has computed $-2ab+a^2+b^2$ (Equation~\ref{eqn:euclidean_distance_TCs}). 
 
+From Figure~\ref{fig:euclidean_distance_TC_overview}, steps~1, 2, and 4 require significantly less work than step~3, and so we elect to compute these steps on CUDA cores. While these steps can be computed on TCs, it would require MMA operations that are much more expensive than simple operations on CUDA cores.
 
-{\bf Step~3:} The matrix D is initialized with $0$'s, and then we use TCs to compute $D = A \times B^{t} + D$ over many iterations.  We only show $4$ dimensional data, but in practice we need to accumulate into $D$ across multiple iterations because TCs can only compute inner products of 16-dimensions. {\bf Step~4:} Once this is complete, the results $D_{ij}$ are multiplied by $-2.0$, and their corresponding sum of squared terms are added in for $A$ and $B$. Referring to Equation~\ref{eqn:euclidean_distance_TCs}, this has computed $-2ab+a^2+b^2$. 
+\subsection{Overview of the Data Path from Global Memory to Registers}\label{sec:mptc_overview_data_path}
+% \subsection{Overview of Optimizations}
+\mike{I changed the subsection title. We can work on rewording this.}
+While the basic algorithm to compute Euclidean distances using TCs is straightforward conceptually, computing step~3 in Figure~\ref{fig:euclidean_distance_TC_overview} with high throughput is challenging. The Nvidia A100 GPU that we use in the evaluation boasts a peak throughput of 312 TFLOPS in FP16-32. Previous GPU work that computed distance similarity searches focused on algorithmic optimizations using indexed search methods to reduce the search space, as well as short circuiting techniques to reduce computation (Section~\ref{sec:background_tedjoin}--\ref{sec:related_work_gpu_similarity_searches}). However, to utilize their claimed throughput, TCs need a well organized and balanced workload that these index-supported algorithms can not provide (i.e., they perform a higher ratio of memory operations compared to computation operations and have more non-deterministic execution pathways that cause warp divergence). To achieve high throughput, we propose a significant number of optimizations that aim to deliver the data to the TCs as fast as possible to mitigate underutilization.
 
-From Figure~\ref{fig:euclidean_distance_TC_overview}, steps 1, 2, and 4 have significantly less time complexity than step 3, and are computed on CUDA cores. While these steps can be computed on TCs, it would require MMA operations that are much more expensive and complex to set up than simple operations on CUDA cores.
+\mike{Need to walk the reader through Figures~\ref{fig:single_mma}-\ref{fig:entire_mma}}
+Figures~\ref{fig:single_mma}--\ref{fig:entire_mma} show how a single 16$\times$8$\times$16 MMA operation can be used to compute an even larger and deeper ``warp tile'', and how multiple warp tiles can be combined and run over many iterations into a ``block tile'' that can compute the final distance matrix $D$.
 
-\subsection{Overview of Optimizations}
-While the basic algorithm to compute euclidean distance using tensor cores is simple, creating a fast matrix-multiply-accumulate implementation shown in Figure~\ref{fig:euclidean_distance_TC_overview} {\bf Step~3} is particularly challenging. Every year GPU's are packed with more floating point units, and the A100 GPU Tensor cores operating in a mixed-precision mode boast a theoretical throughput of 312 TFLOPS. Previous GPU work focused on algorithmic optimizations using indexed search methods to pare down the search space, as well as short circuiting techniques to reduce computation. However, to utilize their claimed throughput, GPUs need a well organized and balanced workload that more complex algorithms can not easily provide. To achieve this throughput, a large number of optimizations had to be made. Figures \ref{fig:single_mma}-\ref{fig:entire_mma} show how a single $16\times8\times16$ MMA operation can be used to compute an even larger and deeper "warp tile", and how multiple warp tiles can be combined and run over many iterations into a "block tile" that can compute the final distance matrix $D$.
-
-\begin{figure}[H]
+\begin{figure}[!t]
     \centering
-		\include{figures/Single_TC_MMA.tex}
-    \caption{A single $16\times8\times16$ Tensor core computation, as executed by inline PTX instructions. Shows a single fragment for A (candidate points in red), B (query points in blue), and D (distances in green). Performs $D=A\times B+D$.}
+    \include{figures/Single_TC_MMA.tex}
+    \caption{A single 16$\times$8$\times$16 Tensor core computation, as executed by inline PTX instructions. Shows a single fragment for A (candidate points in red), B (query points in blue), and D (distances in green). Performs $D=A\times B+D$.}
     \label{fig:single_mma}
+    \mike{In all of the tikz figures is there extra space at the bottom of the figures? The captions have a large space between them and the images.}
 \end{figure}
-\begin{figure}[H]
+
+\begin{figure}[!t]
     \centering
-		\include{figures/Warp_Tile.tex}
-    \caption{A single warp iteratively transfers a single 16-D "k-slice" fragments from shared memory, multiplies all the fragments of A and B by each other, accumulates the results, and repeats this for four different 16-D "k-slices". This sequence computes a $48\times48\times64$ "warp tile". Once the four iterations are complete and the next set of operands has finished being transferred into shared memory through the multi-stage pipeline, this operation is repeated. This sequence repeats until all k-dimensions have been accumulated.}
+    \include{figures/Warp_Tile.tex}
+    \caption{A single warp iteratively transfers a single 16-D ``k-slice'' fragments from shared memory, multiplies all the fragments of A and B by each other, accumulates the results, and repeats this for four different 16-D ``k-slices''. This sequence computes a $48\times48\times64$ ``warp tile''. Once the four iterations are complete and the next set of operands has finished being transferred into shared memory through the multi-stage pipeline, this operation is repeated. This sequence repeats until all k-dimensions have been accumulated.}
     \label{fig:warp_mma}
 \end{figure}
-\begin{figure}[H]
+
+\begin{figure}[!t]
     \centering
-		\include{figures/Block_Tile.tex}
-    \caption{A single block iteration transfers in two 64-D k-slices of point data (A and B) at a time from global memory to shared memory. Four "warp tiles" (Figure~\ref{fig:warp_mma}) each page a portion of that data into their own registers, and accumulate the distances. This sequence is repeated for $\frac{|D|}{64}$ iterations and computes a $96\times96$ "block tile" of the final distances.}
+    \include{figures/Block_Tile.tex}
+    \caption{A single block iteration transfers in two 64-D k-slices of point data (A and B) at a time from global memory to shared memory. Four ``warp tiles'' (Figure~\ref{fig:warp_mma}) each page a portion of that data into their own registers, and accumulate the distances. This sequence is repeated for $\frac{|D|}{64}$ iterations and computes a $96\times96$ ``block tile'' of the final distances.}
     \label{fig:block_tile_mma}
 \end{figure}
-\begin{figure}[H]
+
+\begin{figure}[!t]
     \centering
-		\include{figures/Grid_Rasterization.tex}
-    \caption{The entire dataset is first transferred to global memory, and then four times as many blocks as there are Streaming Multiprocessors on the GPU are launched to saturate the GPU and hide latency. Each block computes a single $96\times96$ tile of distances at a time. The coordinates of the tile are specified by a work dispatcher that orders computation into small rasterized squares to create L2 cache hits and increase the memory transfer rate.}
+    \include{figures/Grid_Rasterization.tex}
+    \caption{The entire dataset is first transferred to global memory, and then four times as many blocks as there are SMs on the GPU are launched to saturate GPU resources and hide latency. Each block computes a single 96$\times$96 tile of distances at a time. The coordinates of the tile are specified by a work dispatcher that orders computation into small rasterized squares to create L2 cache hits and increase the memory transfer rate.}
     \label{fig:entire_mma}
 \end{figure}
 
@@ -541,34 +608,63 @@ While the basic algorithm to compute euclidean distance using tensor cores is si
 \subsection{Mixed Precision Tensor Cores}
 Previous work has used single-precision CUDA cores, as well as double-precision tensor cores. On Ampere GPUs, Tensor Cores can use half precision (FP16) operands, and accumulate in single precision (FP32). This configuration saves shared memory and register usage to store the operands and offers a 16x speedup over CUDA cores and Tensor cores. The accuracy trade-off from higher precision operands is investigated later.
 \brian{Would it make more sense to move this earlier somewhere? It doesn't quite fit here, and in the intro we could probably say how we are going to use mixed precision computation.}
+\mike{I think we can remove this because we already discussed it in the introduction in the paragraph that starts with "Peak throughput, defined here as the maximum number of Tera Floating Point Operations Per Second..." }
 
-\subsection{Hierarchical Memory Reuse and Optimization}
-For every two flops of the 312 teraflops, two 2B half-precision operands must be moved in registers on the streaming multiprocessor. This would theoretically require 624 TB/s of data transfer from global memory, but the actual global memory bandwidth is only 1.5 TB/s. Additionally, transferring data from shared memory into registers has similar limitations. In order to circumvent these hardware limitations, the matrix multiply accumulate steps need to be systematically broken down into a parallelized hierarchy of computation that reuses operands at every level (block and warp) while respecting the limited amounts of global, shared, and register memory resources.
 
-\subsubsection{L2 Cache Rasterization}
-As mentioned before, global memory is slow when compared to the tensor cores. To mitigate this, the L2 cache has a bandwidth that is four times as fast as random accesses from global memory at 6.4 TB/s. Our algorithm is able to utilize this full bandwidth by carefully dispatching chunks of work to each block tile such that tiles operating simultaneously all read the same values. Work chunks are dispatched in a small rasterized square (See Figure \ref{fig:entire_mma}) that does not exceed the capacity of the L2 cache, but creates enough reuse to maximize the hit rate.
+% \subsection{Hierarchical Memory Reuse and Optimization}
+\subsection{Optimizations: Mitigating the Memory Bottleneck}
+\mike{I changed the subsection title}
+\mike{"while respecting the limited global memory, shared memory, and register capacities." Should this be capacities here? I changed it to this, but I wasn't certain if that's what you meant.}
+As described in Section~\ref{sec:mptc_overview_data_path}, the Nvidia A100 has a peak performance using FP16-32 of 312 TFLOPS.
+Consider that for every two FLOPS of the 312 TFLOPS, two 2 byte (FP16) elements must be stored in registers on a given SM. Assuming that there is no caching or data reuse, this would theoretically require 624 TB/s of global memory bandwidth, but the global memory bandwidth is only 1.5 TB/s. Additionally, transferring data from shared memory into registers has similar limitations. In order to circumvent these hardware limitations, the MMA steps need to be decomposed into a parallelized hierarchy of computation that reuses data elements at every level (block and warp) while respecting the limited global memory, shared memory, and register capacities.
+
+\subsubsection{L2 Cache: Maximizing Data Reuse by Ordering Block Tiles}
+\mike{This refers to the space filling curve that orders the work, right? I made some changes here}
+\mike{One thing I noticed is that it says that the L2 cache isn't exceeded at any given time. Is it possible to guarantee this? We might want to clarify this a bit.}
+To mitigate high latency global memory accesses, the L2 cache has a bandwidth of 6.4 TB/s which is $\sim$4$\times$ greater than global memory. Our algorithm is able to utilize all of this bandwidth by carefully dispatching chunks of work to each block tile such that tiles operating simultaneously all read the same values to maximize spatial locality across SMs. Work chunks are dispatched using square tiles (see Figure \ref{fig:entire_mma}), that cumulatively do not exceed the capacity of the L2 cache at any given time, but create sufficient data reuse to maximize the L2 cache hit rate.
+
+
 
 \subsubsection{Single Block Tile Shared Memory Buffering}
-The A100 GPU has 104 Streaming Multiprocessors that have 192kB of shared memory each. Each SM can run multiple blocks simultaneously if there are enough resources. Assuming a max L2 cache throughput of 6.4 TB/s, and a theoretical required throughput of 624 TB/s, every value transferred from global memory needs to be reused 98 times. Every block can be responsible for computing a $96\times96$ tile of the distance matrix $D$, and the operands required to compute it can be stored in shared memory. For high dimensional problems, there is not enough shared memory to store an entire point. It makes sense to page 64 dimensions at a time, as that takes up 128 bytes, or a single 4 sector read (double check this). Each block tile accumulates in a $96\times96\times64$ shape that requires $2*96*64*2B=24kB$.
+\mike{" (double check this)"}
+The A100 GPU has 104 Streaming Multiprocessors that each have 192~kB of shared memory. Each SM can execute multiple blocks simultaneously if there are sufficient resources. Assuming a maximum L2 cache throughput of 6.4~TB/s, and a theoretical required throughput of 624 TB/s, every value transferred from global memory into L2 cache needs to be reused roughly 98 times to enable the prospect of reaching peak performance. Thus, every block is responsible for computing a 96$\times$96 tile of the distance matrix $D$, and the data required to compute it is stored in shared memory. For high dimensional datasets, there is insufficient shared memory to store an entire point. Consequently, we page 64 dimensions at a time, as that uses 128 bytes per point, or a single 4 sector read (double check this). Each block tile accumulates in a 96$\times$96$\times$64 shape that requires $2\cdot96\cdot64\cdot2B=24kB$.
 
-\subsubsection{Asynchronous Global to Shared Memory Transfer}
-Normal synchronous methods of transferring these values from global to shared memory use synchronous copies where the data pathway goes through the L1 cache, into registers, and is placed into shared memory (Find reference for this diagram). The A100 chip has special hardware instructions for directly and asynchronously copying data from global memory to shared memory. This transfer bypasses the L1 cache, and does not require any registers. We use these instructions to reduce register pressure, and speed up computation.
+\subsubsection{L1 Cache elimination}\label{sec:L1_elimination}
+\mike{[I moved this subsection up] I see now that L1 cache has been eliminated which explains why the global to shared transfer bypasses the L1 cache. We should move this earlier before  "4.4.3 Asynchronous Global to Shared Memory Data Transfer."}
+Each SM has 192KB of memory that can be used as an L1 cache, or directly manipulated as shared memory. In order to maximize throughput, the entire L1 cache has been eliminated to maximize shared memory capacity which allows us to used a pipelined execution that hides memory access latency, which will be described in the following sections.
+
+
+\subsubsection{Asynchronous Global to Shared Memory Data Transfer}\label{sec:async_global_shared_memory}
+\mike{There was a note here to reference a figure showing not using registers (I put that link in the bibliography) but it's 
+ also noted in the A100 whitepaper, so I used that instead.}
+Normal synchronous methods of transferring data from global to shared memory use synchronous copies where the data pathway is as follows: global memory $\rightarrow$ L2 Cache $\rightarrow$ L1 Cache $\rightarrow$ registers $\rightarrow$ shared memory. The A100 and later generations of Nvidia GPUs support asynchronous memory copies~\cite{A100} using \texttt{cuda::memcpy\_async} that eliminate accessing registers and because we eliminate the L1 cache (Section~\ref{sec:L1_elimination}) the data path is as follows: global memory $\rightarrow$ L2 Cache $\rightarrow$ shared memory. We use the asynchronous memory copy to reduce register pressure by coping directly to shared memory.
+
+\mike{"This transfer bypasses the L1 cache" That's not what this article says, maybe there's a different article or maybe I missed it? \url{https://developer.nvidia.com/blog/controlling-data-movement-to-boost-performance-on-ampere-architecture/?_gl=1*1plcfms*_gcl_au*MjExOTUxNjc5LjE3MTE1MjA0ODA.}}
+\mike{XXX I left this part of the text commented here XXX}
+% goes through the L1 cache, into registers, and is then copied into shared memory (Find reference for this diagram). The A100 chip has special hardware instructions for directly and asynchronously copying data from global memory to shared memory. This transfer bypasses the L1 cache, and does not require any registers. We use these instructions to reduce register pressure, and speed up computation.
 
 \subsubsection{Global to Shared Memory Transfer Pipelining}
-With a block tile iteration size of 96x96x64, there is extra shared memory to create a multi-stage pipeline of memory transfers. By issuing multiple transfers latency can be hidden, and the Tensor cores can be supplied with a steady stream of operands. Our algorithm implements a two-stage pipeline to overlap computation with transferring the next "k-slice" of operands in.
+With a block tile iteration size of 96$\times$96$\times$64, there is sufficient shared memory to create a two-stage pipeline of memory transfers using \texttt{cuda::pipeline} with \texttt{cuda::memcpy\_async} as described in Section~\ref{sec:async_global_shared_memory}. By issuing multiple asynchronous transfers, memory copy latency can be hidden, and the TCs are supplied with a consistent stream of data elements. Our algorithm uses a two-stage pipeline to overlap computation with transferring the next ``k-slice'' of data elements.
 
 
 \subsubsection{Multiple Blocks Per Streaming Multiprocessor}
-In order to cover up high latency instructions like MMA, and memory transfers, multiple blocks are run in parallel on each SM. Block tile size, "k-slice" width, register usage, and pipeline depth are purposely kept low to allow enough resources for four (double check this is wher we end up) blocks to run simultaneously.
+\mike{"(double check this is where we end up)"}
+\mike{This said "register usage, " but we can't directly control this like the other parameters, so I removed it.}
+We use multiple blocks that are executed in parallel on each SM to hide high latency instructions like MMA and memory transfers. We elect to use small values for the following: block tile sizes, ``k-slice'' width, and pipeline depth (two levels) to allow sufficient resources for four (double check this is where we end up) blocks to run simultaneously on each SM. Thus, the total number of blocks is independent of dataset size or dimensionality, as we use 104$\times$4 $=$416 blocks. 
 
-\subsubsection{L1 Cache elimination}
-Each SM has 192KB of memory that can be used as an L1 cache, or directly manipulated as shared memory. In order to maximize throughput, the entire L1 cache has been eliminated to give better control over dataflow. 
+
 
 \subsubsection{Single Warp Tile}
-Transferring operands from shared memory into registers is 2.8 times faster than from global to shared. This means that each warp still needs to reuse each value in a register $96/2.8=34$ times. Our algorithm creates a "Warp tile" (Figure \ref{fig:warp_mma}) that reuses the A and B fragments it pages into registers to achieve this. To save registers, only a single 16-dimension "k-slice" is present in registers at a time to reduce register usage. 
+\mike{Where does 2.8 come from? Need a reference here}
+\mike{I got a bit lost with the 34x data reuse. Maybe we can work on this together. I wonder if we can make black outlined boxes that discuss the data reuse throughout this section}
+Transferring data from shared memory into registers is 2.8$\times$ faster than from global to shared memory. This means that each warp still needs to reuse each value in a register $96/2.8=34$ times. We create a ``warp tile'' (Figure \ref{fig:warp_mma}) that reuses the $A$ and $B$ fragments it pages into registers to achieve this. To reduce register pressure, only a single 16-dimension ``k-slice'' is present in registers at a time. 
 
 \subsubsection{K-dimension Loop Unrolling}
-The higher the k-dimension of the multiplication, which is related to the dimensionality of the input vectors, the higher the throughput of the algorithm. Each block tile accumulates 64 dimensions at a time. Each warp tile accumulates 16 dimensions at a time. Careful loop unrolling using compile-time constants has to be done at both levels to obtain optimal assembly output from the compiler.
+
+\mike{Do we need to use $k$-dimension and $k$-slice instead of not using math mode on $k$? We could create macros}
+\mike{What are these compile time constants? If it turns out that this doesn't do much, we can remove this text.}
+The higher the k-dimension of the multiplication, which is related to the dimensionality of the input data points, the higher the throughput of the algorithm. Each block tile accumulates 64 dimensions at a time and each warp tile accumulates 16 dimensions at a time. We perform loop unrolling using compile-time constants at both levels (block tile and warp tile) to obtain good assembly output from the compiler.
+
 \brian{This may be hard to test/not actually do anything significant. We will find out when I test. I'll probably test this last}
 
 \subsubsection{Memory Address XOR Swizzling}
@@ -583,30 +679,21 @@ Shared memory consists of 32 discrete 4B banks that can be read by a warp in a s
 \begin{figure}[H]
     \centering
     \include{figures/Shared_Memory_Layout.tex}
-    \caption{The first 8 rows of shared memory containing a single 64D k-slice of data is shown. One can see that the point data is copied over row-by-row. However, each 8 dimension chunk of data is reordered in an XOR "swizzled" fashion. The memory address of each row is XOR'd by $RowNumber \mod{8}$. Each column in the table represents a group of 4 of the 32 shared memory lanes that can only have a single value stored/read from it in a single memory wavefront. Reordering the data in this fashion allows the \texttt{ldmatrix} instruction to access 8 unique lanes in each phase of its operation. The access patterns during the first and third phase of \texttt{ldmatrix} are outlined in blue and black. }
+    \caption{The first 8 rows of shared memory containing a single 64D k-slice of data is shown. One can see that the point data is copied over row-by-row. However, each 8 dimension chunk of data is reordered in an XOR ``swizzled' fashion. The memory address of each row is XOR'd by $RowNumber \mod{8}$. Each column in the table represents a group of 4 of the 32 shared memory lanes that can only have a single value stored/read from it in a single memory wavefront. Reordering the data in this fashion allows the \texttt{ldmatrix} instruction to access 8 unique lanes in each phase of its operation. The access patterns during the first and third phase of \texttt{ldmatrix} are outlined in blue and black. }
     \label{fig:shared_memory}
 \end{figure}
 
 
 
-\begin{figure}[H]
-    \centering
-		% TODO I haven't made a replacement for this, not sure if I need it, it might be good
-		% to round out my explanation
-    %\includegraphics[width=\linewidth / 2]{figures/fragment_phase_layout}
-    \caption{The 4 fragments shown in Figure \ref{fig:warp_mma} need 4 \texttt{ldmatrix} $16\times16$ instructions to be populated. Each of the four \texttt{ldmatrix} operations is further broken down by the memory controller into 4 phases. Each phase must be bank-conflict free to maximize throughput.}
-    \label{fig:fragment_layout}
-\end{figure}
-
 \begin{figure}[!t]
     \centering
     \subfigure[]{
-			\input{figures/Chunk_Based_Fragment.tex}
+      \input{figures/Chunk_Based_Fragment.tex}
     }
     \subfigure[]{
-			\input{figures/Register_Based_Fragment.tex}
+      \input{figures/Register_Based_Fragment.tex}
     }
-    \caption{(a) Single fragment shared memory access layout. (b) Single fragment register layout. While 16B are read from shared memory by a single thread, that data is shuffled into the registers of four different threads. For example, T0 reads Point 1 dimensions 1-8, but that gets stored into four registers, owned by threads 0-3. The result of a single $16\times16$ \texttt{ldmatrix} instruction reading from shared memory and being stored into a fragment made up of registers is shown above. The first of the four $16\times16$ fragments shown in Figure \ref{fig:fragment_layout} is shown above. Its four phases are shown, each 8 dimension chunk is labeled with the thread responsible for reading it from shared memory. By comparing with Figure \ref{fig:shared_memory} one can see that no single phase will generate bank conflicts. The data for the other points, as well as higher dimensions follow the same pattern. The register layout is shown to the right for completeness.}
+    \caption{(a) Single fragment shared memory access layout. (b) Single fragment register layout. While 16B are read from shared memory by a single thread, that data is shuffled into the registers of four different threads. For example, T0 reads Point 1 dimensions 1-8, but that gets stored into four registers, owned by threads 0-3. The result of a single 16$\times$16 \texttt{ldmatrix} instruction reading from shared memory and being stored into a fragment made up of registers is shown above. The first of the four 16$\times$16 fragments shown in Figure \ref{fig:fragment_layout} is shown above. Its four phases are shown, each 8 dimension chunk is labeled with the thread responsible for reading it from shared memory. By comparing with Figure \ref{fig:shared_memory} one can see that no single phase will generate bank conflicts. The data for the other points, as well as higher dimensions follow the same pattern. The register layout is shown to the right for completeness.}
 
     \label{fig:ldmatrix}
 \end{figure}
@@ -625,34 +712,34 @@ Shared memory consists of 32 discrete 4B banks that can be read by a warp in a s
 Memory address alignment is critical, and while calls to cudaMalloc are guaranteed to be ??? Byte aligned, shared memory allocations are not. Alignment specifiers were added to ensure that it was 128B aligned so there would be no bank conflicts, and that all 32 lanes of shared memory could be used simultaneously.
 
 \subsubsection{Inline PTX MMA Instruction}
-The fastest way to use TCs is to issue inline PTX instructions. There are PTX instructions for performing a single $16\times8\times16$ MMA with half-precision operands and single-precision accumulators. The PTX instructions give fine-grained control over dataflow when compared to the WMMA API. To perform an operation, a $16\times16$ "Fragment" of the A matrix must be loaded from shared memory using the \texttt{ldmatrix} instruction (See Figure \ref{fig:single_mma}). Similarly, a $16\times8$ "Fragment" of B must be loaded. Once these "fragments" are loaded into registers, an \texttt{mma.sync} instruction can be issued. In our case, the operation performs $D = A * B + D$. Our entire algorithm is composed of many parallel iterations of these small computations.
+The fastest way to use TCs is to issue inline PTX instructions. There are PTX instructions for performing a single 16$\times$8$\times$16 MMA with half-precision operands and single-precision accumulators. The PTX instructions give fine-grained control over dataflow when compared to the WMMA API. To perform an operation, a 16$\times$16 fragment of the $A$ matrix must be loaded from shared memory using the \texttt{ldmatrix} instruction (See Figure \ref{fig:single_mma}). Similarly, a 16$\times$8 fragment of matrix $B$ must be loaded. Once these fragments are loaded into registers, an \texttt{mma.sync} instruction is issued and the operation performs $D = A\times B + D$. Our algorithm is composed of many parallel iterations of these small computations.
 
-\brian{How do I fix the width of the listings here?}
-\begin{lstlisting}[label=lst:ldmatrix, caption=A 16x16 ldmatrix instruction]
+\begin{lstlisting}[label=lst:ldmatrix, caption=A 16$\times$16 ldmatrix PTX instruction.]
 asm volatile(
-    "ldmatrix.sync.aligned.x4.m8n8.shared.b16"
-    "{ %0, %1, %2, %3 }, [%4];"
-    : "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
-    : "r"(smem_ptr));
+"ldmatrix.sync.aligned.x4.m8n8.shared.b16"
+"{ %0, %1, %2, %3 }, [%4];"
+: "=r"(A[0]), "=r"(A[1]), "=r"(A[2]), "=r"(A[3])
+: "r"(smem_ptr));
 \end{lstlisting}
-\begin{lstlisting}[label=lst:mma, caption=A 16x8x16 mma.sync instruction]
+
+\begin{lstlisting}[label=lst:mma, caption=A 16$\times$8$\times$16 mma.sync PTX instruction.]
 asm volatile(
-    "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
-    " { %0, %1, %2, %3 }, "
-    " { %4, %5, %6, %7}, "
-    " { %8, %9 }, "
-    " { %10, %11, %12, %13 };"
-    : "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
-    : "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]),
-      "r"(B[0]), "r"(B[1]), "f"(C[0]), "f"(C[1]),
-      "f"(C[2]), "f"(C[3]));
+"mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+" { %0, %1, %2, %3 }, "
+" { %4, %5, %6, %7}, "
+" { %8, %9 }, "
+" { %10, %11, %12, %13 };"
+: "=f"(D[0]), "=f"(D[1]), "=f"(D[2]), "=f"(D[3])
+: "r"(A[0]), "r"(A[1]), "r"(A[2]), "r"(A[3]),
+"r"(B[0]), "r"(B[1]), "f"(C[0]), "f"(C[1]),
+"f"(C[2]), "f"(C[3]));
 
 \end{lstlisting}
 \brian{Create a table of all the parameters used.}
 
 \section{Experimental Evaluation}~\label{sec:evaluation}
 \mike{Might want to show peak performance from \tedjoin as a function of TFLOPS}
-\brian{I'll create a line plot comparing 100,000 dimension data. Use exponential dataset. Sweep across dimensionality. Compare brute force and indexed search. Maybe even include GDS join. 0,10 lambda of 40. }
+\brian{I'll create a line plot comparing 100,000 point, varying dimension data. Use exponential dataset. Sweep across dimensionality. Compare brute force and indexed search. Maybe even include GDS join. 0,1 lambda of 40. }
 
 
 
@@ -684,6 +771,9 @@ Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block a
 \caption{Summary and comparison of implementation properties.}
 \footnotesize
     \centering
+    {
+        % Get Ted-Join-Brute to fit on one line
+        \setlength{\tabcolsep}{4pt} % default is 6pt
         \begin{tabularx}{\columnwidth}{L|l|l|L|L} 
         \hline
         Implementation&Core&Precision& Scenario~1: Brute Force Distance Similarity Searches (Section~\ref{sec:scenario1_brute_with_epsilon})&Scenario~2: Index-Supported Distance Similarity Searches (Section~\ref{sec:scenario2_index})\\ \hline
@@ -693,6 +783,7 @@ Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block a
         \gdsjoin&CUDA&FP32&&\checkmark\\
         \hline
         \end{tabularx}
+    }
     \label{tab:implementations}
 \end{table}
 
@@ -715,11 +806,18 @@ Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block a
         \begin{tabularx}{\columnwidth}{L|r|r} 
         \hline
              Synthetic Dataset& $|D|$&$d$ \\\hline
-             \expo&&\\\hline
+             \expo & $100,000$ & $64$ \\\hline
+             \expo & $100,000$ & $128$ \\\hline
+             \expo & $100,000$ & $256$ \\\hline
+             \expo & $100,000$ & $384$ \\\hline
+             \expo & $100,000$ & $512$ \\\hline
+             \expo & $100,000$ & $1024$ \\\hline
+             \expo & $100,000$ & $2048$ \\\hline
+             \expo & $100,000$ & $4096$ \\\hline
         \end{tabularx}
     \label{tab:datasets_synthetic}
 \end{table}
-\brian{What should we do about the synthetic dataset table? Should we list out all the permutations, or can we just ignore it? Maybe this will make more sense if I run another experiment with a single dataset.}
+\brian{What should we do about the synthetic dataset table? Since everything is 100,000 points, maybe it would be better to not list everything out? I put it all in for now for completeness.}
 
 \begin{table}[!t]
 \caption{Real-world datasets that we use in our evaluation. The dataset size, $|D|$, and data dimensionality, $d$, are shown, in addition to the $\epsilon$ values that correspond to three target selectivity values that we employ ($S_{s}$,  $S_{m}$, and $S_{l}$).}
@@ -727,15 +825,14 @@ Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block a
     \centering
         \begin{tabularx}{\columnwidth}{L|r|r|r|r|r} 
         \hline
-             Real-World Dataset& $|D|$ & $d$  & $S_{s}$  &$S_{m}$  &$S_{l}$ \\\hline
-             \gist~\cite{XXX}&  1,000,000 &  960 & 0.4736328125 & 0.529296875 & 0.59375 \\ \hline
-             \cifar~\cite{XXX}&  60,000 &  512 & 0.62890625 & 0.6591796875 & 0.6914625 \\ \hline
-             \tinyds~\cite{XXX}&  5,000,000 &  384 & 0.18310546875 & 0.20458984375 & 0.2275390625 \\ \hline
+             Real-World Dataset& $|D|$ & $d$  & $\epsilon (S_{s})$  &$\epsilon (S_{m})$  &$\epsilon (S_{l})$ \\\hline
+             \gist~\cite{XXX}&  1,000,000 &  960 & 0.4736 & 0.5292 & 0.5937 \\ \hline
+             \cifar~\cite{XXX}&  60,000 &  512 & 0.6289 & 0.6591 & 0.6914 \\ \hline
+             \tinyds~\cite{XXX}&  5,000,000 &  384 & 0.1831 & 0.2045 & 0.2275 \\ \hline
              \sift~\cite{XXX}&  10,000,000 &  128 & 122.5 & 136.5 & 152.5 \\ \hline
         \end{tabularx}
     \label{tab:datasets_real}
 \end{table}
-\brian{Is there anything I can do about these long numbers? I probably should have rounded them when I picked them...}
 
 
 \subsection{\ouralg Parameter Selection}\label{sec:eval_param_tuning}
@@ -749,23 +846,42 @@ Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block a
 Figure \ref{fig:tflops} shows how the dataset dimensionality, and size impact the peak throughput of \ouralg. The peak performance is $49\%$ of the A100's peak throughput of 312 TFLOPS~\cite{A100Datasheet}.
 
     -Plot peak throughput of \ouralg and compare to \tedjoin
-    \brian{What are we picturing here? A continuous plot, or just a single point? And do I compare with the same dataset, or best case for each?}
 \begin{figure}
     \centering
-    \includegraphics[scale=0.5]{ExpoDataSpeedVsSize.pdf}
+    \includegraphics[scale=0.5]{figures/synthetic_flops_comparison.pdf}
+    \caption{Tensor Core TFLOPS vs. Dataset Dimensionality}
+    \label{fig:tflops_synthetic_comparison}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.5]{figures/ExpoDataSpeedVsSize.pdf}
     \caption{\ouralg TFLOPS vs. Dataset Size}
     \label{fig:tflops}
 \end{figure}
 \begin{figure*}
     \centering
-    \includegraphics[width=1\textwidth]{RealDataSetSpeedComparison.pdf}
+    \includegraphics[width=1\textwidth]{figures/RealDataSetSpeedComparison.pdf}
     \caption{Real world dataset comparisons. }
     \label{fig:realworldcomparison}
 \end{figure*}
-\brian{add a log plot. Put speedup over the top of the other bars. Reorder datasets by dimensionality. Put MPTC-Join first.}
 \subsection{Results: Similarity Search Throughput}
 In this section, we compare our brute force algorithm, \ouralg, to the index-supported similarity search algorithms on the GPU (\gdsjoin and \tedjoinindex). This is an unfair comparison because \ouralg does not use an index and thus it compares all points to each other, whereas \gdsjoin and \tedjoinindex prune the search to reduce comparing points that are at sufficiently large distances of each other. However, as shown in Section~\ref{sec:eval_throughput}, \ouralg achieves high peak throughput on the tensor cores, and so we evaluate whether it is competitive with the indexed-supported methods.
 
+\begin{table}[!t]
+\caption{NVIDIA Nsight Compute profiler results.}
+\footnotesize
+    \centering
+        \begin{tabularx}{\columnwidth}{L|r|r} 
+        \hline
+             Metric & \ouralg & \tedjoin  \\ \hline
+             DRAM Throughput (GB/s) & 152 &  ? \\ \hline
+             SMEM Throughput (TB/s) & 2.32  & ?  \\ \hline
+             SMEM Bank Conflicts (\%) & 0.0 & ? \\ \hline
+             L2 Cache hit rate (\%) &  88 & ? \\ \hline
+             Tensor Core Utilization (\%) &  59 & ? \\ \hline
+        \end{tabularx}
+    \label{tab:profiler_results}
+\end{table}
 
 \subsection{Accuracy Comparison}
 \begin{table}[!t]

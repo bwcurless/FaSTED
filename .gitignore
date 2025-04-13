@@ -11,11 +11,17 @@
 *.cpp4.ii
 
 #tex
+Paper/main.pdf
 *.synctex.gz
 *.aux
 *.fdb_latexmk
 *.fls
+*.bbl
+*.blg
 
+#figures temporarily generated from Python
+results/scripts/*.pdf
+results/scripts/*.pgf
 
 # Mac
 *.DS_Store
