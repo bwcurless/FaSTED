@@ -654,7 +654,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
         ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
     // TODO, read how many SM's a device has and dynamically assign this. May need to do more if
     // we can schedule more blocks to run than there are SM's (this it true I believe).
-    dim3 gridDim(numSMs * 4, 1, 1);
+    // Reduced this to 1 block per SM to show effect of not having multiple resident blocks.
+    dim3 gridDim(numSMs * 1, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
