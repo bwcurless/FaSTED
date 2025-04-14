@@ -62,7 +62,7 @@ constexpr int blockSize = numWarps * WARPSIZE;
 // Has to be 4 because of shared memory swizzling...could make it 2 with different swizzling
 constexpr int kSlices = 4;
 // To to global memory copies asynchronously or synchronously
-constexpr bool sync = false;
+constexpr bool sync = true;
 constexpr bool rasterized = true;
 constexpr int rasterizeSize = 8;
 
