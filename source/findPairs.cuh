@@ -55,8 +55,8 @@ half2 *d_AValues, *d_BValues = nullptr;
 constexpr int numSMs = 108;
 
 // Block Parameters
-constexpr int numWarpCols = 2;
-constexpr int numWarpRows = 2;
+constexpr int numWarpCols = 1;
+constexpr int numWarpRows = 1;
 constexpr int numWarps = numWarpCols * numWarpRows;
 constexpr int blockSize = numWarps * WARPSIZE;
 // Has to be 4 because of shared memory swizzling...could make it 2 with different swizzling
@@ -654,7 +654,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
         ceil(1.0 * hostParams.paddedSearchShape.n / GetBlockTileDims().n);
     // TODO, read how many SM's a device has and dynamically assign this. May need to do more if
     // we can schedule more blocks to run than there are SM's (this it true I believe).
-    dim3 gridDim(numSMs * 4, 1, 1);
+    // Have plenty of blocks since we made blocks only have 1 warp. This makes it a fair comparison
+    dim3 gridDim(numSMs * 16, 1, 1);
     dim3 blockDim(blockSize, 1, 1);
     size_t sharedMemBytes = pipelineDepth * ElemsPerStage * sizeof(SharedSize);
 
