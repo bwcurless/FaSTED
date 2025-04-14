@@ -64,7 +64,7 @@ constexpr int kSlices = 4;
 // To to global memory copies asynchronously or synchronously
 constexpr bool sync = false;
 constexpr bool rasterized = true;
-constexpr int rasterizeSize = 8;
+constexpr int rasterizeSize = 1;
 
 using SharedSize = WarpMma::SharedSize;
 constexpr int pipelineDepth = 2;
