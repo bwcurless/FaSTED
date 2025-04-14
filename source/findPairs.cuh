@@ -165,6 +165,13 @@ __device__ int SwizzleAddress(int sharedMemRow, int sharedMemColumn, int columns
     return swizzledAddress;
 }
 
+/** Don't actually swizzle the address, jsut return it straight
+ */
+__device__ int DontSwizzleAddress(int sharedMemRow, int sharedMemColumn, int columnsPerRow) {
+    int address = sharedMemRow * columnsPerRow + sharedMemColumn;
+    return address;
+}
+
 /** Pages points from global to shared memory asynchronously. Pages in a certain number of
  points in global memory from a specified start point. Each thread does an int4 copy from global
  to shared for every point that the BlockTile needs. This method swizzles the addresses as it
@@ -205,7 +212,8 @@ __device__ void LoadGlobalToSharedAsync(cuda::pipeline<cuda::thread_scope_thread
         int globalPointIndex = (globalPoint * globalLeadingDim) + globalDim;
 
         // Store int4 to shared
-        int swizzledAddress = SwizzleAddress(point, firstDim, int4PerPoint);
+        // Don't actuall swizzle the address, just return it straight.
+        int swizzledAddress = DontSwizzleAddress(point, firstDim, int4PerPoint);
 
         if (SmallDebug && blockIdx.x == 0 && blockIdx.y == 0) {
             // To check for coalesced accesses

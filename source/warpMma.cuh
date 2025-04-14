@@ -119,6 +119,22 @@ struct WarpTile {
         return threadRow * kStrideInt4 + swizzledCol;
     }
 
+    /** For testing purposes, don't actually swizzle, just compute the ordinary address
+     */
+    __device__ int computeUnswizzledIndex(const int kSlice, const int kStride,
+                                          const int fragmentRow, const int outerDims,
+                                          const ColOffset colOffset) {
+        int laneId = threadIdx.x % WARPSIZE;
+        int kStrideInt4 = kStride / dimPerInt4;
+        int threadRow = fragmentRow + (laneId % outerDims);
+
+        // Determine which chunk of dimensions we will load
+        // base slice offset plus an additional offset for last 8 dimensions
+        int threadCol = kSlice * Mma::dims.k / dimPerInt4 + colOffset(laneId);
+
+        return threadRow * kStrideInt4 + threadCol;
+    }
+
     /** loads a warptile's a fragments from relevant parts of shared memory. A is laid out in
      * row-major format in shared memory.
      *
@@ -136,7 +152,7 @@ struct WarpTile {
             // Determine which row we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, i, 0).row;
             int linearizedIndex =
-                computeSwizzledIndex(kslice, kStride, fragmentRow, Mma::dims.m, computeADimChunk);
+                computeUnswizzledIndex(kslice, kStride, fragmentRow, Mma::dims.m, computeADimChunk);
             Mma::loadAMatrix_16_16(&aSharedAddr[linearizedIndex], A[i]);
         }
     }
@@ -158,8 +174,7 @@ struct WarpTile {
             // Determine which col we will load
             int fragmentRow = GetBaseFragmentCoordinate(warpBase, 0, i).col;
             int linearizedIndex =
-                computeSwizzledIndex(kslice, kStride, fragmentRow, Mma::dims.n, computeBDimChunk);
-
+                computeUnswizzledIndex(kslice, kStride, fragmentRow, Mma::dims.n, computeBDimChunk);
             Mma::loadBMatrix_16_8(&bSharedAddr[linearizedIndex], B[i]);
         }
     }
@@ -272,5 +287,5 @@ struct WarpTile {
         return count;
     }
 };
-};  // namespace WarpMma
+};     // namespace WarpMma
 #endif /* end of include guard: WARPMMA_CUH_OL9KOX7Y */
