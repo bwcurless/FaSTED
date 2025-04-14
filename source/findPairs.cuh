@@ -67,7 +67,7 @@ constexpr bool rasterized = true;
 constexpr int rasterizeSize = 8;
 
 using SharedSize = WarpMma::SharedSize;
-constexpr int pipelineDepth = 2;
+constexpr int pipelineDepth = 1;
 constexpr int maxPipelineDepth = 4;
 
 /** The parameters required to run a search on the host.
