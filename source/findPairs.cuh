@@ -361,13 +361,13 @@ __global__ void FindPairsKernel(FindPairsParamsDevice params,
                                 Raster::OnDemandRasterizer* rasterizer, Pairs::Pairs pairs) {
     int warpId = threadIdx.x / 32;
 
-    __align__(128) __shared__ float squaredQueries[blockTileDims.m];
-    __align__(128) __shared__ float squaredCandidates[blockTileDims.n];
+    __shared__ float squaredQueries[blockTileDims.m];
+    __shared__ float squaredCandidates[blockTileDims.n];
 
     // Pipeline init
     cuda::pipeline<cuda::thread_scope_thread> pipeline = cuda::make_pipeline();
 
-    __align__(128) extern __shared__ SharedSize sharedMem[];
+    extern __shared__ SharedSize sharedMem[];
 
     SharedSize* ATile[maxPipelineDepth];
     SharedSize* BTile[maxPipelineDepth];
