@@ -20,8 +20,8 @@ using Coordinate = matrix::Coordinate;
 using InPrec = Mma::InPrec;
 
 // Warp  Parameters
-constexpr int numAFragments = 4;
-constexpr int numBFragments = 8;
+constexpr int numAFragments = 1;
+constexpr int numBFragments = 1;
 constexpr int numDFragments = numAFragments * numBFragments;
 // Swizzle the 8 columns of shared memory
 constexpr int swizzleFactor = 8;
@@ -272,5 +272,5 @@ struct WarpTile {
         return count;
     }
 };
-};  // namespace WarpMma
+};     // namespace WarpMma
 #endif /* end of include guard: WARPMMA_CUH_OL9KOX7Y */
