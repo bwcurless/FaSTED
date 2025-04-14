@@ -53,6 +53,20 @@ __pycache__/
 # C extensions
 *.so
 
+# Cuda files
+*cpp1.ii
+*cpp4.ii
+*cubin
+*cudafe1.c
+*cudafe1.cpp
+*cudafe1.gpu
+*cudafe1.stub.c
+*module_id
+*ptx
+*fatbin
+*fatbin.c
+*reg.c
+
 # Distribution / packaging
 bin/
 build/
