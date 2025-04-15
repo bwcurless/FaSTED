@@ -28,6 +28,7 @@ DATASET_NAME = "dataset"
 MPTC_JOIN = "MPTC-Join"
 GDS_JOIN = "GDS-Join"
 TED_JOIN = "TED-Join"
+MISTIC = "Mistic"
 
 
 def parse_selectivity_vs_speed_data():
@@ -299,21 +300,37 @@ def plot_real_world_data_speed_comparison():
     add_row(all_results, TED_JOIN, sift, tj_sift_128, 128)
     add_row(all_results, TED_JOIN, sift, tj_sift_256, 256)
 
+    # Mistic results
+    add_row(all_results, MISTIC, cifar, 4.765354, 64)
+    add_row(all_results, MISTIC, cifar, 5.046123, 128)
+    add_row(all_results, MISTIC, cifar, 6.246613, 256)
+
+    add_row(all_results, MISTIC, tiny, 662.925975, 64)
+    add_row(all_results, MISTIC, tiny, 987.669580, 128)
+    add_row(all_results, MISTIC, tiny, 1418.637501, 256)
+
+    add_row(all_results, MISTIC, sift, 2169.987598, 64)
+    add_row(all_results, MISTIC, sift, 2517.037860, 128)
+    add_row(all_results, MISTIC, sift, 2798.847250, 256)
+
+    add_row(all_results, MISTIC, gist, 209.062901, 64)
+    add_row(all_results, MISTIC, gist, 285.383825, 128)
+    add_row(all_results, MISTIC, gist, 385.351438, 256)
+
     print(all_results)
 
     # Create the figure
-    algorithms = [MPTC_JOIN, GDS_JOIN, TED_JOIN]
+    algorithms = [MPTC_JOIN, GDS_JOIN, TED_JOIN, MISTIC]
 
     # Create 4 subplots, one for each dataset
     plot_rows = 1
     plot_cols = 4
     fig, ax = plt.subplots(plot_rows, plot_cols, layout="constrained", figsize=(10, 3))
 
-    # Choose a colormap (e.g., "viridis", "plasma", "Greys", etc.)
-    colormap = cm.get_cmap("Greys")
+    colormap = cm.get_cmap("tab10")
 
     # Normalize the colors to map them to the colormap
-    colors = dict(zip(algorithms, colormap(np.linspace(0.5, 1, len(algorithms)))))
+    colors = dict(zip(algorithms, [colormap(i) for i in range(len(algorithms))]))
 
     # Collect all handles and labels from each axis to create only one legend
     handles, labels = [], []
@@ -323,7 +340,7 @@ def plot_real_world_data_speed_comparison():
     y_limits = [
         15000,
         16000,
-        4,
+        7,
         600,
     ]
 
@@ -354,14 +371,14 @@ def plot_real_world_data_speed_comparison():
         )
 
         # Reorder so my algorithm appears first on charts
-        algo_order = [MPTC_JOIN, GDS_JOIN, TED_JOIN]
+        algo_order = [MPTC_JOIN, MISTIC, GDS_JOIN, TED_JOIN]
         reordered_collapsed_data = collapsed_data.sort_values(
             by=ALGORITHM,
             key=lambda col: col.map({name: i for i, name in enumerate(algo_order)}),
         )
 
         x = np.arange(len(selectivities))  # the label locations
-        width = 0.25  # the width of the bars
+        width = 0.20  # the width of the bars
         multiplier = 0
 
         def getTimes(algorithm: str):
@@ -393,12 +410,12 @@ def plot_real_world_data_speed_comparison():
                 return f"{round(x, sig - int(math.floor(math.log10(abs(x)))) - 1):g}"
 
             # Put speedup labels in for quick reference
-            if algorithm == GDS_JOIN or algorithm == TED_JOIN:
+            if algorithm != MPTC_JOIN:
                 this_algo_times = getTimes(algorithm)
                 speedups = [
                     round_sig(x / y) for x, y in zip(this_algo_times, mptc_times)
                 ]
-                axis.bar_label(rects, labels=speedups, fontsize="x-small", padding=2)
+                axis.bar_label(rects, labels=speedups, fontsize=5, padding=2)
 
             multiplier += 1
 
