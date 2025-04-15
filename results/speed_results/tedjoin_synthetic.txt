@@ -1,0 +1,13 @@
+Dataset, epsilon, searchMode, executionTime, totalNeighbors, selectivity, inputDim, indexedDim, computeDim, blockSize, warpPerBlock, gpuStreams, computePrec, accumPrec, ILP, shortCircuit, reorderDimByVar, Kahan, reorderDataset
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 21, 2.56701, 6526336, 64, 64, 6, 64, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 21, 2.5066, 6526336, 64, 64, 6, 64, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 21, 2.51497, 6526336, 64, 64, 6, 64, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 21, 6.12469, 6589184, 64, 128, 6, 128, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 21, 6.0565, 6589184, 64, 128, 6, 128, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 21, 6.13945, 6589184, 64, 128, 6, 128, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 21, 19.9034, 6593664, 64, 256, 6, 256, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 21, 19.7317, 6593664, 64, 256, 6, 256, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 21, 19.7354, 6593664, 64, 256, 6, 256, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 21, 28.2889, 100000, 0, 384, 6, 384, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 21, 28.091, 100000, 0, 384, 6, 384, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 21, 28.3056, 100000, 0, 384, 6, 384, 256, 4, 3, 64, 64, 8, 1, 1, 0, 0

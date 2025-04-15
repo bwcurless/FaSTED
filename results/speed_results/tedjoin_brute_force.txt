@@ -1,0 +1,7 @@
+Dataset, epsilon, searchMode, executionTime, totalNeighbors, inputDim, computeDim, blockSize, warpPerBlock, computePrec, accumPrec
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 4, 0.968045, 6526336, 64, 64, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 4, 0.959707, 6526336, 64, 64, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_64_pts_100000.txt, 0.1754, 4, 0.967112, 6526336, 64, 64, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.42942, 6589184, 128, 128, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.43463, 6589184, 128, 128, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.42999, 6589184, 128, 128, 256, 4, 64, 64
