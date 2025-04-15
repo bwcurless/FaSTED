@@ -473,8 +473,59 @@ def compute_iou():
         # Convert data to a latex table.
 
 
+def synthetic_flops_comparison():
+    dataset_size = 100000
+
+    def compute_tflops(time: float, dims: int):
+        return dataset_size**2 * dims / (time * 1e12)
+
+    mptc_dims = [64, 128, 256, 512, 1024, 2048, 4096]
+    mptc_join = [17, 30, 55, 91, 132, 148, 154]
+    tj_dims = [64, 128]
+    ted_join_brute_times = [0.96, 2.43]  # Only was able to run up to 128D
+    ted_join_brute_flops = [
+        compute_tflops(time, dims)
+        for (time, dims) in zip(ted_join_brute_times, tj_dims)
+    ]
+
+    # Max performance lines
+    fp32_fp16_max = 312  # Top dashed red line
+    fp64_max = 19.5  # Middle dashed green line
+
+    fix, ax = plt.subplots()
+
+    mptc_indices = range(len(mptc_dims))
+    ax.set_xticks(mptc_indices, [str(x) for x in mptc_dims])
+
+    # Plot MPTC-Join
+    ax.plot(mptc_indices, mptc_join, color="red", label="MPTC-Join")
+
+    # Plot TED-Join Brute
+    ax.plot([0, 1], ted_join_brute_flops, color="green", label="TED-Join Brute")
+
+    # Dashed max throughput lines
+    ax.axhline(y=fp32_fp16_max, color="red", linestyle="--", label="FP32-FP16 Max")
+    ax.axhline(y=fp64_max, color="green", linestyle="--", label="FP64 Max")
+
+    # Log scale for y-axis
+    ax.set_yscale("log")
+
+    # Labels
+    ax.set_xlabel("Dataset Dimensionlity ($d$)")
+    ax.set_ylabel("Throughput (TFLOPS)")
+
+    # Grid, legend, and layout
+    ax.grid(True, which="both", ls="--", linewidth=0.5)
+    ax.legend(loc="lower right")
+    plt.tight_layout()
+
+    plt.savefig("synthetic_flops_comparison.pdf")
+    plt.show()
+
+
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    parse_speed_vs_size_data()
-    plot_real_world_data_speed_comparison()
-    compute_iou()
+    # parse_speed_vs_size_data()
+    # plot_real_world_data_speed_comparison()
+    # compute_iou()
+    synthetic_flops_comparison()
