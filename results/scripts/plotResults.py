@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 # Use tex fonts for plots to match paper
 plt.rcParams.update(
-    {"text.usetex": True, "font.family": "Computer Modern Roman", "font.size": 10}
+    {"text.usetex": True, "font.family": "Computer Modern Roman", "font.size": 8}
 )
 
 # Map out column names for later
@@ -443,18 +443,17 @@ def plot_real_world_data_speed_comparison():
         # Add some text for labels, title and custom x-axis tick labels, etc.
         axis.set_ylim(0, y_limits[i])
         axis.set_axisbelow(True)
-        axis_label_fontsize = 10
         # Only label first y axis to reduce clutter
         if i == 0:
-            axis.set_ylabel("Time (s)", fontsize=axis_label_fontsize)
+            axis.set_ylabel("Time (s)")
         figure_label = (
             f"{figure_label_prefixes[i]} {dataset_name} $(d = {dimensionality} )$"
         )
-        axis.set_title(figure_label, y=-0.5, fontsize=10)
+        axis.set_title(figure_label, y=-0.5)
         axis.set_xticks(x + width, selectivities)
-        axis.set_xlabel("Selectivity", fontsize=axis_label_fontsize)
+        axis.set_xlabel("Selectivity")
         # Decrease size of tick labels
-        axis.tick_params(axis="both", labelsize=axis_label_fontsize - 1)
+        # axis.tick_params(axis="both", labelsize=axis_label_fontsize - 1)
 
         # Save this axis's labels and handles for the high level legend
         h, l = axis.get_legend_handles_labels()
@@ -550,7 +549,7 @@ def synthetic_flops_comparison():
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    # parse_speed_vs_size_data()
+    parse_speed_vs_size_data()
     plot_real_world_data_speed_comparison()
     # compute_iou()
     synthetic_flops_comparison()
