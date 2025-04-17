@@ -15,7 +15,9 @@ from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
 # Use tex fonts for plots to match paper
-plt.rcParams.update({"text.usetex": True, "font.family": "Computer Modern Roman"})
+plt.rcParams.update(
+    {"text.usetex": True, "font.family": "Computer Modern Roman", "font.size": 10}
+)
 
 # Map out column names for later
 SEL_COL = "selectivity"
@@ -97,7 +99,7 @@ def parse_speed_vs_size_data():
         grid[dim_index, size_index] = speed
 
     # Create the figure
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(3.5, 3.0))
     cax = ax.imshow(
         grid.T,
         cmap="viridis",
@@ -116,13 +118,16 @@ def parse_speed_vs_size_data():
     # To center labels on pixels, must offset by a half a pixel
     center_offset = 0.5
 
-    ax.set_xlabel("Dataset Dimensionlity ($d$)")
-    ax.set_xticks(np.arange(num_dims_tested) + center_offset)
-    ax.set_xticklabels(unique_dim)
+    ax.set_xlabel("Dataset Dimensionality ($d$)")
+    ax.set_xticks(
+        np.arange(num_dims_tested) + center_offset,
+        unique_dim,
+        horizontalalignment="right",
+        rotation=45,
+    )
 
     ax.set_ylabel("Dataset Size ($|D|$)")
-    ax.set_yticks(np.arange(num_sizes_tested) + center_offset)
-    ax.set_yticklabels(unique_size)
+    ax.set_yticks(np.arange(num_sizes_tested) + center_offset, unique_size)
 
     # Add speed labels for each cell
     for i in range(grid.shape[0]):
@@ -135,7 +140,7 @@ def parse_speed_vs_size_data():
                 ha="center",
                 va="center",
                 color="white" if value < 0.5 * max_speed else "black",
-                fontsize=10,
+                fontsize=6,
             )
 
     colorbar = fig.colorbar(cax, ax=ax)
@@ -144,7 +149,7 @@ def parse_speed_vs_size_data():
     # Get the current ticks (positions) of the colorbar
     ticks = colorbar.get_ticks()
     colorbar.set_ticks(ticks)
-    colorbar.set_ticklabels([f"{tick:.2f}" for tick in ticks])
+    colorbar.set_ticklabels([f"{tick:.0f}" for tick in ticks])
 
     plt.tight_layout()
     plt.savefig("ExpoDataSpeedVsSize.pdf")
@@ -517,7 +522,7 @@ def synthetic_flops_comparison():
     ax.set_ylim(0.25, 10**3)
 
     # Labels
-    ax.set_xlabel("Dataset Dimensionlity ($d$)")
+    ax.set_xlabel("Dataset Dimensionality ($d$)")
     ax.set_ylabel("Throughput (TFLOPS)")
 
     # Grid, legend, and layout
@@ -531,7 +536,7 @@ def synthetic_flops_comparison():
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    # parse_speed_vs_size_data()
+    parse_speed_vs_size_data()
     # plot_real_world_data_speed_comparison()
     # compute_iou()
     synthetic_flops_comparison()
