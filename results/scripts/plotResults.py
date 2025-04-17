@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
+# Use tex fonts for plots to match paper
+plt.rcParams.update({"text.usetex": True, "font.family": "Computer Modern Roman"})
+
 # Map out column names for later
 SEL_COL = "selectivity"
 SPEED_COL = "results.TFLOPS"
@@ -489,26 +492,29 @@ def synthetic_flops_comparison():
     ]
 
     # Max performance lines
-    fp32_fp16_max = 312  # Top dashed red line
+    fp16_fp32_max = 312  # Top dashed red line
     fp64_max = 19.5  # Middle dashed green line
 
-    fix, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(3.5, 3))
 
     mptc_indices = range(len(mptc_dims))
     ax.set_xticks(mptc_indices, [str(x) for x in mptc_dims])
 
     # Plot MPTC-Join
-    ax.plot(mptc_indices, mptc_join, color="red", label="MPTC-Join")
+    ax.plot(mptc_indices, mptc_join, color="red", marker=".", label="MPTC-Join")
 
     # Plot TED-Join Brute
-    ax.plot([0, 1], ted_join_brute_flops, color="green", label="TED-Join Brute")
+    ax.plot(
+        [0, 1], ted_join_brute_flops, color="green", marker=".", label="TED-Join Brute"
+    )
 
     # Dashed max throughput lines
-    ax.axhline(y=fp32_fp16_max, color="red", linestyle="--", label="FP32-FP16 Max")
-    ax.axhline(y=fp64_max, color="green", linestyle="--", label="FP64 Max")
+    ax.axhline(y=fp16_fp32_max, color="red", linestyle="--", label="TC FP16-FP32 Max")
+    ax.axhline(y=fp64_max, color="green", linestyle="--", label="TC FP64 Max")
 
     # Log scale for y-axis
     ax.set_yscale("log")
+    ax.set_ylim(0.25, 10**3)
 
     # Labels
     ax.set_xlabel("Dataset Dimensionlity ($d$)")
