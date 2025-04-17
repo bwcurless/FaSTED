@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -161,6 +162,7 @@ class SpeedResults:
     """Used to give a json file with speed results a display friendly name"""
 
     friendly_name: str
+    dimensionality: int
     filepath: str
 
 
@@ -193,10 +195,10 @@ def plot_real_world_data_speed_comparison():
 
     # Order to go low to high dimensionality sift, tiny, cifar, gist
     dataset_results = [
-        SpeedResults("sift10m", "sift10m_unscaled.txt_results_1738048428.json"),
-        SpeedResults("tiny5m", "tiny5m_unscaled.txt_results_1737960896.json"),
-        SpeedResults("cifar60k", "cifar60k_unscaled.txt_results_1737956025.json"),
-        SpeedResults("gist1m", "gist_unscaled.txt_results_1738039369.json"),
+        SpeedResults("sift10m", 128, "sift10m_unscaled.txt_results_1738048428.json"),
+        SpeedResults("tiny5m", 384, "tiny5m_unscaled.txt_results_1737960896.json"),
+        SpeedResults("cifar60k", 512, "cifar60k_unscaled.txt_results_1737956025.json"),
+        SpeedResults("gist1m", 960, "gist_unscaled.txt_results_1738039369.json"),
     ]
 
     # Assemble all mptc results
@@ -333,12 +335,19 @@ def plot_real_world_data_speed_comparison():
     # Create 4 subplots, one for each dataset
     plot_rows = 1
     plot_cols = 4
-    fig, ax = plt.subplots(plot_rows, plot_cols, layout="constrained", figsize=(10, 3))
+    fig, ax = plt.subplots(
+        plot_rows, plot_cols, layout="constrained", figsize=(7.25, 3)
+    )
 
-    colormap = cm.get_cmap("tab10")
+    # Scientific notation to save space
+    for axis in ax:
+        axis.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        axis.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
-    # Normalize the colors to map them to the colormap
-    colors = dict(zip(algorithms, [colormap(i) for i in range(len(algorithms))]))
+    hatches = ["////", "\\\\\\\\", "oooo", "xxxx"]  # , "+", "x", "o", "O", ".", "*"]
+
+    # Map the hatches to algorithms
+    hatch_map = dict(zip(algorithms, [hatches[i] for i in range(len(algorithms))]))
 
     # Collect all handles and labels from each axis to create only one legend
     handles, labels = [], []
@@ -347,8 +356,8 @@ def plot_real_world_data_speed_comparison():
     # These are based on the original order, should maybe reorder these earlier
     y_limits = [
         15000,
-        16000,
-        7,
+        15000,
+        8,
         600,
     ]
 
@@ -362,6 +371,7 @@ def plot_real_world_data_speed_comparison():
     # Create all subplots
     for i, axis in enumerate(ax.flat):
         dataset_name = dataset_results[i].friendly_name
+        dimensionality = dataset_results[i].dimensionality
         single_dataset = all_results[all_results[DATASET_NAME] == dataset_name]
         single_dataset_minimal_columns = single_dataset[
             [ALGORITHM, TIME, SEL_COL]
@@ -409,7 +419,8 @@ def plot_real_world_data_speed_comparison():
                 times,
                 width,
                 label=algorithm,
-                color=colors[algorithm],
+                fill=False,
+                hatch=hatch_map[algorithm],
             )
 
             def round_sig(x, sig=2):
@@ -423,20 +434,23 @@ def plot_real_world_data_speed_comparison():
                 speedups = [
                     round_sig(x / y) for x, y in zip(this_algo_times, mptc_times)
                 ]
-                axis.bar_label(rects, labels=speedups, fontsize=5, padding=2)
+                axis.bar_label(
+                    rects, labels=speedups, rotation=90, fontsize=6, padding=2
+                )
 
             multiplier += 1
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
-        axis.set_axisbelow(True)
-        # axis.grid(axis="y")
         axis.set_ylim(0, y_limits[i])
-        axis_label_fontsize = 9
+        axis.set_axisbelow(True)
+        axis_label_fontsize = 10
         # Only label first y axis to reduce clutter
         if i == 0:
             axis.set_ylabel("Time (s)", fontsize=axis_label_fontsize)
-        figure_label = f"{figure_label_prefixes[i]} {dataset_name}"
-        axis.set_title(figure_label, y=-0.5, fontsize=8)
+        figure_label = (
+            f"{figure_label_prefixes[i]} {dataset_name} $(d = {dimensionality} )$"
+        )
+        axis.set_title(figure_label, y=-0.5, fontsize=10)
         axis.set_xticks(x + width, selectivities)
         axis.set_xlabel("Selectivity", fontsize=axis_label_fontsize)
         # Decrease size of tick labels
@@ -536,7 +550,7 @@ def synthetic_flops_comparison():
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    parse_speed_vs_size_data()
-    # plot_real_world_data_speed_comparison()
+    # parse_speed_vs_size_data()
+    plot_real_world_data_speed_comparison()
     # compute_iou()
     synthetic_flops_comparison()
