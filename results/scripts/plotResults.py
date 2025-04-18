@@ -33,8 +33,8 @@ DATASET_NAME = "dataset"
 # Algorithms
 MPTC_JOIN = "MPTC-Join"
 GDS_JOIN = "GDS-Join"
-TED_JOIN = "TED-Join"
-MISTIC = "Mistic"
+TED_JOIN = "TED-Join-Index"
+MISTIC = "MiSTIC"
 
 
 def parse_selectivity_vs_speed_data():
@@ -513,7 +513,25 @@ def synthetic_flops_comparison():
     fp16_fp32_max = 312  # Top dashed red line
     fp64_max = 19.5  # Middle dashed green line
 
-    fig, ax = plt.subplots(figsize=(3.5, 3))
+    fig, ax = plt.subplots(figsize=(3.5, 2.25))
+
+    # Dashed max throughput lines
+    ax.axhline(y=fp16_fp32_max, color="red", linestyle="--", label="TC FP16-FP32 Max")
+    offset_coords = (0, 2.5)
+    max_flops_label_x_pos = 4.5
+    ax.annotate(
+        "312 TFLOPS",
+        (max_flops_label_x_pos, 312),
+        xytext=offset_coords,
+        textcoords="offset points",
+    )
+    ax.axhline(y=fp64_max, color="green", linestyle="--", label="TC FP64 Max")
+    ax.annotate(
+        "19.5 TFLOPS",
+        (max_flops_label_x_pos, 19.5),
+        xytext=offset_coords,
+        textcoords="offset points",
+    )
 
     mptc_indices = range(len(mptc_dims))
     ax.set_xticks(mptc_indices, [str(x) for x in mptc_dims])
@@ -523,12 +541,13 @@ def synthetic_flops_comparison():
 
     # Plot TED-Join Brute
     ax.plot(
-        [0, 1], ted_join_brute_flops, color="green", marker=".", label="TED-Join Brute"
+        [0, 1],
+        ted_join_brute_flops,
+        color="green",
+        marker="s",
+        markersize="3",
+        label="TED-Join-Brute",
     )
-
-    # Dashed max throughput lines
-    ax.axhline(y=fp16_fp32_max, color="red", linestyle="--", label="TC FP16-FP32 Max")
-    ax.axhline(y=fp64_max, color="green", linestyle="--", label="TC FP64 Max")
 
     # Log scale for y-axis
     ax.set_yscale("log")
@@ -539,7 +558,7 @@ def synthetic_flops_comparison():
     ax.set_ylabel("Throughput (TFLOPS)")
 
     # Grid, legend, and layout
-    ax.grid(True, which="both", ls="--", linewidth=0.5)
+    # ax.grid(True, which="both", ls="--", linewidth=0.5)
     ax.legend(loc="lower right")
     plt.tight_layout()
 
