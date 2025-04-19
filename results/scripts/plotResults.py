@@ -124,6 +124,7 @@ def parse_speed_vs_size_data():
         np.arange(num_dims_tested) + center_offset,
         unique_dim,
         horizontalalignment="right",
+        rotation_mode="anchor",
         rotation=45,
     )
 
