@@ -495,6 +495,7 @@ def compute_iou():
 
 
 def synthetic_flops_comparison():
+    # All experiments were run with a 100,000 point dataset
     dataset_size = 100000
 
     def compute_tflops(time: float, dims: int):
@@ -502,8 +503,8 @@ def synthetic_flops_comparison():
 
     mptc_dims = [64, 128, 256, 512, 1024, 2048, 4096]
     mptc_join = [17, 30, 55, 91, 132, 148, 154]
-    tj_dims = [64, 128]
-    ted_join_brute_times = [0.96, 2.43]  # Only was able to run up to 128D
+    tj_dims = [64, 128, 256, 384]
+    ted_join_brute_times = [0.96, 2.43, 13.43, 20.12]  # Only was able to run up to 384D
     ted_join_brute_flops = [
         compute_tflops(time, dims)
         for (time, dims) in zip(ted_join_brute_times, tj_dims)
@@ -541,7 +542,7 @@ def synthetic_flops_comparison():
 
     # Plot TED-Join Brute
     ax.plot(
-        [0, 1],
+        [0, 1, 2, 2.5],  # Half indice because 384 is halfway between my ticks
         ted_join_brute_flops,
         color="green",
         marker="s",
@@ -551,7 +552,7 @@ def synthetic_flops_comparison():
 
     # Log scale for y-axis
     ax.set_yscale("log")
-    ax.set_ylim(0.25, 10**3)
+    ax.set_ylim(0.1, 10**3)
 
     # Labels
     ax.set_xlabel("Dataset Dimensionality ($d$)")

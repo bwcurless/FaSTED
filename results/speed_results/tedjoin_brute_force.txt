@@ -5,3 +5,10 @@ Dataset, epsilon, searchMode, executionTime, totalNeighbors, inputDim, computeDi
 /scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.42942, 6589184, 128, 128, 256, 4, 64, 64
 /scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.43463, 6589184, 128, 128, 256, 4, 64, 64
 /scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_128_pts_100000.txt, 0.2873, 4, 2.42999, 6589184, 128, 128, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 4, 13.436, 6593664, 256, 256, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 4, 13.4272, 6593664, 256, 256, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_256_pts_100000.txt, 0.449, 4, 13.4317, 6593664, 256, 256, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 4, 20.1249, 100000, 384, 384, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 4, 20.1189, 100000, 384, 384, 256, 4, 64, 64
+/scratch/bc2497/datasets/tedjoin_expo_data/dataset_fixed_len_pts_expo_NDIM_384_pts_100000.txt, 0.4452, 4, 20.1243, 100000, 384, 384, 256, 4, 64, 64
+
