@@ -51,6 +51,13 @@ jobid=$(sbatch --parsable <<SHELL
 # Main partition
 #SBATCH --account=gowanlock
 
+# Output git information for traceability of what was run
+echo "Commit Hash: $(git rev-parse HEAD)"
+echo "Git Diff"
+git --no-pager diff
+echo "Git Diff Staged"
+git --no-pager diff --staged
+
 set -e
 
 # Code will not compile if we don't load the module
