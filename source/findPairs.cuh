@@ -622,11 +622,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     cudaSetDevice(0);
     cudaDeviceSynchronize();
 
-    cudaEvent_t squaredSumsStart, squaredSumsStop, findPairsStop;
+    cudaEvent_t squaredSumsStart;
     cudaEventCreate(&squaredSumsStart);
-    cudaEventCreate(&squaredSumsStop);
-    cudaEventCreate(&findPairsStop);
-
     cudaEventRecord(squaredSumsStart, 0);
 
     // Compute sums of squared dimensions
@@ -637,6 +634,8 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
     d_BSqSums = SumSqd::ComputeSquaredSums<sumSize>(d_BValues, hostParams.paddedSearchShape.n,
                                                     hostParams.paddedSearchShape.k);
 
+    cudaEvent_t squaredSumsStop;
+    cudaEventCreate(&squaredSumsStop);
     cudaEventRecord(squaredSumsStop, 0);
 
     // Allocate place to store pairs to.
@@ -693,7 +692,10 @@ __host__ Results FindPairs(const FindPairsParamsHost& hostParams) {
                                  cudaGetErrorString(err));
     }
 
+    cudaEvent_t findPairsStop;
+    cudaEventCreate(&findPairsStop);
     gpuErrchk(cudaEventRecord(findPairsStop, 0));
+
     // Synchronize then sort pairs and save them off
     gpuErrchk(cudaDeviceSynchronize());
     double sortStartTime = omp_get_wtime();
