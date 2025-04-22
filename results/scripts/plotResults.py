@@ -500,7 +500,7 @@ def synthetic_flops_comparison():
     dataset_size = 100000
 
     def compute_tflops(time: float, dims: int):
-        return dataset_size**2 * dims / (time * 1e12)
+        return 2 * dataset_size**2 * dims / (time * 1e12)
 
     mptc_dims = [64, 128, 256, 512, 1024, 2048, 4096]
     mptc_join = [17, 30, 55, 91, 132, 148, 154]
@@ -510,6 +510,8 @@ def synthetic_flops_comparison():
         compute_tflops(time, dims)
         for (time, dims) in zip(ted_join_brute_times, tj_dims)
     ]
+
+    print(f"tj flops: {ted_join_brute_flops}")
 
     # Max performance lines
     fp16_fp32_max = 312  # Top dashed red line
