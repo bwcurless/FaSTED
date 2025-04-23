@@ -1,8 +1,12 @@
+import json
 import re
+import logging
 import pathlib
 from pathlib import Path
 import compute_accuracy
 from collections.abc import Callable
+
+logging.basicConfig(level=logging.INFO)
 
 
 def parse_mptc_line(line: str) -> tuple[int, int]:
@@ -30,7 +34,9 @@ def get_mptc_guesses_for_point(mptc_file, point_index: int) -> set[int]:
         line = mptc_file.readline()
         # Handle last line in file
         if not line:
-            print(f"Guessed neighbors for point {point_index} was\n{guessed_neighbors}")
+            logging.debug(
+                f"Guessed neighbors for point {point_index} was\n{guessed_neighbors}"
+            )
             return guessed_neighbors
 
         query, cand = parse_mptc_line(line)
@@ -42,7 +48,9 @@ def get_mptc_guesses_for_point(mptc_file, point_index: int) -> set[int]:
         else:
             # Seek back since we overshot
             mptc_file.seek(mptc_file_pos)
-            print(f"Guessed neighbors for point {point_index} was\n{guessed_neighbors}")
+            logging.debug(
+                f"Guessed neighbors for point {point_index} was\n{guessed_neighbors}"
+            )
             return guessed_neighbors
 
 
@@ -55,7 +63,7 @@ def parse_gds_line(line: str) -> tuple[int, set[int]]:
 
         split_neighbor_strings = neighbor_string.split(",")
         expected_neighbors = set([int(x) for x in split_neighbor_strings])
-        print(f"Expected neighbors: {expected_neighbors}")
+        logging.debug(f"Expected neighbors: {expected_neighbors}")
 
         return point_index, expected_neighbors
     else:
@@ -74,13 +82,13 @@ def point_by_point_averaged_comparison(mptc_path, gds_path):
         for gds_line in gds_file:
             gds_line_num += 1
             point_index, expected_neighbors = parse_gds_line(gds_line)
-            print(f"Processing point: {point_index}")
+            logging.debug(f"Processing point: {point_index}")
 
             guesses = get_mptc_guesses_for_point(mptc_file, point_index)
             intersection = len(expected_neighbors.intersection(guesses))
             union = len(expected_neighbors.union(guesses))
             point_score = intersection / union
-            print(f"Current point_score is: {point_score}")
+            logging.debug(f"Current point_score is: {point_score}")
 
             running_accuracy_sum += point_score
 
@@ -118,11 +126,11 @@ def compare_neighbor_tables(
         print("Comparison done")
         print(f"Results: {results}")
 
-        print("Press any key to continue")
-        input()
-
     print("Final comparison results")
     print(results)
+
+    with open("neighbor_table_comparison_results.json", "w") as f:
+        json.dump(results, f, indent=4)
 
 
 if __name__ == "__main__":
@@ -130,15 +138,35 @@ if __name__ == "__main__":
     dataset_path = "/scratch/bc2497/pairsData/"
 
     # Temporary override for local testing
-    dataset_path = "../accuracy_results/cifar_data/"
+    # dataset_path = "../accuracy_results/cifar_data/"
 
-    # New way of computing accuracy
     point_comparisons = [
         (
-            "mptc_neighbortable_cifar60k_unscaled_0.628906.txt",
-            "gds_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
+            "mptc_join/cifar60k_unscaled_0.628906.txt",
+            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
+        ),
+        (
+            "mptc_join/gist_unscaled_0.473633.txt",
+            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_gist_eps_0.4736328125.txt",
+        ),
+        (
+            "mptc_join/sift10m_unscaled_122.500000.txt",
+            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_sift10m_eps_122.5.txt",
+        ),
+        (
+            "mptc_join/tiny5m_unscaled_0.183105.txt",
+            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_tiny5m_eps_0.18310546875.txt",
         ),
     ]
+
+    # New way of computing accuracy
+    # point_comparisons = [
+    #    (
+    #        "mptc_neighbortable_cifar60k_unscaled_0.628906.txt",
+    #        "gds_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
+    #    ),
+    # ]
+
     compare_neighbor_tables(point_comparisons, point_by_point_averaged_comparison)
 
     # Old way of computing accuracy
