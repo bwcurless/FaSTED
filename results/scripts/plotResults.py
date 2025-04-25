@@ -347,8 +347,14 @@ def plot_real_world_data_speed_comparison():
 
     hatches = ["////", "\\\\\\\\", "oooo", "xxxx"]  # , "+", "x", "o", "O", ".", "*"]
 
-    # Map the hatches to algorithms
-    hatch_map = dict(zip(algorithms, [hatches[i] for i in range(len(algorithms))]))
+    # Colorblind-friendly, print-safe color palette
+    colors = [
+        "#0072B2",  # Blue
+        "#E69F00",  # Orange
+        "#009E73",  # Green
+        "#CC79A7",  # Purple
+    ]
+    color_map = dict(zip(algorithms, [colors[i] for i in range(len(algorithms))]))
 
     # Collect all handles and labels from each axis to create only one legend
     handles, labels = [], []
@@ -356,8 +362,8 @@ def plot_real_world_data_speed_comparison():
     # Hardcode y limits specific to data for better readability
     # These are based on the original order, should maybe reorder these earlier
     y_limits = [
-        15000,
-        15000,
+        12500,
+        3000,
         8,
         600,
     ]
@@ -420,8 +426,8 @@ def plot_real_world_data_speed_comparison():
                 times,
                 width,
                 label=algorithm,
-                fill=False,
-                hatch=hatch_map[algorithm],
+                fill=True,
+                color=color_map[algorithm],
             )
 
             def round_sig(x, sig=2):
@@ -433,10 +439,14 @@ def plot_real_world_data_speed_comparison():
             if algorithm != MPTC_JOIN:
                 this_algo_times = getTimes(algorithm)
                 speedups = [
-                    round_sig(x / y) for x, y in zip(this_algo_times, mptc_times)
+                    f"{round_sig(x / y)}" for x, y in zip(this_algo_times, mptc_times)
                 ]
                 axis.bar_label(
-                    rects, labels=speedups, rotation=90, fontsize=6, padding=2
+                    rects,
+                    label_type="center",
+                    labels=speedups,
+                    rotation=90,
+                    fontsize=6,
                 )
 
             multiplier += 1
@@ -572,7 +582,7 @@ def synthetic_flops_comparison():
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    parse_speed_vs_size_data()
+    # parse_speed_vs_size_data()
     plot_real_world_data_speed_comparison()
     # compute_iou()
-    synthetic_flops_comparison()
+    # synthetic_flops_comparison()
