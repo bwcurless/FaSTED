@@ -100,14 +100,14 @@ def parse_speed_vs_size_data():
         grid[dim_index, size_index] = speed
 
     # Create the figure
-    fig, ax = plt.subplots(figsize=(3.5, 3.0))
+    fig, ax = plt.subplots(figsize=(3.0, 2.25))
     cax = ax.imshow(
         grid.T,
         cmap="viridis",
         origin="lower",
         aspect="auto",
         vmin=0,
-        vmax=160,
+        vmax=175,
         extent=(
             0,
             num_dims_tested,
