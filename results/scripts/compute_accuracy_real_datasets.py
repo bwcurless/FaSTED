@@ -5,8 +5,9 @@ import pathlib
 from pathlib import Path
 import compute_accuracy
 from collections.abc import Callable
-
-logging.basicConfig(level=logging.INFO)
+import os
+import logging
+import argparse
 
 
 def parse_mptc_line(line: str) -> tuple[int, int]:
@@ -134,6 +135,19 @@ def compare_neighbor_tables(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--loglevel", help="Set log level")
+    args = parser.parse_args()
+
+    log_level = args.loglevel or os.getenv("LOGLEVEL", "INFO")
+    logging.basicConfig(
+        level=log_level.upper(), format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    logging.info(f"Log level is {log_level}")
+
+    logging.debug("Debug text")
+
+
     # Create input data
     dataset_path = "/scratch/bc2497/pairsData/"
 
