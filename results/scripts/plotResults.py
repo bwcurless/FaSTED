@@ -504,8 +504,8 @@ def synthetic_flops_comparison():
 
     mptc_dims = [64, 128, 256, 512, 1024, 2048, 4096]
     mptc_join = [17, 30, 55, 91, 132, 148, 154]
-    tj_dims = [64, 128, 256, 384]
-    ted_join_brute_times = [0.96, 2.43, 13.43, 20.12]  # Only was able to run up to 384D
+    tj_dims = [64, 128, 256]
+    ted_join_brute_times = [0.96, 2.43, 13.43]  # Only ran up to 256D
     ted_join_brute_flops = [
         compute_tflops(time, dims)
         for (time, dims) in zip(ted_join_brute_times, tj_dims)
@@ -517,7 +517,7 @@ def synthetic_flops_comparison():
     fp16_fp32_max = 312  # Top dashed red line
     fp64_max = 19.5  # Middle dashed green line
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.25))
+    fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
     # Dashed max throughput lines
     ax.axhline(y=fp16_fp32_max, color="red", linestyle="--", label="TC FP16-FP32 Max")
@@ -545,7 +545,7 @@ def synthetic_flops_comparison():
 
     # Plot TED-Join Brute
     ax.plot(
-        [0, 1, 2, 2.5],  # Half indice because 384 is halfway between my ticks
+        [0, 1, 2],
         ted_join_brute_flops,
         color="green",
         marker="s",
