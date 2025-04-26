@@ -128,7 +128,7 @@ def parse_speed_vs_size_data():
         rotation=45,
     )
 
-    ax.set_ylabel("Dataset Size ($|D|$)")
+    ax.set_ylabel("Dataset Size ($|P|$)")
     ax.set_yticks(np.arange(num_sizes_tested) + center_offset, unique_size)
 
     # Add speed labels for each cell
@@ -582,7 +582,7 @@ def synthetic_flops_comparison():
 
 if __name__ == "__main__":
     # parse_selectivity_vs_speed_data()
-    # parse_speed_vs_size_data()
+    parse_speed_vs_size_data()
     plot_real_world_data_speed_comparison()
     # compute_iou()
     # synthetic_flops_comparison()
