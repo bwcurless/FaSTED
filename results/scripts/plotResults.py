@@ -196,10 +196,10 @@ def plot_real_world_data_speed_comparison():
 
     # Order to go low to high dimensionality sift, tiny, cifar, gist
     dataset_results = [
-        SpeedResults("sift10m", 128, "sift10m_unscaled.txt_results_1738048428.json"),
-        SpeedResults("tiny5m", 384, "tiny5m_unscaled.txt_results_1737960896.json"),
-        SpeedResults("cifar60k", 512, "cifar60k_unscaled.txt_results_1737956025.json"),
-        SpeedResults("gist1m", 960, "gist_unscaled.txt_results_1738039369.json"),
+        SpeedResults("Sift10M", 128, "sift10m_unscaled.txt_results_1738048428.json"),
+        SpeedResults("Tiny5M", 384, "tiny5m_unscaled.txt_results_1737960896.json"),
+        SpeedResults("Cifar60K", 512, "cifar60k_unscaled.txt_results_1737956025.json"),
+        SpeedResults("Gist1M", 960, "gist_unscaled.txt_results_1738039369.json"),
     ]
 
     # Assemble all mptc results
@@ -483,8 +483,8 @@ def plot_real_world_data_speed_comparison():
         frameon=False,
     )
 
-    plt.tight_layout(rect=[0, 0, 1, 0.9])
-    plt.savefig("RealDataSetSpeedComparison.pdf")
+    plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])
+    plt.savefig("RealDataSetSpeedComparison.pdf", bbox_inches="tight")
     plt.show()
 
 
