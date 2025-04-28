@@ -128,7 +128,7 @@ def parse_speed_vs_size_data():
         rotation=45,
     )
 
-    ax.set_ylabel("Dataset Size ($|P|$)")
+    ax.set_ylabel("Dataset Size ($|D|$)")
     ax.set_yticks(np.arange(num_sizes_tested) + center_offset, unique_size)
 
     # Add speed labels for each cell
