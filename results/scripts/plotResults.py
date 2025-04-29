@@ -337,7 +337,7 @@ def plot_real_world_data_speed_comparison():
     plot_rows = 1
     plot_cols = 4
     fig, ax = plt.subplots(
-        plot_rows, plot_cols, layout="constrained", figsize=(7.25, 3)
+        plot_rows, plot_cols, layout="constrained", figsize=(7.25, 2.5)
     )
 
     # Scientific notation to save space
@@ -456,13 +456,14 @@ def plot_real_world_data_speed_comparison():
         axis.set_axisbelow(True)
         # Only label first y axis to reduce clutter
         if i == 0:
-            axis.set_ylabel("Time (s)")
+            axis.set_ylabel("Time (s)", fontsize=6)
         figure_label = (
             f"{figure_label_prefixes[i]} {dataset_name} $(d = {dimensionality} )$"
         )
-        axis.set_title(figure_label, y=-0.5)
+        axis.set_title(figure_label, y=-0.5, fontsize=6)
         axis.set_xticks(x + width, selectivities)
-        axis.set_xlabel("Selectivity")
+        axis.set_xlabel("Selectivity", fontsize=6)
+        axis.tick_params(axis="both", labelsize=6)
         # Decrease size of tick labels
         # axis.tick_params(axis="both", labelsize=axis_label_fontsize - 1)
 
@@ -481,6 +482,7 @@ def plot_real_world_data_speed_comparison():
         loc="upper center",
         ncol=4,
         frameon=False,
+        fontsize=6,
     )
 
     plt.tight_layout(rect=[0.05, 0.05, 0.95, 0.95])
