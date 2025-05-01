@@ -36,6 +36,11 @@ GDS_JOIN = "GDS-Join"
 TED_JOIN = "TED-Join-Index"
 MISTIC = "MiSTIC"
 
+friendly_red = "#d7191c"  # red
+friendly_light_blue = "#abd9e9"  # light blue
+friendly_dark_blue = "#2c7bb6"  # dark blue
+friendly_orange = "#fdae61"  # orange
+
 
 def parse_selectivity_vs_speed_data():
     """Read in the selectivity vs speed data and create plots for it"""
@@ -349,10 +354,10 @@ def plot_real_world_data_speed_comparison():
 
     # Colorblind-friendly, print-safe color palette
     colors = [
-        "#0072B2",  # Blue
-        "#E69F00",  # Orange
-        "#009E73",  # Green
-        "#CC79A7",  # Purple
+        friendly_red,
+        friendly_light_blue,
+        friendly_dark_blue,
+        friendly_orange,
     ]
     color_map = dict(zip(algorithms, [colors[i] for i in range(len(algorithms))]))
 
@@ -532,7 +537,9 @@ def synthetic_flops_comparison():
     fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
     # Dashed max throughput lines
-    ax.axhline(y=fp16_fp32_max, color="red", linestyle="--", label="TC FP16-FP32 Max")
+    ax.axhline(
+        y=fp16_fp32_max, color=friendly_red, linestyle="--", label="TC FP16-FP32 Max"
+    )
     offset_coords = (0, 2.5)
     max_flops_label_x_pos = 4.5
     ax.annotate(
@@ -541,7 +548,9 @@ def synthetic_flops_comparison():
         xytext=offset_coords,
         textcoords="offset points",
     )
-    ax.axhline(y=fp64_max, color="green", linestyle="--", label="TC FP64 Max")
+    ax.axhline(
+        y=fp64_max, color=friendly_dark_blue, linestyle="-.", label="TC FP64 Max"
+    )
     ax.annotate(
         "19.5 TFLOPS",
         (max_flops_label_x_pos, 19.5),
@@ -553,13 +562,13 @@ def synthetic_flops_comparison():
     ax.set_xticks(mptc_indices, [str(x) for x in mptc_dims])
 
     # Plot MPTC-Join
-    ax.plot(mptc_indices, mptc_join, color="red", marker=".", label="MPTC-Join")
+    ax.plot(mptc_indices, mptc_join, color=friendly_red, marker=".", label="MPTC-Join")
 
     # Plot TED-Join Brute
     ax.plot(
         [0, 1, 2],
         ted_join_brute_flops,
-        color="green",
+        color=friendly_dark_blue,
         marker="s",
         markersize="3",
         label="TED-Join-Brute",
@@ -587,4 +596,4 @@ if __name__ == "__main__":
     parse_speed_vs_size_data()
     plot_real_world_data_speed_comparison()
     # compute_iou()
-    # synthetic_flops_comparison()
+    synthetic_flops_comparison()
