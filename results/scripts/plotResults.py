@@ -31,7 +31,7 @@ ALGORITHM = "algorithm"
 DATASET_NAME = "dataset"
 
 # Algorithms
-MPTC_JOIN = "MPTC-Join"
+MPTC_JOIN = "FaSTED"
 GDS_JOIN = "GDS-Join"
 TED_JOIN = "TED-Join-Index"
 MISTIC = "MiSTIC"
@@ -562,7 +562,7 @@ def synthetic_flops_comparison():
     ax.set_xticks(mptc_indices, [str(x) for x in mptc_dims])
 
     # Plot MPTC-Join
-    ax.plot(mptc_indices, mptc_join, color=friendly_red, marker=".", label="MPTC-Join")
+    ax.plot(mptc_indices, mptc_join, color=friendly_red, marker=".", label=MPTC_JOIN)
 
     # Plot TED-Join Brute
     ax.plot(
