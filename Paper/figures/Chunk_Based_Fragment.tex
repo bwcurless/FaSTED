@@ -23,12 +23,53 @@
 
 			\def\chunkColor{\getPhaseColor{\phaseNumIn}}
 			\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(4 * \registerWidth, -\registerHeight) node[midway, font=\tiny] {\firstDim-\maxDim} node[midway, anchor=west, xshift=-0.8 cm, font=\tiny] {\texttt{T\thread}} ;
-            \ifnum \phaseNumIn<3
-                \node[anchor=west, xshift=-0.45cm, font=\tiny] at (L) {$P_{\pointIndex}$};
-            \fi
+            %\ifnum \phaseNumIn<3
+            %\pgfmathsetmacro\xshift{-0.45}
+            %\ifnum \row=0
+            %    \node[anchor=west, xshift=\xshift cm, font=\tiny, fill=white, inner sep=\whitesep, outer sep=\whitesep] at (L) {$P_{\pointIndex}$};
+            %\fi
+            %\ifnum \row=1
+            %    \begin{scope}[xshift=-0.2 cm, yshift=-0.32 cm]
+            %        \longvdots{7}
+            %    \end{scope}
+            %    %\node[anchor=west, xshift=-0.30 cm, font=\tiny] at (L) {$\vdots$};
+            %\fi
+            %\ifnum \row=7
+            %    \node[anchor=west, xshift=\xshift cm, font=\tiny, fill=white, inner sep=\whitesep, outer sep=\whitesep] at (L) {$P_{\pointIndex}$};
+            %\fi
+            %\fi
 		}
 	}
 
 	\drawFragment{\drawChunkPhase}
+% Draw points afterwards...Need them overtop of the border.
+\newcommand{\longvdots}[1]{%
+    \foreach \i in {0,...,#1} {
+      \node[] at (0,-0.14*\i) {.};
+    }
+}
+\pgfmathsetmacro\phaseHeight{7.5 * \registerHeight}
+\def\whitesep{0}
+\newcommand\drawPointLabels[1]{
+    \def\startIndex{#1}
+    \pgfmathtruncatemacro\lastIndex{\startIndex + 7}
+
+    \pgfmathsetmacro\xshift{-0.2}
+    \node[anchor=west, xshift=\xshift cm, font=\tiny, inner sep=\whitesep, outer sep=\whitesep] at (0, -\halfRegisterHeight) {$p_{\startIndex}$};
+    \begin{scope}[xshift=-0.0 cm, yshift=-0.32 cm]
+    \longvdots{7}
+    \end{scope}
+    \node[anchor=west, xshift=\xshift cm, font=\tiny, inner sep=\whitesep, outer sep=\whitesep] at (0, -\phaseHeight) {$p_{\lastIndex}$};
+}
+\begin{scope}[yshift=-\registerHeight cm]
+    \fill[fill=white] (-0.1, 0) rectangle (0.1 cm, -17 * \registerHeight cm);
+\begin{scope}[xshift=0cm, yshift=0cm]
+\drawPointLabels{1}
+\end{scope}
+\begin{scope}[xshift=0cm, yshift=-9 * \registerHeight cm]
+\drawPointLabels{9}
+\end{scope}
+\end{scope}
+    
 
 \end{tikzpicture}

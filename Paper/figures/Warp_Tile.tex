@@ -1,56 +1,62 @@
 % Warp Tile
-\begin{tikzpicture}
-	\newcommand\drawStackableFragment[5]{%
+\begin{tikzpicture}[show background rectangle, 
+    background rectangle/.style={style=fragment, fill=WarpTileColor}]
+	\newcommand\drawStackableFragment[6]{%
 		\def\width{#1}
 		\def\height{#2}
 		\def\upperLeftContent{#3}
 		\def\bottomRightContent{#4}
-		\def\color{#5}
+		\def\singlefragcolor{#5}
+            \def\label{#6}
 
-		\filldraw[style=fragment, fill= white, draw=\color] (0, 0) node[anchor=south east, font=\tiny, xshift=0.5 mm, yshift=-0.5 mm] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\tiny] {\upperLeftContent};
+            \def\labelShift{0.8}
+
+		\filldraw[style=fragment, fill=\singlefragcolor, draw=black] (0, 0) node[anchor=south east,  font=\tiny, xshift=0.5 mm, yshift=-\labelShift mm, text=white] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west,  yshift=\labelShift mm, font=\tiny, text=white] {\upperLeftContent} node[midway,  align=center, font=\scriptsize, text=white] {\label};
 	}
 
 
 	\newcommand\fullFragWidth{1.5}
-	\newcommand\fullFragHeight{1.5}
-	\newcommand\halfFragWidth{0.75}
+	\pgfmathsetmacro\fullFragHeight{\fullFragWidth}
+	\pgfmathsetmacro\halfFragWidth{\fullFragWidth / 2}
 	\newcommand\halfFragPoints{8}
 	\newcommand\fullFragPoints{16}
 	% All fragments have 16 dimensions
 	\newcommand\fragmentDims{16}
 
 	% Can be used to draw stacks of fragments for A or B matrices
-	\newcommand\drawFragmentStack[5]{%
+	\newcommand\drawFragmentStack[6]{%
 		\def\fragColor{#1}
 		\def\fragWidth{#2}
 		\def\fragWidthInPoints{#3}
 		\def\fragIndex{#4}
 		\def\fragName{#5}
+            % Center label
+		\def\fragLabel{#6}
 
-		% Draw each fragment as a stack of 4
-		\newcommand\stacks{4}
-		\newcommand\stackOffset{0.4}
+		% Draw each fragment as a stack 
+		\newcommand\stacks{2}
+		\newcommand\stackOffset{0.325}
 		\pgfmathsetmacro\maxStackIndex{int(\stacks - 1)}
 
 		\foreach \i in {0, ..., \maxStackIndex} {
 			% Stack up and to the left
-			\begin{scope}[xshift=-\i * \stackOffset * 0.25 cm, yshift=\i * \stackOffset cm]
+			\begin{scope}[xshift=-\i * \stackOffset * 0.125 cm, yshift=\i * \stackOffset cm]
 				\pgfmathtruncatemacro\minPoint{\fragWidthInPoints * \fragIndex + 1}
 				\pgfmathtruncatemacro\maxPoint{\minPoint + \fragWidthInPoints - 1}
 
 																% Kind of a hack, but we stack upwards so later fragments cover earlier, have
 																% to count backwards for dimensions for this to work out cleanly
-				\pgfmathtruncatemacro\maxDim{64 - (\i * \fragmentDims)}
+				\pgfmathtruncatemacro\maxDim{\fragmentDims * \stacks - (\i * \fragmentDims)}
 				\pgfmathtruncatemacro\minDim{\maxDim - \fragmentDims + 1}
 
-				\drawStackableFragment{\fragWidth}{\fullFragHeight}{$\fragName_{\minPoint,\minDim}$}{$\fragName_{\maxPoint,\maxDim}$}{\fragColor}
+				\drawStackableFragment{\fragWidth}{\fullFragHeight}{$\fragName_{\minPoint,\minDim}$}{$\fragName_{\maxPoint,\maxDim}$}{\fragColor}{\fragLabel}
 			\end{scope}
 		}
 	}
 
 
-	\newcommand\fragXShift{1.25}
-	\newcommand\fragYShift{3}
+	\newcommand\fragXShift{1.0}
+	\newcommand\fragYShift{2.0}
 	\newcommand\numAFragments{2}
 	\pgfmathtruncatemacro\aFragmentsMaxIndex{\numAFragments - 1}
 	\newcommand\numBFragments{4}
@@ -66,32 +72,32 @@
 					\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
 					\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
 
-					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$D_{\firstQueryPoint,\firstCandPoint}$}{$D_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}
+					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$a_{\firstQueryPoint,\firstCandPoint}$}{$a_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}{\arf}
 				\end{scope}
 			}
 		}
 	\end{scope}
 
-	% Draw all 3 A Fragments
+	% Draw all 2 A Fragments
 	\begin{scope}[xshift=0 cm, yshift=0 cm]
 		\foreach \fragment in {0, ..., \aFragmentsMaxIndex} {
 			\begin{scope}[yshift=-\fragYShift * \fragment cm]
-				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{Q}
+				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{p}{\prf}
 			\end{scope}
 		}
 	\end{scope}
 
-	% Draw all 6 B Fragments
-	\begin{scope}[xshift=1 cm, yshift=2 cm]
+	% Draw all 4 B Fragments
+	\begin{scope}[xshift=1 cm, yshift=1.75 cm]
 		\foreach \fragment in {0, ..., \bFragmentsMaxIndex} {
 			\begin{scope}[xshift=\fragXShift * \fragment cm]
-				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{C}
+				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{p}{\qrf}
 			\end{scope}
 		}
 
 	\end{scope}
 
   % Draw the entire warp tile for future reference
-	\drawLabeledBoundingBox{color=WarpTileColor, style=fragment, inner sep=0.25 cm}{Single Warp Tile Iteration}
+	\drawLabeledBoundingBox{color=WarpTileColor}{Single Warp Tile}{black}
 
 \end{tikzpicture}

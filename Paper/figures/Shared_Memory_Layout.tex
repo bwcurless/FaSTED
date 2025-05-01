@@ -1,7 +1,7 @@
 
 % Shared Memory layout
 \begin{tikzpicture}[scale=1]
-	\node[font=\large] at (3.75, 0) {\underline{Shared Memory Banks}};
+	%\node[font=\large] at (3.75, 0) {\underline{Shared Memory Banks}};
 	\begin{scope}[shift={(0,-1.25)}]
 
 		\foreach \col in {0,...,7} {
@@ -26,10 +26,10 @@
 				\ifnum\col=0
 					\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 					\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-					\node[font=\small, xshift=\poffset cm] at (C) {$P_\pointNum$};
+					\node[font=\small, xshift=\poffset cm] at (C) {$p_\pointNum$};
 				\fi
 
-				\pgfmathsetmacro\headerOffset{\halfBlockHeight + 0.5}
+				\pgfmathsetmacro\headerOffset{\halfBlockHeight + 0.25}
 			% Label columns with bank number
 				\ifnum\row=0
 			% Add column number in binary
@@ -56,7 +56,7 @@
 			% Add dimension range for each block
 				\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
 				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
-				\node[font=\small] at (C)  {\baseDim -\maxDim};
+				\node[font=\scriptsize] at (C)  {\baseDim -\maxDim};
 
 
 		}};

@@ -74,29 +74,49 @@
 
 \ExplSyntaxOff
 
-
-\definecolor{colColor0}{RGB}{255, 102, 102} % Soft Red  
-\definecolor{colColor1}{RGB}{255, 140, 115} % Coral  
-\definecolor{colColor2}{RGB}{255, 178, 140} % Soft Orange  
-\definecolor{colColor3}{RGB}{230, 153, 190} % Warm Pink  
-\definecolor{colColor4}{RGB}{200, 130, 220} % Light Orchid  
-\definecolor{colColor5}{RGB}{170, 110, 230} % Soft Violet  
-\definecolor{colColor6}{RGB}{140, 90, 240}  % Muted Purple  
-\definecolor{colColor7}{RGB}{120, 70, 250}  % Gentle Blue-Purple  
+% New color blind friendly green/blue pallette
+\definecolor{colColor0}{HTML}{f7fcf0}
+\definecolor{colColor1}{HTML}{e0f3db}
+\definecolor{colColor2}{HTML}{ccebc5}
+\definecolor{colColor3}{HTML}{a8ddb5}
+\definecolor{colColor4}{HTML}{7bccc4}
+\definecolor{colColor5}{HTML}{4eb3d3}
+\definecolor{colColor6}{HTML}{2b8cbe}
+\definecolor{colColor7}{HTML}{0868ac}
+%Original Red/orange/purple pallette
+%\definecolor{colColor0}{RGB}{255, 102, 102} % Soft Red  
+%\definecolor{colColor1}{RGB}{255, 140, 115} % Coral  
+%\definecolor{colColor2}{RGB}{255, 178, 140} % Soft Orange  
+%\definecolor{colColor3}{RGB}{230, 153, 190} % Warm Pink  
+%\definecolor{colColor4}{RGB}{200, 130, 220} % Light Orchid  
+%\definecolor{colColor5}{RGB}{170, 110, 230} % Soft Violet  
+%\definecolor{colColor6}{RGB}{140, 90, 240}  % Muted Purple  
+%\definecolor{colColor7}{RGB}{120, 70, 250}  % Gentle Blue-Purple  
 \definecolor{lastColColor}{RGB}{255, 255, 255}  % White
-\definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
-\definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
-\definecolor{DFragmentColor}{RGB}{0, 203, 74}  % Green
-\definecolor{ASharedMemColor}{RGB}{200, 0, 0}  % Red
-\definecolor{BSharedMemColor}{RGB}{0, 0, 200}  % Blue
-\definecolor{WarpTileColor}{RGB}{0, 150, 74}  % Green
-\definecolor{BlockTileColor}{RGB}{0, 0, 0}  % Black
-
-\definecolor{blockTileColor}{RGB}{0, 255, 0}  % Light Green
+% Original Hierarchy colors
+%\definecolor{AFragmentColor}{RGB}{255, 0, 0}  % Red
+%\definecolor{BFragmentColor}{RGB}{0, 0, 255}  % Blue
+%\definecolor{DFragmentColor}{RGB}{0, 203, 74}  % Green
+%\definecolor{ASharedMemColor}{RGB}{200, 0, 0}  % Red
+%\definecolor{BSharedMemColor}{RGB}{0, 0, 200}  % Blue
+%\definecolor{WarpTileColor}{RGB}{0, 150, 74}  % Green
+%\definecolor{BlockTileColor}{RGB}{0, 0, 0}  % Black
+%\definecolor{GlobalPointsColor}{RGB}{255, 0, 0} % Red 
+%\definecolor{GlobalQueriesColor}{RGB}{0, 0, 255}  % Blue
+% New, less aggressive sequential pallettes
+\definecolor{AFragmentColor}{HTML}{cb181d}
+\definecolor{BFragmentColor}{HTML}{2171b5}
+\definecolor{DFragmentColor}{HTML}{238b45}
+\definecolor{ASharedMemColor}{HTML}{fb6a4a}
+\definecolor{BSharedMemColor}{HTML}{6baed6}
+\definecolor{GlobalPointsColor}{HTML}{fcae91}
+\definecolor{GlobalQueriesColor}{HTML}{bdd7e7}
+\definecolor{WarpTileColor}{HTML}{74c476}
+\definecolor{BlockTileColor}{HTML}{bae4b3}
 
 \newcommand{\getcolor}[1]{colColor#1}
 
-\def\blockHeight{0.7}
+\def\blockHeight{0.45}
 \def\blockWidth{0.85}
 \pgfmathsetmacro{\halfBlockHeight}{\blockHeight / 2}
 \pgfmathsetmacro{\halfBlockWidth}{\blockWidth / 2}
@@ -106,10 +126,10 @@
 % Fragment drawings common parameters
 
 % Base rectangle background
-\newcommand\whiteSpace{0.4}
+\newcommand\whiteSpace{0.2}
 
 	% Compute width of a single register based on the fraction of a single chunk it takes up.
-\pgfmathsetmacro\registerWidth{0.5}
+\pgfmathsetmacro\registerWidth{0.4}
 \pgfmathsetmacro\registerHeight{\registerWidth / 2}
 \pgfmathsetmacro\halfRegisterWidth{\registerWidth / 2}
 \pgfmathsetmacro\halfRegisterHeight{\registerHeight / 2}
@@ -121,10 +141,10 @@
 \pgfmathsetmacro\fragmentWidth{2 * \phaseWidth + (3 * \whiteSpace)}
 \pgfmathsetmacro\fragmentHeight{2 * \phaseHeight + (3 * \whiteSpace)}
 
-\tikzstyle fragment=[ultra thick, rounded corners= 5pt]
+\tikzstyle fragment=[thick, draw=black, rounded corners= 5pt]
 
 \newcommand\drawFragment[1]{
-	\draw[style=fragment, draw=AFragmentColor] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
+	\filldraw[style=fragment, fill=AFragmentColor] (0, 0) rectangle +(\fragmentWidth, -\fragmentHeight);
 
 	\begin{scope}[xshift=\whiteSpace cm, yshift=-\whiteSpace cm]
 
@@ -135,7 +155,7 @@
 				\pgfmathsetmacro\yoffset{-\row * (\phaseHeight + \whiteSpace)}
 				\begin{scope}[xshift=\xoffset cm, yshift=\yoffset cm]
 					\pgfmathsetmacro\phaseNum{int(\col * 2 + \row + 1)}
-					\node[anchor=south, font=\tiny] at (\registerWidth * 2, 0) {Phase \phaseNum};
+					\node[anchor=center, font=\tiny, text=white] at (\registerWidth * 2, 0.5 * \whiteSpace) {Phase \phaseNum};
 					% Invoke the Phase drawing section now that we are in our local scope
 					#1{\phaseNum}
 				\end{scope}
@@ -153,7 +173,8 @@
 }
 
 % Bounding box around some of my diagrams
-\newcommand\bbPad{0.7}
-\newcommand\drawLabeledBoundingBox[2]{%
-	\draw[#1] ($(current bounding box.north west) + (-\bbPad,\bbPad)$) rectangle ($(current bounding box.south east) + (\bbPad, -\bbPad)$) node[anchor=south east, color=black, yshift=-0.125 cm] {#2};
+\newcommand\bbPad{0.2}
+\pgfmathsetmacro\bottomPad{\bbPad + 0.2}
+\newcommand\drawLabeledBoundingBox[3]{%
+	\draw[#1] ($(current bounding box.north west) + (-\bbPad,\bbPad)$) rectangle ($(current bounding box.south east) + (\bbPad, -\bottomPad)$) node[anchor=south east, color=black, yshift=-0.125 cm, font=\small, text=#3] {#2};
 }

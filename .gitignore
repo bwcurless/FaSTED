@@ -18,6 +18,7 @@ Paper/main.pdf
 *.fls
 *.bbl
 *.blg
+*.cut
 
 #figures temporarily generated from Python
 results/scripts/*.pdf

@@ -1,55 +1,75 @@
 
 
+
 % Basic TC MMA
 \begin{tikzpicture}
-	\newcommand\fm{3}
-	\newcommand\fn{2}
-	\newcommand\fk{3}
+	\newcommand\fm{2.5}
+	\newcommand\fn{1.25}
+	\newcommand\fk{\fm}
+        \pgfmathsetmacro\whiteSpace{0.3}
 
+    \def\matrixLabelShift{0}
+    \tikzstyle matrixLabelStyle=[midway, text=white, font=\small, yshift=-\matrixLabelShift mm, xshift=\matrixLabelShift mm]
+    \tikzstyle matrixTextStyle=[text=white, font=\tiny]
+    \tikzstyle lineStyle=[draw=white]
+    
 		% Draw B
-	\pgfmathsetmacro\bdXShift{1.0}
-	\draw[style=fragment,draw=BFragmentColor, ultra thick] (0, 0) rectangle +(\fn, -\fk);
-	\matrix (m) [font=\tiny, xshift=\bdXShift cm, yshift=-1.5 cm, 
+	\pgfmathsetmacro\bdXShift{\fn / 2}
+	\pgfmathsetmacro\bdYShift{\fm / 2}
+	\fill[style=fragment,fill=BFragmentColor] (0, 0) rectangle +(\fn, -\fk) node[style=matrixLabelStyle] {\qrf};
+	\matrix (m) [style=matrixTextStyle, xshift=\bdXShift cm, yshift=-\bdYShift cm, 
 	matrix of math nodes,
-	row sep=0.0, column sep=-0.5em,
+	row sep=1.5 cm, column sep=0.0 cm,
 	nodes={anchor=center}] {
-		C_{1,1} & \cdots & C_{8,1} \\
-		C_{1,2} & \cdots & C_{8,2} \\
-		\vdots & \ddots & \vdots \\
-		C_{1,15} & \cdots & C_{8,15} \\
-		C_{1,16} & \cdots & C_{8,16} \\
+		p_{1,1} & p_{8,1} \\
+		p_{1,16} & p_{8,16} \\
 	};
+    \draw[style=lineStyle] (m-1-1.south) -- (m-2-1.north);
+    \draw[style=lineStyle] (m-1-2.south) -- (m-2-2.north);
+    %\node[style=matrixLabelStyle] at (0 cm, 0 cm) {\qrf};
 
 		% Draw D
 	\pgfmathsetmacro\dXShift{0}
 	\pgfmathsetmacro\dYShift{-\whiteSpace - \fk}
-	\draw[style=fragment,draw=DFragmentColor, xshift=\dXShift cm, yshift=\dYShift cm, ultra thick] (0, 0) rectangle +(\fn, -\fm);
-	\pgfmathsetmacro\adYShift{-4.75}
-	\matrix (m) [font=\tiny, xshift=\bdXShift cm, yshift=\adYShift cm, 
+	\fill[style=fragment,fill=DFragmentColor, xshift=0 cm, yshift=\dYShift cm] (0, 0) rectangle +(\fn, -\fm) node[style=matrixLabelStyle] {\arf};
+	\pgfmathsetmacro\adYShift{\dYShift - 0.5 * \fm}
+	\matrix (m) [style=matrixTextStyle, xshift=\bdXShift cm, yshift=\adYShift cm, 
 	matrix of math nodes,
-	row sep=0.0, column sep=-0.5em,
-		%left delimiter={[}, right delimiter={]},
+	row sep=1.5 cm, column sep=0 cm,
 	nodes={anchor=center}] {
-		D_{1,1} & \cdots & D_{1,8} \\
-		D_{2,1} & \cdots & D_{2,8} \\
-		\vdots & \ddots & \vdots \\
-		D_{15,1} & \cdots & D_{15,8} \\
-		D_{16,1} & \cdots & D_{16,8} \\
+		a_{1,1} & a_{1,8} \\
+		a_{16,1} & a_{16,8} \\
 	};
+    % Draw all interconnecting lines
+    %\draw (m-1-1.east) -- (m-1-2.west);
+    %\draw (m-2-1.east) -- (m-2-2.west);
+    %\draw (m-1-1.south) -- (m-2-1.north);
+    %\draw (m-1-2.south) -- (m-2-2.north);
+    \pgfmathsetmacro\matrixLabelYOffset{-\fm - \whiteSpace}
+    ;
 
 		% Draw A
 	\pgfmathsetmacro\aXShift{-\whiteSpace - \fk}
 	\pgfmathsetmacro\aYShift{-\whiteSpace - \fm}
-	\draw[style=fragment,draw=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm, ultra thick] (0, 0) rectangle +(\fk, -\fm);
-	\matrix (m) [font=\tiny, xshift=-1.75 cm, yshift=\adYShift cm, 
+	\pgfmathsetmacro\matXShift{-\fk / 2 - \whiteSpace}
+    
+	\fill[style=fragment,fill=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm] (0, 0) rectangle +(\fk, -\fm) node[style=matrixLabelStyle] {\prf};
+	\matrix (m) [style=matrixTextStyle, xshift=\matXShift cm, yshift=\adYShift cm, 
 	matrix of math nodes,
-	row sep=0.0, column sep=-0.5em,
+	row sep=1.5 cm, column sep=1.0 cm,
 	nodes={anchor=center}] {
-		Q_{1,1} & Q_{1,2} & \cdots & Q_{1,16} \\
-		Q_{2,1} & Q_{2,2} & \cdots & Q_{2,16} \\
-		\vdots & \vdots & \ddots & \vdots \\
-		Q_{15,1} & Q_{15,2} & \cdots & Q_{15,16} \\
-		Q_{16,1} & Q_{16,2} & \cdots & Q_{16,16} \\
+		p_{1,1} & p_{1,16} \\
+		p_{16,1} & p_{16,16} \\
 	};
+    \draw[style=lineStyle] (m-1-1.east) -- (m-1-2.west);
+    \draw[style=lineStyle] (m-2-1.east) -- (m-2-2.west);
+    \pgfmathsetmacro\matrixLabelXOffset{-\fk - \whiteSpace}
+    %\node[style=matrixLabelStyle] at (\matrixLabelXOffset cm, \matrixLabelYOffset cm) {\prf};
 
+%\begin{scope}[xshift=1.625 cm, yshift=0 cm, node distance=0.75 cm]
+%    \node[anchor=north west] at (0, 0) {\small{\underline{Steps (GPU Core):}}};
+%    \node[anchor=north west] at (0, -0.75) {\small{1. $s_i = \sum\limits_k{p_{ik}^2}$ (CUDA)}};
+%    \node[anchor=north west] at (0, -1.5) {\small{2. $\arf = \prf \times \qrf + \arf$ (Tensor)}};
+%    \node[anchor=north west] at (0, -2.25){\small{3. $dist_{ij}^2 = -2 \times a_{ij} + s_i + s_j$ (CUDA)}};
+%    \end{scope}
 \end{tikzpicture}
