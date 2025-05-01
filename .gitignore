@@ -24,6 +24,9 @@ Paper/main.pdf
 results/scripts/*.pdf
 results/scripts/*.pgf
 
+# Test data, too large to store in repo
+results/accuracy_results/cifar_data/
+
 # Mac
 *.DS_Store
 
@@ -77,6 +80,8 @@ results/scripts/*.pgf
 /ptxMma/debug
 /source/rasterizer/main
 /source/DataLoader/main
+/source/release
+/source/compile_commands.json
 
 # Python ignores
 # Byte-compiled / optimized / DLL files
