@@ -478,6 +478,7 @@ class ExperimentRunner:
         dataset_path: str,
         dataset: str,
         search_params: list[SearchParameters],
+        num_repetitions: int = 3,
     ) -> None:
         """Runs experiments for a number of iterations on a real world dataset with
         a known epsilon value. Saves the results out to a file"""
@@ -487,7 +488,7 @@ class ExperimentRunner:
         pairs_finder = self.build_file_pairs_finder(dataset_path, dataset)
 
         results = {}
-        results = self.run_time_trials(pairs_finder, search_params, 3)
+        results = self.run_time_trials(pairs_finder, search_params, num_repetitions)
 
         save_json_results(f"{dataset}_results", results)
 
