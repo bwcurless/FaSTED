@@ -28,7 +28,7 @@ if __name__ == "__main__":
     test_selectivities = [64, 128, 256]
     # experiment_runner.run_real_datasets_epsilon_finder_experiments(test_selectivities)
 
-    SCRATCH_PATH = "/scratch/bc2497/datasets/"
+    SCRATCH_PATH = "/scratch/bc2497/datasets/cuSimSearch_real_data"
 
     experiment_runner.run_real_dataset_known_epsilons_experiments(
         SCRATCH_PATH,
