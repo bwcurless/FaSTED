@@ -377,14 +377,17 @@ class ExperimentRunner:
                 if i > 0:
                     save_pairs = False
 
-                results.append(
-                    Experiment(
-                        param.target_selectivity,
-                        param.epsilon,
-                        i,
-                        find_pairs(param.epsilon, save_pairs),
+                try:
+                    results.append(
+                        Experiment(
+                            param.target_selectivity,
+                            param.epsilon,
+                            i,
+                            find_pairs(param.epsilon, save_pairs),
+                        )
                     )
-                )
+                except Exception as e:
+                    print(f"Failed to run iteration {i}. {e}")
         print(results)
         return results
 
