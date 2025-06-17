@@ -2,7 +2,7 @@
 File: experiments.py
 Author: Brian Curless
 Description: Contains methods to be automatically determine epsilon values using different
-methods like volumetric scaling, and a binary search. Once a certain target selectivity 
+methods like volumetric scaling, and a binary search. Once a certain target selectivity
 has been found, experiments are run to obtain the performance of the algorithm.
 """
 
@@ -73,9 +73,7 @@ class Experiment:
     results: Results
 
 
-def within_percent(
-    actual_value: float, target_value: float, percent: float
-) -> bool:
+def within_percent(actual_value: float, target_value: float, percent: float) -> bool:
     """Checks if an actual value is within a certain percentage of the target value.
 
     :actual_value: The measured value.
@@ -146,9 +144,7 @@ def adjust_epsilon_volume(
             target_selectivity_dec / old_selectivity_dec
         ) * old_volume_dec
 
-        expr_dec = (target_volume_dec * gamma_dec) / (
-            pi_dec ** (num_dim / dec2)
-        )
+        expr_dec = (target_volume_dec * gamma_dec) / (pi_dec ** (num_dim / dec2))
         new_epsilon = float(expr_dec ** (Decimal(1.0) / num_dim_dec))
 
     return new_epsilon
@@ -186,9 +182,7 @@ def bound_epsilon(
             else (old_epsilon * epsilon_scale_factor)
         )
 
-        print(
-            f"Checking if Epsilon is in the range ({old_epsilon}, {new_epsilon})"
-        )
+        print(f"Checking if Epsilon is in the range ({old_epsilon}, {new_epsilon})")
 
         if new_epsilon > max_epsilon:
             raise ValueError(
@@ -259,9 +253,7 @@ def find_epsilon_binary(
     # the binary search.
     new_epsilon = ((upper_epsilon - lower_epsilon) / 2.0) + lower_epsilon
     last_epsilon = upper_epsilon
-    selectivity_threshold = (
-        0.01  # Search within a percent of the target selectivity
-    )
+    selectivity_threshold = 0.01  # Search within a percent of the target selectivity
 
     iteration = 0
     current_selectivity = get_selectivity(new_epsilon)
@@ -320,9 +312,7 @@ def find_epsilon_volumetric(
         selectivity_threshold,
     ):
         epsilon = adjust_epsilon_volume(epsilon, sel, target_selectivity, dim)
-        print(
-            f"Selectivity was {sel}/{target_selectivity} new epsilon: {epsilon}"
-        )
+        print(f"Selectivity was {sel}/{target_selectivity} new epsilon: {epsilon}")
         start = time.perf_counter()
         result = get_selectivity(initial_epsilon)
         end = time.perf_counter()
@@ -429,9 +419,7 @@ class ExperimentRunner:
                     selectivity,
                     find_epsilon_binary(
                         selectivity,
-                        lambda epsilon: find_pairs(
-                            epsilon, False
-                        ).get_selectivity(),
+                        lambda epsilon: find_pairs(epsilon, False).get_selectivity(),
                     ),
                     save_pairs,
                 ),
@@ -446,12 +434,10 @@ class ExperimentRunner:
     ) -> Callable[[float, bool], Results]:
         """Builds a pairs finder that reads a dataset from file"""
 
-        pairs_finder = (
-            lambda epsilon, save_pairs: self._find_pairs.runFromFile(
-                str(Path(base_path) / dataset).encode("utf-8"),
-                epsilon,
-                save_pairs,
-            )
+        pairs_finder = lambda epsilon, save_pairs: self._find_pairs.runFromFile(
+            str(Path(base_path) / dataset).encode("utf-8"),
+            epsilon,
+            save_pairs,
         )
         return pairs_finder
 
@@ -521,9 +507,7 @@ class ExperimentRunner:
 
         for dataset in datasets:
             print(f"Running on dataset: {dataset}")
-            pairs_finder = self.build_rerunnable_file_pairs_finder(
-                base_path, dataset
-            )
+            pairs_finder = self.build_rerunnable_file_pairs_finder(base_path, dataset)
 
             results[dataset] = self.run_selectivity_experiment(
                 target_selectivities, pairs_finder, iterations=1
@@ -556,9 +540,7 @@ class ExperimentRunner:
         # Run a basic experiment to show that increasing selectivity doesn't
         # significantly effect results
         # Chose a size that demonstrates the max throughput.
-        results = self.run_selectivity_experiment(
-            target_selectivities, pairs_finder
-        )
+        results = self.run_selectivity_experiment(target_selectivities, pairs_finder)
 
         save_json_results("selectivityVsSpeed", results)
 
