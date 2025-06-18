@@ -28,10 +28,12 @@ struct Pair {
    public:
     int QueryPoint{};
     int CandidatePoint{};
+    float Distance{};
 
-    __device__ Pair() : QueryPoint{-1}, CandidatePoint{-1} {};
+    __device__ Pair() : QueryPoint{-1}, CandidatePoint{-1}, Distance{-1.0} {};
 
-    __device__ Pair(int query, int candidate) : QueryPoint{query}, CandidatePoint{candidate} {};
+    __device__ Pair(int query, int candidate, float distance)
+        : QueryPoint{query}, CandidatePoint{candidate}, Distance{distance} {};
 
     /** Compare in row-major order.
      *
@@ -49,7 +51,7 @@ struct Pair {
  *
  */
 __host__ std::ostream& operator<<(std::ostream& os, const Pair& obj) {
-    os << obj.QueryPoint << ", " << obj.CandidatePoint << std::endl;
+    os << obj.QueryPoint << ", " << obj.CandidatePoint << ", " << obj.Distance << std::endl;
     return os;
 }
 

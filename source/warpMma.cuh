@@ -263,6 +263,7 @@ struct WarpTile {
                             if (pair) {
                                 pair->QueryPoint = elemCoord.row;
                                 pair->CandidatePoint = elemCoord.col;
+                                pair->Distance = sqrtf(distanceSqd);
                             }
                         }
                     }

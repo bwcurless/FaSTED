@@ -35,8 +35,8 @@ if __name__ == "__main__":
         "cifar60k_unscaled.txt",
         [
             SearchParameters(64, 0.62890625, True),
-            SearchParameters(128, 0.6591796875, True),
-            SearchParameters(256, 0.69140625, True),
+            # SearchParameters(128, 0.6591796875, False),
+            # SearchParameters(256, 0.69140625, False),
         ],
         1,
     )
@@ -45,8 +45,8 @@ if __name__ == "__main__":
         "tiny5m_unscaled.txt",
         [
             SearchParameters(64, 0.18310546875, True),
-            SearchParameters(128, 0.20458984375, True),
-            SearchParameters(256, 0.2275390625, True),
+            # SearchParameters(128, 0.20458984375, False),
+            # SearchParameters(256, 0.2275390625, False),
         ],
         1,
     )
@@ -55,8 +55,8 @@ if __name__ == "__main__":
         "gist_unscaled.txt",
         [
             SearchParameters(64, 0.4736328125, True),
-            SearchParameters(128, 0.529296875, True),
-            SearchParameters(256, 0.59375, True),
+            # SearchParameters(128, 0.529296875, False),
+            # SearchParameters(256, 0.59375, False),
         ],
         1,
     )
@@ -65,8 +65,8 @@ if __name__ == "__main__":
         "sift10m_unscaled.txt",
         [
             SearchParameters(64, 122.5, True),
-            SearchParameters(128, 136.5, True),
-            SearchParameters(256, 152.5, True),
+            # SearchParameters(128, 136.5, False),
+            # SearchParameters(256, 152.5, False),
         ],
         1,
     )
