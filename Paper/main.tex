@@ -995,7 +995,7 @@ We compare the performance of the two brute force TC algorithms to observe how t
 To better understand why the performance of \ouralg scales well with increasing data dimensionality ($d$), while the performance of \tedjoinbrute degrades, we employ the Nvidia Nsight Compute profiler and present the results in Table~\ref{tab:profiler_results}. We observe that as $d$ increases, the tensor pipe utilization metric increases for \ouralg but does not for \tedjoinbrute. Examining the percentage of shared memory bank conflicts, we observe that \ouralg is conflict-free (0\%), whereas \tedjoinbrute yields $\geq$75\% shared memory bank conflicts. \tedjoin is constrained by the WMMA API which has rigid load/store memory access patterns which causes shared memory bank conflicts in both the \tedjoinbrute and \tedjoinindex variants.
 
 
-While analyzing our results from Table~\ref{tab:profiler_results}, we discovered a discrepancy between the TC Pipe Utilization metric and our derived TFLOPS. The profiler reported 64\% utilization while, by our calculations, we only achieved 49\%. The explanation for this discrepancy is that at $d{=}4096$, the 250~W power budget for our PCIe A100 is exceeded, and the clock is throttled to 1.12 Ghz. The implications of this finding are discussed in the conclusion.
+While analyzing our results from Table~\ref{tab:profiler_results}, we discovered a discrepancy between the TC Pipe Utilization metric and our derived TFLOPS. The profiler reported 64\% utilization while, by our calculations, we only achieved 49\%. The explanation for this discrepancy is that at $d{=}4096$, the 250~W power budget for our PCIe A100 is exceeded, and the clock is throttled to 1.12 GHz. The implications of this finding are discussed in the conclusion.
 
 
 \begin{table}[!t]
@@ -1012,7 +1012,7 @@ While analyzing our results from Table~\ref{tab:profiler_results}, we discovered
              L2 Hit Rate (\%) & 89.8 & 89.6 &  84.4 &  98.9 & 98.9& OOM\\ \hline
              TC Pipe Utilization FP16-32 (\%) &  10.1& 17.8 & 64.0&   N/A & N/A&OOM \\ \hline
              TC Pipe Utilization FP64 (\%) &  N/A & N/A & N/A & 5.75& 1.99 &OOM\\ \hline
-             Clock Speed (Ghz) &  1.37 & 1.40 & 1.12 & 1.40 & 1.41 &OOM\\ \hline
+             Clock Speed (GHz) &  1.37 & 1.40 & 1.12 & 1.40 & 1.41 &OOM\\ \hline
         \end{tabularx}
     \label{tab:profiler_results}
 \end{table}
