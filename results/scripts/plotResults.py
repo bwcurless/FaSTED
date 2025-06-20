@@ -29,6 +29,7 @@ INPUT_DIM_COL = "results.inputProblemShape.k"
 TIME = "results.totalTime"
 ALGORITHM = "algorithm"
 DATASET_NAME = "dataset"
+ITERATION = "iteration"
 
 # Algorithms
 MPTC_JOIN = "FaSTED"
@@ -53,7 +54,7 @@ def parse_selectivity_vs_speed_data():
     df = pd.json_normalize(selec_speed_results)
     # Average results from each iteration
     averaged_results = (
-        df.groupby(SEL_COL, as_index=False).mean().drop(columns=["iteration"])
+        df.groupby(SEL_COL, as_index=False).mean().drop(columns=[ITERATION])
     )
     print(averaged_results)
     plt.figure(1)
@@ -79,9 +80,16 @@ def parse_speed_vs_size_data():
     averaged_results = (
         df.groupby([INPUT_SIZE_COL_M, INPUT_DIM_COL], as_index=False)
         .mean()
-        .drop(columns=["iteration"])
+        .drop(columns=[ITERATION])
     )
     print(averaged_results)
+    stats = (
+        df[[INPUT_SIZE_COL_M, INPUT_DIM_COL, SPEED_COL]]
+        .groupby([INPUT_SIZE_COL_M, INPUT_DIM_COL], as_index=False)
+        .agg(speed_mean=(SPEED_COL, "mean"), speed_std=(SPEED_COL, "std"))
+    )
+    print(f"speed vs size statistics \n{stats.to_string()}")
+    print(f"Max Standard Dev of Speed vs Size is: {stats["speed_std"].max()}")
 
     # Extract x and y labels...
     unique_size = np.unique(averaged_results[INPUT_SIZE_COL_M])
@@ -190,6 +198,10 @@ def plot_real_world_data_speed_comparison():
             .mean()
             .drop(columns=["iteration"])
         )
+        statistics = raw_results.groupby([SEL_COL], as_index=False).agg(
+            time_mean=(TIME, "mean"), time_std=(TIME, "std")
+        )
+        print(f"MPTC Join Real world results for {dataset_name}\n {statistics}")
 
         averaged_results[DATASET_NAME] = dataset_name
         # Mark these results as my own
