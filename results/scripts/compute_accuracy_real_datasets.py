@@ -1,4 +1,5 @@
 import json
+import slurm
 import re
 import logging
 import pathlib
@@ -77,11 +78,14 @@ def point_by_point_averaged_comparison(mptc_path, gds_path):
     then average the accuracy overall points
     """
     running_accuracy_sum = 0.0
-    gds_line_num = 0
+    total_points = 0
 
     with open(mptc_path, "r") as mptc_file, open(gds_path, "r") as gds_file:
         for gds_line in gds_file:
-            gds_line_num += 1
+            # Skip intro lines in gds-join file
+            if not gds_line.startswith("point id:"):
+                continue
+            total_points += 1  # Each valid line in GDS file is a point in the dataset
             point_index, expected_neighbors = parse_gds_line(gds_line)
             logging.debug(f"Processing point: {point_index}")
 
@@ -93,7 +97,7 @@ def point_by_point_averaged_comparison(mptc_path, gds_path):
 
             running_accuracy_sum += point_score
 
-    final_accuracy = running_accuracy_sum / gds_line_num
+    final_accuracy = running_accuracy_sum / total_points
     return final_accuracy
 
 
@@ -109,16 +113,22 @@ def global_iou_comparison(left_path, right_path):
 
 
 def compare_neighbor_tables(
-    neighbor_tables: list[tuple[str, str]], compare_func: Callable[[Path, Path], object]
+    base_path: str,
+    neighbor_tables: list[tuple[str, str]],
+    compare_func: Callable[[Path, Path], object],
 ):
+    """
+    Iterate through pairs of files, executing a compare function on each pair and saving
+    the results.
+    """
 
     results = {}
 
     for left_file, right_file in neighbor_tables:
         print(f"Comparing file: {left_file} with file: {right_file}")
 
-        left_path = pathlib.Path(dataset_path, left_file)
-        right_path = pathlib.Path(dataset_path, right_file)
+        left_path = pathlib.Path(base_path, left_file)
+        right_path = pathlib.Path(base_path, right_file)
 
         pair_comparison = compare_func(left_path, right_path)
 
@@ -147,60 +157,75 @@ if __name__ == "__main__":
 
     logging.debug("Debug text")
 
+    if not slurm.running_on_slurm():
+        # Temporary override for local testing
+        base_path = "../accuracy_results/cifar_data/"
+        # Local comparisons. Can't copy all the data over, it is far too big.
+        neighbor_tables = [
+            (
+                "mptc_neighbortable_cifar60k_unscaled_0.628906.out",
+                "gds_join_neighbortable_FP64_cifar60k_eps_0.62890625.out",
+            ),
+        ]
+        compare_neighbor_tables(
+            base_path,
+            neighbor_tables,
+            point_by_point_averaged_comparison,
+        )
+    # Real Data
+    else:
+        base_path = "/scratch/bc2497/pairsData/neighbor_tables"
 
-    # Create input data
-    dataset_path = "/scratch/bc2497/pairsData/"
+        neighbor_tables = [
+            (
+                "fasted/second_run/cifar60k_unscaled_0.628906.pairs",
+                "fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.62890625.out",
+            ),
+            (
+                "fasted/second_run/cifar60k_unscaled_0.659180.pairs",
+                "fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.6591796875.out",
+            ),
+            (
+                "fasted/second_run/cifar60k_unscaled_0.691406.pairs",
+                "fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.69140625.out",
+            ),
+            (
+                "fasted/second_run/gist_unscaled_0.473633.pairs",
+                "fp64_gds_join/neighbortable_FP64_gist_eps_0.4736328125.out",
+            ),
+            (
+                "fasted/second_run/gist_unscaled_0.529297.pairs",
+                "fp64_gds_join/neighbortable_FP64_gist_eps_0.529296875.out",
+            ),
+            (
+                "fasted/second_run/gist_unscaled_0.593750.pairs",
+                "fp64_gds_join/neighbortable_FP64_gist_eps_0.59375.out",
+            ),
+            (
+                "fasted/second_run/sift10m_unscaled_122.500000.pairs",
+                "fp64_gds_join/neighbortable_FP64_sift10m_eps_122.5.out",
+            ),
+            (
+                "fasted/second_run/sift10m_unscaled_136.500000.pairs",
+                "fp64_gds_join/neighbortable_FP64_sift10m_eps_136.5.out",
+            ),
+            (
+                "fasted/second_run/tiny5m_unscaled_0.183105.pairs",
+                "fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.18310546875.out",
+            ),
+            (
+                "fasted/second_run/tiny5m_unscaled_0.204590.pairs",
+                "fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.20458984375.out",
+            ),
+            (
+                "fasted/second_run/tiny5m_unscaled_0.227539.pairs",
+                "fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.2275390625.out",
+            ),
+        ]
 
-    # Temporary override for local testing
-    # dataset_path = "../accuracy_results/cifar_data/"
+        compare_neighbor_tables(
+            base_path, neighbor_tables, point_by_point_averaged_comparison
+        )
 
-    point_comparisons = [
-        (
-            "mptc_join/cifar60k_unscaled_0.628906.txt",
-            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
-        ),
-        (
-            "mptc_join/gist_unscaled_0.473633.txt",
-            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_gist_eps_0.4736328125.txt",
-        ),
-        (
-            "mptc_join/sift10m_unscaled_122.500000.txt",
-            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_sift10m_eps_122.5.txt",
-        ),
-        (
-            "mptc_join/tiny5m_unscaled_0.183105.txt",
-            "header_stripped_fp64_gds_join/stripped_neighbortable_FP64_tiny5m_eps_0.18310546875.txt",
-        ),
-    ]
-
-    # New way of computing accuracy
-    # point_comparisons = [
-    #    (
-    #        "mptc_neighbortable_cifar60k_unscaled_0.628906.txt",
-    #        "gds_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
-    #    ),
-    # ]
-
-    compare_neighbor_tables(point_comparisons, point_by_point_averaged_comparison)
-
-    # Old way of computing accuracy
-    # Dataset 1, 2, 3, 4
-    # global_comparisons = [
-    #    (
-    #        "cifar60k_unscaled_0.628906.txt",
-    #        "flattened_stripped_neighbortable_FP64_cifar60k_eps_0.62890625.txt",
-    #    ),
-    #    (
-    #        "gist_unscaled_0.473633.txt",
-    #        "flattened_stripped_neighbortable_FP64_gist_eps_0.4736328125.txt",
-    #    ),
-    #    (
-    #        "sift10m_unscaled_122.500000.txt",
-    #        "flattened_stripped_neighbortable_FP64_sift10m_eps_122.5.txt",
-    #    ),
-    #    (
-    #        "tiny5m_unscaled_0.183105.txt",
-    #        "flattened_stripped_neighbortable_FP64_tiny5m_eps_0.18310546875.txt",
-    #    ),
-    # ]
-    # compare_neighbor_tables(global_comparisons, global_iou_comparison)
+        # Old way of computing accuracy
+        # compare_neighbor_tables(point_comparisons, global_iou_comparison)
