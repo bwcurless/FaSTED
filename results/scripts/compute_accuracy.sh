@@ -18,7 +18,7 @@ module load python/3.10.8
 module load py-pip
 pip install numpy
 
-python -um compute_accuracy_real_datasets
+python -m compute_accuracy_real_datasets
 
 
 echo "----------------- JOB FINISHED -------------"
