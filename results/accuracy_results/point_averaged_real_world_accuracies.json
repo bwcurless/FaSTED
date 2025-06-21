@@ -1,6 +1,13 @@
 {
-    "mptc_join/cifar60k_unscaled_0.628906.txt, header_stripped_fp64_gds_join/stripped_neighbortable_FP64_cifar60k_eps_0.62890625.txt": 0.9997090359241025,
-    "mptc_join/gist_unscaled_0.473633.txt, header_stripped_fp64_gds_join/stripped_neighbortable_FP64_gist_eps_0.4736328125.txt": 0.9999852266643082,
-    "mptc_join/sift10m_unscaled_122.500000.txt, header_stripped_fp64_gds_join/stripped_neighbortable_FP64_sift10m_eps_122.5.txt": 1.0,
-    "mptc_join/tiny5m_unscaled_0.183105.txt, header_stripped_fp64_gds_join/stripped_neighbortable_FP64_tiny5m_eps_0.18310546875.txt": 0.99998006551403
+    "fasted/second_run/cifar60k_unscaled_0.628906.pairs, fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.62890625.out": 0.9997090359241025,
+    "fasted/second_run/cifar60k_unscaled_0.659180.pairs, fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.6591796875.out": 0.9995519220815924,
+    "fasted/second_run/cifar60k_unscaled_0.691406.pairs, fp64_gds_join/neighbortable_FP64_cifar60k_eps_0.69140625.out": 0.9994557633361241,
+    "fasted/second_run/gist_unscaled_0.473633.pairs, fp64_gds_join/neighbortable_FP64_gist_eps_0.4736328125.out": 0.9999852266643082,
+    "fasted/second_run/gist_unscaled_0.529297.pairs, fp64_gds_join/neighbortable_FP64_gist_eps_0.529296875.out": 0.9999812625105501,
+    "fasted/second_run/gist_unscaled_0.593750.pairs, fp64_gds_join/neighbortable_FP64_gist_eps_0.59375.out": 0.9999711205158137,
+    "fasted/second_run/sift10m_unscaled_122.500000.pairs, fp64_gds_join/neighbortable_FP64_sift10m_eps_122.5.out": 1.0,
+    "fasted/second_run/sift10m_unscaled_136.500000.pairs, fp64_gds_join/neighbortable_FP64_sift10m_eps_136.5.out": 1.0,
+    "fasted/second_run/tiny5m_unscaled_0.183105.pairs, fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.18310546875.out": 0.99998006551403,
+    "fasted/second_run/tiny5m_unscaled_0.204590.pairs, fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.20458984375.out": 0.999974819252118,
+    "fasted/second_run/tiny5m_unscaled_0.227539.pairs, fp64_gds_join/neighbortable_FP64_tiny5m_eps_0.2275390625.out": 0.9999628946577324
 }

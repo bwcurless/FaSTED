@@ -40,7 +40,8 @@ def compute_distance_error_histogram(fasted_path, gds_path):
 def get_optimized_file_paths(paths: DistancePaths) -> DistancePaths:
     # Copy files to local storage to speed this up.
     if slurm.running_on_slurm():
-        tmpdir = slurm.get_node_tempdir()
+        # tmpdir = slurm.get_node_tempdir()
+        tmpdir = Path("/tmp/")
         tmp_fasted_path = tmpdir / paths.fasted.name
         tmp_gds_path = tmpdir / paths.gds.name
         print(f"Copying data to temporary storage on node")
@@ -68,11 +69,11 @@ def compute_distance_errors(original_paths: DistancePaths) -> ErrorStatistics:
 
         return ErrorStatistics(**json_data)
 
-    paths = get_optimized_file_paths(original_paths)
+    optimized_paths = get_optimized_file_paths(original_paths)
 
-    with open(paths.fasted, "r") as fasted_file, open(paths.gds, "r") as gds_file, open(
-        paths.errors, "w"
-    ) as error_file:
+    with open(optimized_paths.fasted, "r") as fasted_file, open(
+        optimized_paths.gds, "r"
+    ) as gds_file, open(optimized_paths.errors, "w") as error_file:
         total_neighbors = 0
         min = float("inf")
         max = float("-inf")
@@ -132,7 +133,11 @@ def compute_distance_errors(original_paths: DistancePaths) -> ErrorStatistics:
     if slurm.running_on_slurm():
         # Copy error data back to scratch
         print("Copying data off of node.")
-        shutil.copyfile(paths.errors, original_paths.errors)
+        shutil.copyfile(optimized_paths.errors, original_paths.errors)
+        # Clean up temporary files
+        os.remove(optimized_paths.fasted)
+        os.remove(optimized_paths.gds)
+        os.remove(optimized_paths.errors)
 
     return json_data
 
