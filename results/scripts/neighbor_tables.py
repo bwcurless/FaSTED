@@ -1,4 +1,5 @@
 import json
+import sys
 from typing import TypeVar
 import logging
 import re
@@ -8,36 +9,59 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 
+def prefix_filename(filepath: str, prefix: str, extension: str) -> Path:
+    stripped_ext = extension.removeprefix(".")
+    path = Path(filepath)
+    return path.parent / Path(f"{prefix}_{path.stem}.{stripped_ext}")
+
+
+def get_launch_file():
+    return sys.argv[0]
+
+
 def compare_neighbor_tables(
     base_path: str,
     neighbor_tables: list[tuple[str, str]],
     compare_func: Callable[[Path, Path], object],
+    rerun: bool = False,
 ):
     """
     Iterate through pairs of files, executing a compare function on each pair and saving
-    the results.
+    the results. Will skip running the comparison if it has already been run. Requires
+    write access to the directory storing the data. Can be overridden to force a rerun.
     """
-
-    results = {}
+    # Save results to a single file stored with the data
+    results_path = Path(base_path) / f"neighbor_table_comparison_results.json"
+    if results_path.exists():
+        with open(results_path, "r") as f:
+            results = json.load(f)
+    else:
+        results = {}
 
     for left_file, right_file in neighbor_tables:
         print(f"Comparing file: {left_file} with file: {right_file}")
+        comparison_name = f"{left_file}, {right_file}"
+
+        if not rerun and comparison_name in results:
+            print("Files have already been compared.")
+            continue
 
         left_path = pathlib.Path(base_path, left_file)
         right_path = pathlib.Path(base_path, right_file)
 
         pair_comparison = compare_func(left_path, right_path)
 
-        results[f"{left_file}, {right_file}"] = pair_comparison
+        results[comparison_name] = pair_comparison
 
         print("Comparison done")
         print(f"Results: {results}")
 
+        # Save at intermediate steps in case crashes
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=4)
+
     print("Final comparison results")
     print(results)
-
-    with open("neighbor_table_comparison_results.json", "w") as f:
-        json.dump(results, f, indent=4)
 
 
 # Generic type for type checking

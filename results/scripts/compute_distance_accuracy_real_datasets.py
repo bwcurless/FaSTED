@@ -17,18 +17,12 @@ class ErrorStatistics:
     min_error: float
 
 
-def prefix_filename(filepath: str, prefix: str, extension: str) -> Path:
-    stripped_ext = extension.removeprefix(".")
-    path = Path(filepath)
-    return path.parent / Path(f"{prefix}_{path.stem}.{stripped_ext}")
-
-
 DISTANCE_ERRORS_PREFIX = "distance_errors"
 STATISTICS_PREFIX = "stats"
 
 
 def compute_distance_error_histogram(fasted_path, gds_path):
-    errors_path = prefix_filename(fasted_path, DISTANCE_ERRORS_PREFIX, "txt")
+    errors_path = nt.prefix_filename(fasted_path, DISTANCE_ERRORS_PREFIX, "txt")
 
     stats = compute_distance_errors(fasted_path, gds_path, errors_path)
     # TODO compute std dev and histogram
@@ -41,7 +35,7 @@ def compute_distance_errors(
     Computes the errors in the distance calculations between
     the two datasets. Saves the results out to errors_path and stats_path.
     """
-    stats_path = prefix_filename(fasted_path, STATISTICS_PREFIX, "json")
+    stats_path = nt.prefix_filename(fasted_path, STATISTICS_PREFIX, "json")
     # If these files have already been processed, do nothing
     if errors_path.exists() and stats_path.exists():
         print(f'FasTED data "{fasted_path}" has already been processed')

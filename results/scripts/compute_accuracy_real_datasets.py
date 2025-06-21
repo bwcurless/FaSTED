@@ -7,7 +7,7 @@ import logging
 import argparse
 
 
-def point_by_point_averaged_comparison(mptc_path, gds_path):
+def point_by_point_averaged_comparison(fasted_path, gds_path):
     """
     The final metric reported in the paper. Compute accuracy of each point,
     then average the accuracy overall points
@@ -15,7 +15,7 @@ def point_by_point_averaged_comparison(mptc_path, gds_path):
     running_accuracy_sum = 0.0
     total_points = 0
 
-    with open(mptc_path, "r") as mptc_file, open(gds_path, "r") as gds_file:
+    with open(fasted_path, "r") as fasted_file, open(gds_path, "r") as gds_file:
         for gds_line in gds_file:
             # Skip intro lines in gds-join file
             if not gds_line.startswith("point id:"):
@@ -24,9 +24,10 @@ def point_by_point_averaged_comparison(mptc_path, gds_path):
             point_index, expected_neighbors = nt.parse_gds_neighbor_line(gds_line)
             logging.debug(f"Processing point: {point_index}")
 
-            guesses = nt.get_mptc_guesses_for_point(mptc_file, point_index)
-            intersection = len(set(expected_neighbors).intersection(guesses))
-            union = len(set(expected_neighbors).union(guesses))
+            neighbors = nt.get_fasted_neighbors_for_point(fasted_file, point_index)
+            indices = [x.point_index for x in neighbors]
+            intersection = len(set(expected_neighbors).intersection(indices))
+            union = len(set(expected_neighbors).union(indices))
             point_score = intersection / union
             logging.debug(f"Current point_score is: {point_score}")
 
