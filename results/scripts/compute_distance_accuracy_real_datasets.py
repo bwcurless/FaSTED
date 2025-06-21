@@ -79,16 +79,13 @@ def compute_distance_errors(
             for neighbor in fp16_32_neighbors:
                 if neighbor.point_index in fp64_neighbors:
                     if neighbor.distance is not None:
-                        # I took the square root of a slightly negative number
-                        # in my code when I computed the distance between identical points.
+                        # If I took the square root of a slightly negative number
                         # It should have been rounded up to 0.0
                         fp16_32_dist = (
-                            0.0
-                            if math.isnan(neighbor.distance)
-                            and point_index == neighbor.point_index
-                            else neighbor.distance
+                            0.0 if math.isnan(neighbor.distance) else neighbor.distance
                         )
                         fp64_dist = fp64_neighbors[neighbor.point_index]
+                        fp64_dist = 0.0 if math.isnan(fp64_dist) else fp64_dist
                         dist = fp16_32_dist - fp64_dist
                         if dist > max:
                             max = dist

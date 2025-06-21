@@ -29,6 +29,7 @@ def compare_neighbor_tables(
     Iterate through pairs of files, executing a compare function on each pair and saving
     the results. Will skip running the comparison if it has already been run. Requires
     write access to the directory storing the data. Can be overridden to force a rerun.
+    Writes results to base_path folder.
     """
     # Save results to a single file stored with the data
     results_path = Path(base_path) / f"neighbor_table_comparison_results.json"
