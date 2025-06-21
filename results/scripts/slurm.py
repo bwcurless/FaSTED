@@ -1,4 +1,17 @@
 import os
+from pathlib import Path
+
+
+def get_node_tempdir() -> Path:
+    """
+    File accesses are slow on NFS, so request a temporary location on
+    the node's local hard drive to store files to.
+    """
+    tmpdir = os.getenv("SLURM_TMPDIR")
+    if tmpdir:
+        return Path(tmpdir)
+    else:
+        raise Exception("Failed to get Slurm temporary directory.")
 
 
 def running_on_slurm():

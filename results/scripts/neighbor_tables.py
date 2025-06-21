@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 
-def prefix_filename(filepath: str, prefix: str, extension: str) -> Path:
+def prefix_filename(filepath: str | Path, prefix: str, extension: str) -> Path:
     stripped_ext = extension.removeprefix(".")
     path = Path(filepath)
     return path.parent / Path(f"{prefix}_{path.stem}.{stripped_ext}")

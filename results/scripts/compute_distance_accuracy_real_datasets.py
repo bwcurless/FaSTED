@@ -1,5 +1,6 @@
 import slurm
 import math
+import shutil
 import os
 import json
 import logging
@@ -21,31 +22,56 @@ DISTANCE_ERRORS_PREFIX = "distance_errors"
 STATISTICS_PREFIX = "stats"
 
 
+@dataclass
+class DistancePaths:
+    fasted: Path
+    gds: Path
+    errors: Path
+
+
 def compute_distance_error_histogram(fasted_path, gds_path):
     errors_path = nt.prefix_filename(fasted_path, DISTANCE_ERRORS_PREFIX, "txt")
 
-    stats = compute_distance_errors(fasted_path, gds_path, errors_path)
+    paths = DistancePaths(fasted_path, gds_path, errors_path)
+    stats = compute_distance_errors(paths)
     # TODO compute std dev and histogram
 
 
-def compute_distance_errors(
-    fasted_path, gds_path, errors_path: Path
-) -> ErrorStatistics:
+def get_optimized_file_paths(paths: DistancePaths) -> DistancePaths:
+    # Copy files to local storage to speed this up.
+    if slurm.running_on_slurm():
+        tmpdir = slurm.get_node_tempdir()
+        tmp_fasted_path = tmpdir / paths.fasted.name
+        tmp_gds_path = tmpdir / paths.gds.name
+        print(f"Copying data to temporary storage on node")
+        shutil.copyfile(paths.fasted, tmp_fasted_path)
+        shutil.copyfile(paths.gds, tmp_gds_path)
+        # Declare output data on local storage
+        tmp_errors_path = tmpdir / paths.errors.name
+        return DistancePaths(tmp_fasted_path, tmp_gds_path, tmp_errors_path)
+    else:
+        print(f"Working straight from the filesystem.")
+        return paths
+
+
+def compute_distance_errors(original_paths: DistancePaths) -> ErrorStatistics:
     """
     Computes the errors in the distance calculations between
     the two datasets. Saves the results out to errors_path and stats_path.
     """
-    stats_path = nt.prefix_filename(fasted_path, STATISTICS_PREFIX, "json")
+    stats_path = nt.prefix_filename(original_paths.fasted, STATISTICS_PREFIX, "json")
     # If these files have already been processed, do nothing
-    if errors_path.exists() and stats_path.exists():
-        print(f'FasTED data "{fasted_path}" has already been processed')
+    if original_paths.errors.exists() and stats_path.exists():
+        print(f'FasTED data "{original_paths.fasted}" has already been processed')
         with open(stats_path, "r") as stats_file:
             json_data = json.load(stats_file)
 
         return ErrorStatistics(**json_data)
 
-    with open(fasted_path, "r") as fasted_file, open(gds_path, "r") as gds_file, open(
-        errors_path, "w"
+    paths = get_optimized_file_paths(original_paths)
+
+    with open(paths.fasted, "r") as fasted_file, open(paths.gds, "r") as gds_file, open(
+        paths.errors, "w"
     ) as error_file:
         total_neighbors = 0
         min = float("inf")
@@ -103,6 +129,11 @@ def compute_distance_errors(
     with open(stats_path, "w") as stats_file:
         json.dump(asdict(json_data), stats_file, indent=2)
 
+    if slurm.running_on_slurm():
+        # Copy error data back to scratch
+        print("Copying data off of node.")
+        shutil.copyfile(paths.errors, original_paths.errors)
+
     return json_data
 
 
@@ -133,6 +164,7 @@ if __name__ == "__main__":
             base_path,
             neighbor_tables_with_distances,
             compute_distance_error_histogram,
+            True,
         )
     # Real Data
     else:
