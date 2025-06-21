@@ -157,8 +157,10 @@ if __name__ == "__main__":
             ),
         ]
 
+        # Force rerun every time.
         nt.compare_neighbor_tables(
             base_path,
             neighbor_tables_with_distances,
             compute_distance_error_histogram,
+            True,
         )
