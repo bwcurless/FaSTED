@@ -70,6 +70,7 @@ def compute_distance_errors(original_paths: DistancePaths) -> ErrorStatistics:
         return ErrorStatistics(**json_data)
 
     optimized_paths = get_optimized_file_paths(original_paths)
+    print("Computing distance errors.")
 
     with open(optimized_paths.fasted, "r") as fasted_file, open(
         optimized_paths.gds, "r"
@@ -135,6 +136,7 @@ def compute_distance_errors(original_paths: DistancePaths) -> ErrorStatistics:
         print("Copying data off of node.")
         shutil.copyfile(optimized_paths.errors, original_paths.errors)
         # Clean up temporary files
+        print("Deleting temporary files.")
         os.remove(optimized_paths.fasted)
         os.remove(optimized_paths.gds)
         os.remove(optimized_paths.errors)
