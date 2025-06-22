@@ -1,4 +1,7 @@
 import slurm
+import matplotlib.ticker as ticker
+import matplotlib.pyplot as plt
+import numpy as np
 import math
 import shutil
 import os
@@ -8,6 +11,11 @@ import argparse
 from pathlib import Path
 import neighbor_tables as nt
 from dataclasses import dataclass, asdict
+
+# Use tex fonts for plots to match paper
+plt.rcParams.update(
+    {"text.usetex": True, "font.family": "Computer Modern Roman", "font.size": 8}
+)
 
 
 @dataclass
@@ -34,7 +42,48 @@ def compute_distance_error_histogram(fasted_path, gds_path):
 
     paths = DistancePaths(fasted_path, gds_path, errors_path)
     stats = compute_distance_errors(paths)
-    # TODO compute std dev and histogram
+
+    # Read the file
+    with open(errors_path) as f:
+        data = [float(line.strip()) for line in f if line.strip()]
+
+    mean = stats.mean_error
+    std = np.std(data)
+    print(f"Standard deviation is: {std}")
+
+    # Only plot cifar data, not enough room in paper.
+    if "cifar" in str(fasted_path):
+        # Plot histogram
+        plt.figure(figsize=(3.0, 3.0))
+        plt.hist(data, bins=300, color="black", edgecolor="black", alpha=0.7)
+        plt.xlabel(
+            "Distance Error",
+            fontsize=8,
+        )
+        plt.gca().yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        plt.gca().ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+        plt.ylim(0, 600000)
+        plt.xticks(
+            horizontalalignment="right",
+            rotation_mode="anchor",
+            rotation=45,
+        )
+        plt.ylabel("Frequency", fontsize=8)
+        # Add text annotation (top-left corner)
+        textstr = f"Mean = {mean:.1E}\nStd Dev = {std:.1E}"
+        plt.text(
+            0.5,
+            0.95,
+            textstr,
+            transform=plt.gca().transAxes,
+            fontsize=8,
+            verticalalignment="top",
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+        )
+        plt.tight_layout()
+        plt.savefig("Cifar_distance_error.pdf")
+        plt.show()
 
 
 def get_optimized_file_paths(paths: DistancePaths) -> DistancePaths:
@@ -159,12 +208,24 @@ if __name__ == "__main__":
 
     if not slurm.running_on_slurm():
         # Temporary override for local testing
-        base_path = "../distance_results/cifar/"
+        base_path = "../distance_results/"
         # Local comparisons. Can't copy all the data over, it is far too big.
         neighbor_tables_with_distances = [
             (
                 "cifar60k_unscaled_0.628906.pairs",
                 "neighbortable_distances_FP64_cifar60k_eps_0.62890625.out",
+            ),
+            (
+                "gist_unscaled_0.473633.pairs",
+                "neighbortable_distances_FP64_gist_eps_0.4736328125.out",
+            ),
+            (
+                "sift10m_unscaled_122.500000.pairs",
+                "neighbortable_distances_FP64_sift10m_eps_122.5.out",
+            ),
+            (
+                "tiny5m_unscaled_0.183105.pairs",
+                "neighbortable_distances_FP64_tiny5m_eps_0.18310546875.out",
             ),
         ]
         nt.compare_neighbor_tables(
