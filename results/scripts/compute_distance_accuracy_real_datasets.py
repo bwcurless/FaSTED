@@ -54,8 +54,27 @@ def compute_distance_error_histogram(fasted_path, gds_path):
     # Only plot cifar data, not enough room in paper.
     if "cifar" in str(fasted_path):
         # Plot histogram
-        plt.figure(figsize=(3.0, 3.0))
-        plt.hist(data, bins=300, color="black", edgecolor="black", alpha=0.7)
+        plt.figure(figsize=(3.0, 2.0))
+
+        # Bin width
+        bin_width = 0.000005
+
+        data_min, data_max = stats.min_error, stats.max_error
+
+        # Extend range to cover whole bins
+        left_edge = np.floor((data_min - bin_width / 2) / bin_width) * bin_width
+        right_edge = np.ceil((data_max + bin_width / 2) / bin_width) * bin_width
+
+        # Generate bin edges so that 0 is in the center of a bin
+        bin_edges = np.arange(left_edge + bin_width / 2, right_edge, bin_width)
+        bin_edges = np.append(bin_edges, bin_edges[-1] + bin_width)  # Add final edge
+        plt.hist(
+            data,
+            bins=bin_edges,
+            color="black",
+            edgecolor="black",
+            alpha=0.7,
+        )
         plt.xlabel(
             "Distance Error",
             fontsize=8,
@@ -63,24 +82,14 @@ def compute_distance_error_histogram(fasted_path, gds_path):
         plt.gca().yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         plt.gca().ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
-        plt.ylim(0, 600000)
+        plt.ylim(0, 400000)
+        plt.xlim(-0.00015, 0.00015)
         plt.xticks(
             horizontalalignment="right",
             rotation_mode="anchor",
             rotation=45,
         )
         plt.ylabel("Frequency", fontsize=8)
-        # Add text annotation (top-left corner)
-        textstr = f"Mean = {mean:.1E}\nStd Dev = {std:.1E}"
-        plt.text(
-            0.5,
-            0.95,
-            textstr,
-            transform=plt.gca().transAxes,
-            fontsize=8,
-            verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
         plt.tight_layout()
         plt.savefig("Cifar_distance_error.pdf")
         plt.show()
