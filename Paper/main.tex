@@ -103,7 +103,6 @@
 %% End of template, start of our custom Preamble here:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %custom commands
-% For importing pgf plots
 \usepackage[utf8]{inputenc}
 \usepackage{colortbl}
 \usepackage{amsmath,amsfonts}
@@ -113,14 +112,10 @@
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage[dvipsnames]{xcolor}
-\usepackage{tikz}
 \usepackage{enumitem}
 \usepackage{subfigure}
 \usepackage{subcaption}
-\usepackage{pgfplots}
-\pgfplotsset{compat=1.18}
 
-\usepackage{tikzscale}
 \usepackage{listings}
 \lstset{
 language=C++,
@@ -133,13 +128,9 @@ showstringspaces=false,
 \setlist{topsep=0pt, leftmargin=*}
 
 
-\usepackage{tikz}
 \usepackage{xcolor}
 \usepackage{xparse}
-\usetikzlibrary{calc}
-\usetikzlibrary{matrix}
-\usetikzlibrary{arrows.meta}
-\usetikzlibrary{backgrounds}
+
 \usepackage{xparse}
 
 \usepackage{xspace}    
@@ -177,31 +168,6 @@ showstringspaces=false,
 \def\uniform{\textit{Uniform}\xspace} 
 \def\synth{\textit{Synth}\xspace} 
 
-\newcommand\kslice{$k$-slice\xspace}
-\newcommand\kslices{$k$-slices\xspace}
-\newcommand\eightd{$d{=}8$\xspace}
-\newcommand\sixtd{$d{=}16$\xspace}
-\newcommand\sixfourd{$d{=}64$\xspace}
-
-\newcommand\regf{\text{rf}}
-\newcommand\blockf{\text{bf}}
-\newcommand\arf{\ensuremath{\bm{A}_{\regf}}}
-\newcommand\prf{\ensuremath{\bm{P}_{\regf}}}
-\newcommand\qrf{\ensuremath{\bm{Q}_{\regf}}}
-\newcommand\pbf{\ensuremath{\bm{P}_{\blockf}}}
-\newcommand\qbf{\ensuremath{\bm{Q}_{\blockf}}}
-
-\newcommand\pointRange[2]{%
-    \def\firstPoint{#1}
-    \def\lastPoint{#2}
-
-    \ensuremath{\{p_{\firstPoint}, \dotsc, p_{\lastPoint\}}}}
-    
-\newcommand\dimRange[2]{%
-    \def\firstDim{#1}
-    \def\lastDim{#2}
-
-    \ensuremath{k \in \{\firstDim,\dotsc, \lastDim\}}}
 
 \definecolor{OliveGreen}{cmyk}{0.64,0,0.95,0.40}
 \definecolor{CadetBlue}{cmyk}{0.62,0.57,0.23,0}
@@ -236,11 +202,11 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 %end custom
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\input{textResources}
+
 %%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
-\input{figures/diagramResources.tex}
-
 
 %Potential names for the algorithm
 % Fast and Scalable Tensor Euclidean Distance
@@ -617,14 +583,14 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
 
 \begin{figure}
     \centering
-    \input{figures/Single_TC_MMA.tex}
+    \includegraphics{tikz_build/Single_TC_MMA}
     \caption{A single 16$\times$8$\times$16 TC computation used to accumulate the distances between two points $p_i$ and $p_j$ into $a_{i,j}$. Only the corner elements in each matrix are shown for illustrative purposes.}
     \label{fig:single_mma}
 \end{figure}
 
 \begin{figure}
     \centering
-    \input{figures/Warp_Tile.tex}
+    \includegraphics{tikz_build/Warp_Tile}
     \caption{Two iterations of a $32{\times} 32{\times }16$ warp tile are shown. It is made up of many register fragments from Figure~\ref{fig:single_mma}. Only the upper left and lower right coordinates of each fragment are specified for illustrative purposes.}
     \label{fig:warp_mma}
 \end{figure}
@@ -632,7 +598,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
 
 \begin{figure}
     \centering
-    \input{figures/Block_Tile.tex}
+    \includegraphics{tikz_build/Block_Tile}
     \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, $P_{\blockf}$ and $Q_{\blockf}$, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments, and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
     
     \label{fig:block_tile_mma}
@@ -653,7 +619,7 @@ The L2 cache has a bandwidth of 6.4 TB/s which is $\sim$4$\times$ greater than g
 
 \begin{figure}
     \centering
-    \input{figures/Grid_Rasterization.tex}
+    \includegraphics{tikz_build/Grid_Rasterization}
     \caption{An illustration of how a work queue orders block tile computations into small squares to improve the L2 cache hit rate when reading from global memory (DRAM). }
     \label{fig:entire_mma}
 \end{figure}
@@ -718,14 +684,14 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
 
 \begin{figure}[!t]
     \centering
-    \input{figures/Global_Memory_Layout.tex}
+    \includegraphics{tikz_build/Global_Memory_Layout}
     \caption{The row-major global memory layout for the first 8 points is shown here. The threads that are responsible for reading each 8 dimension chunk of data from global memory and storing it in shared memory are labeled in the top left corner of each rectangle (T0--T63).}
     \label{fig:global_memory}
 \end{figure}
 
 \begin{figure}[!t]
     \centering
-    \input{figures/Shared_Memory_Layout.tex}
+    \includegraphics{tikz_build/Shared_Memory_Layout}
     \caption{The point data from Figure~\ref{fig:global_memory} is copied into the shared memory layout shown here one row at a time. The destination bank, $b$, of each 8 dimension chunk is swizzled by computing the XOR of the original bank $b$ with the row number (shown on the right). Each column in the table represents a group of 4 of the 32 shared memory banks. Reordering the data makes the \texttt{ldmatrix} instruction, shown in Figure~\ref{fig:ldmatrix}, access unique banks in each phase of its operation. }
     \label{fig:shared_memory}
 \end{figure}
@@ -734,10 +700,10 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
 \begin{figure}[!t]
     \centering
     \subfigure[]{
-      \input{figures/Chunk_Based_Fragment.tex}
+      \includegraphics{tikz_build/Chunk_Based_Fragment}
     }
     \subfigure[]{
-      \input{figures/Register_Based_Fragment.tex}
+      \includegraphics{tikz_build/Register_Based_Fragment}
     }
     \caption{(a) Single fragment \prf\ shared memory access layout. (b) Single fragment \prf\ register layout. The result of a single $16{\times}16$  \texttt{ldmatrix} instruction reading from shared memory and storing into a fragment made up of registers is shown above. Each 8 dimension chunk is labeled with the thread responsible for reading it from shared memory. After each thread reads its 16~B chunk from shared memory, that data is shuffled into the registers of four different threads (b). For example, T0 reads $p_1$ dimensions $k{=}1{-}8$, but it is stored into four registers, owned by threads 0-3. }
     \label{fig:ldmatrix}
@@ -886,15 +852,15 @@ Recall that because \ouralg is brute force, its performance is not impacted by t
 
 
 % Results
-\pgfmathtruncatemacro\baselineTFlops{154}
-\pgfmathtruncatemacro\ltwocache{133.1}
-\pgfmathtruncatemacro\blocktilesmembuffering{95.8}
-\pgfmathtruncatemacro\asyncglobalsharedmemory{48.6} % This also removes pipelining
-\pgfmathtruncatemacro\pipelining{145.0}
-\pgfmathtruncatemacro\multipleblockspersm{110.8}
-\pgfmathtruncatemacro\warptile{38.0}
-\pgfmathtruncatemacro\swizzling{120.8}
-\pgfmathtruncatemacro\smemalignment{120.7}
+\def\baselineTFlops{154}
+\def\ltwocache{133.1}
+\def\blocktilesmembuffering{95.8}
+\def\asyncglobalsharedmemory{48.6} % This also removes pipelining
+\def\pipelining{145.0}
+\def\multipleblockspersm{110.8}
+\def\warptile{38.0}
+\def\swizzling{120.8}
+\def\smemalignment{120.7}
 
 In Section~\ref{sec:ouralg_optimizations}, we described numerous optimizations and implementation details that were primarily used to mitigate the memory bottleneck when using FP16-32 TCs. Here, we present the relative impact of those optimizations by performing a leave-one-out evaluation that disables an optimization while leaving the remainder of the optimizations enabled. All optimizations were individually disabled, except for the \texttt{cuda::memcpy\_async} optimization which required disabling the multi-stage pipeline as well.\footnote{ Synchronous memory copies cannot be pipelined using the libcudacxx API: \url{https://nvidia.github.io/cccl/libcudacxx/extended_api/synchronization_primitives/pipeline.html}}  We select the \synth dataset with $|D|{=}10^5$ and $d{=}4096$ because as we showed in Section~\ref{sec:eval_dataset_size_dimensionality}, this dataset size and dimensionality are sufficient to reach our maximum throughput with \ouralg. 
 
