@@ -44,7 +44,7 @@
 %% for your publication.
 %%
 %%
-\documentclass[sigconf,anonymous, review]{acmart}
+\documentclass[sigconf]{acmart}
 %\documentclass[sigconf,authorversion]{acmart}
 
 %% Rights management information.  This information is sent to you
@@ -53,20 +53,19 @@
 %% the commands and values with those provided to you when you
 %% complete the rights form.
 \setcopyright{acmlicensed}
-\copyrightyear{2018}
-\acmYear{2018}
-\acmDOI{XXXXXXX.XXXXXXX}
+\copyrightyear{2025}
+\acmYear{2025}
+\acmDOI{10.1145/3754598.3754636}
 %% These commands are for a PROCEEDINGS abstract or paper.
-\acmConference[Conference acronym 'XX]{Make sure to enter the correct
-  conference title from your rights confirmation email}{June 03--05,
-  2018}{Woodstock, NY}
+\acmConference[ICPP '25]{54th International Conference on Parallel Processing}{Sept 08--11,
+  2025}{San Diego, CA}
 %%
 %%  Uncomment \acmBooktitle if the title of the proceedings is different
 %%  from ``Proceedings of ...''!
 %%
 %%\acmBooktitle{Woodstock '18: ACM Symposium on Neural Gaze Detection,
 %%  June 03--05, 2018, Woodstock, NY}
-\acmISBN{978-1-4503-XXXX-X/2018/06}
+\acmISBN{979-8-4007-2074-1/2025/09}
 
 
 %%
@@ -254,7 +253,7 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 \usepackage{comment}
 
 %Comment/uncomment below to turn on/off tikz because of long compile times
-%\excludecomment{tikz}
+% \excludecomment{tikz}
 \includecomment{tikz}
 
 %\excludecomment{todo}
@@ -289,18 +288,18 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 %Uncomment upon acceptance
 \author{Brian Curless}
 \affiliation{%
-  \institution{School of Informatics, Computing, \& Cyber Systems\\Northern Arizona University}
+  \institution{School of Informatics, Computing, and Cyber Systems\\Northern Arizona University}
   \city{Flagstaff}
-  \state{Arizona}
+  \state{AZ}
   \country{USA}
 }
 \email{bc2497@nau.edu}
 
 \author{Michael Gowanlock}
 \affiliation{%
-  \institution{School of Informatics, Computing, \& Cyber Systems\\Northern Arizona University}
+  \institution{School of Informatics, Computing, and Cyber Systems\\Northern Arizona University}
   \city{Flagstaff}
-  \state{Arizona}
+  \state{AZ}
   \country{USA}
 }
 \email{Michael.Gowanlock@nau.edu}
@@ -330,7 +329,7 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 
 
 \begin{abstract}
-Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matrix multiplication in artificial intelligence workloads. However, because they have high computational throughput, they can lead to significant performance gains in other algorithms if they can be successfully exploited. We examine using TCs to compute Euclidean distance calculations, which are used in many data analytics applications. Prior work has only investigated using 64~bit floating point (FP64) data for computation; however, TCs can operate on lower precision floating point data (i.e., 16 bit matrix multiplication and 32 bit accumulation), which we refer to as FP16-32. FP16-32 TC peak throughput is so high that TCs are easily starved of data.  We propose a Fast and Scalable Tensor core Euclidean Distance (FaSTED) algorithm. To achieve high computational throughput, we design  \ouralg for significant hierarchical reuse of data and maximize memory utilization at every level (global memory, shared memory, and registers).  We apply \ouralg to the application of similarity searches, which typically employ an indexing data structure to eliminate superfluous Euclidean distance calculations. We compare to the state-of-the-art (SOTA) TC Euclidean distance algorithm in the literature that employs FP64, as well as to two single precision (FP32) CUDA core algorithms that both employ an index. We find that across four real-world high-dimensional datasets spanning 128-960 dimensions, the mixed-precision brute force approach achieves a speedup over the SOTA algorithms of 2.5--51$\times$. We also quantify the accuracy loss of our mixed precision algorithm to be $<$0.03\% when compared to the FP64 baseline.
+Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matrix multiplication in artificial intelligence workloads. However, because they have high computational throughput, they can lead to significant performance gains in other algorithms if they can be successfully exploited. We examine using TCs to compute Euclidean distance calculations, which are used in many data analytics applications. Prior work has only investigated using 64~bit floating point (FP64) data for computation; however, TCs can operate on lower precision floating point data (i.e., 16 bit matrix multiplication and 32 bit accumulation), which we refer to as FP16-32. FP16-32 TC peak throughput is so high that TCs are easily starved of data.  We propose a Fast and Scalable Tensor core Euclidean Distance (FaSTED) algorithm. To achieve high computational throughput, we design  \ouralg for significant hierarchical reuse of data and maximize memory utilization at every level (global memory, shared memory, and registers).  We apply \ouralg to the application of similarity searches, which typically employ an indexing data structure to eliminate superfluous Euclidean distance calculations. We compare to the state-of-the-art (SOTA) TC Euclidean distance algorithm in the literature that employs FP64, as well as to two single precision (FP32) CUDA core algorithms that both employ an index. We find that across four real-world high-dimensional datasets spanning 128-960 dimensions, the mixed-precision brute force approach achieves a speedup over the SOTA algorithms of 2.5--51$\times$. We also quantify the accuracy loss of our mixed precision algorithm to be $<$0.06\% when compared to the FP64 baseline.
 
 \end{abstract}
 
@@ -400,15 +399,15 @@ Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matr
 
 Euclidean distance calculations are fundamental to numerous application domains (e.g., in the area of data analytics, they are employed for distance similarity searches~\cite{gowanlock2023optimization}, outlier detection~\cite{zimek2012survey}, k-nearest neighbor searches~\cite{Samet2008}, and clustering~\cite{bottesch2016speeding}). Given the numerous algorithms that rely on Euclidean distance subroutines, improving the performance of this fundamental operation can have a significant impact on a wide range of algorithms and applications.
 
-In this paper, we present a Fast and Scalable Tensor core Euclidean Distance (\ouralg) algorithm, that is designed for moderate to high-dimensional datasets.\footnote{The code will be made publicly available after paper acceptance.} We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only return those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed in many of the data analytics applications described above. \ouralg can be employed as a subroutine in algorithms and workloads requiring the large scale computation of Euclidean distances.
+In this paper, we present a Fast and Scalable Tensor core Euclidean Distance (\ouralg) algorithm, that is designed for moderate to high-dimensional datasets.\footnote{The source code is publicly available: \url{https://github.com/bwcurless/FaSTED}.} We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only return those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed in many of the data analytics applications described above. \ouralg can be employed as a subroutine in algorithms and workloads requiring the large scale computation of Euclidean distances.
 
 We define peak throughput as the maximum number of Tera Floating Point Operations Per Second (TFLOPS), which is the maximum throughput achievable based on TC hardware constraints. The Nvidia A100 GPU that we use in our evaluation has a peak FP32 throughput on CUDA cores of 19.5 TFLOPS, whereas TCs can achieve a throughput of 312 TFLOPS using FP16-32~\cite{A100}.\footnote{We use CUDA terminology throughout this paper.} Given that the peak throughput of TCs outlined above is a factor of 16 greater than CUDA cores, it is clear that if they can be efficiently exploited to compute Euclidean distances, there is potential for significant performance improvements over methods that employ CUDA cores.
 
 
 
-Based on our investigation, we find that there are two major challenges that limit the performance achievable on GPU TCs for Euclidean distance calculations: 
+Based on our investigation, we find that there are two major challenges that limit the performance achievable on GPU TCs for Euclidean distance calculations that we describe as follows.
 \begin{enumerate}[wide=0pt]
-\item \bfseries{Memory Bottlenecks --} A major challenge is efficiently transferring data between each level of the GPU's memory hierarchy, from global memory to shared memory to registers. 
+\item \bfseries{Memory Bottlenecks --} A major challenge is efficiently transferring data between each level of the GPU's memory hierarchy, from global memory to shared memory and then into registers. 
 
 \item \bfseries{Insufficient Data Reuse --} Given the enormous disparity between FP16-32 TC throughput and global memory bandwidth, exploiting data reuse is critical. 
 \end{enumerate}
@@ -427,7 +426,7 @@ This paper makes the following contributions:
 
 \end{enumerate} 
 
-The paper is outlined as follows: Section~\ref{sec:background} provides relevant background information on similarity searches and an exploration of related work; Section~\ref{sec:our_algorithm} describes how \ouralg functions; Section~\ref{sec:evaluation} evaluates \ouralg; and, finally, Section~\ref{sec:conclusion} reflects on the work's central contributions and future research directions.
+The paper is organized as follows: Section~\ref{sec:background} provides relevant background information on similarity searches and an exploration of related work; Section~\ref{sec:our_algorithm} describes our proposed algorithm, \ouralg; Section~\ref{sec:evaluation} presents the experimental evaluation; and, finally, Section~\ref{sec:conclusion} reflects on the work's central contributions and future research directions.
 
 \section{Background}\label{sec:background}
 
@@ -538,13 +537,15 @@ When using FP16-32 instructions, the data stored in matrices $\bm{A}$ and $\bm{B
 There are few papers in the literature that extend the applicability of GPU TCs. Most of the papers below are not directly related to this paper, as they examine differing use cases for TCs; however, we summarize them for context.
 
 
-A pioneering paper by Dakkak et al.~\cite{dakkak2019accelerating} used TCs to perform scan and reduction operations. They show that their reduction algorithm on an Nvidia V100 GPU achieves a 100$\times$ speedup over using CUDA cores.  Ji and Wang~\cite{ji2021accelerating} used TCs to accelerate the DBSCAN clustering algorithm. In their paper, they use cosine distance matrices to determine the $\epsilon$-neighborhood of points when clustering. They achieve a 2.61$\times$ speedup using TCs over CUDA cores. Li et al.~\cite{li2021tcfft} use TCs to improve the performance of half precision Fast Fourier Transforms (FFTs) and achieve a speedup of 3.03$\times$ over the cuFFT library.\footnote{\url{https://developer.nvidia.com/cufft}} Wan et al.~\cite{wan2022novel} used TCs to accelerate the Number Theoretic Transform (NTT) operation that is a bottleneck in the post-quantum cryptography algorithm, CRYSTALS-Kyber~\cite{bos2018crystals}. They demonstrate that their TC NTT algorithm yields a speedup of 6.47$\times$  over the CUDA core algorithm.
+A pioneering paper by Dakkak et al.~\cite{dakkak2019accelerating} used TCs to perform scan and reduction operations. They show that their reduction algorithm on an Nvidia V100 GPU achieves a 100$\times$ speedup over using CUDA cores.  Ji and Wang~\cite{ji2021accelerating} used TCs to accelerate the DBSCAN clustering algorithm. In their paper, they use cosine distance matrices to determine the $\epsilon$-neighborhood of points when clustering. They achieve a 2.61$\times$ speedup using TCs over CUDA cores. Li et al.~\cite{li2021tcfft} use TCs to improve the performance of half precision Fast Fourier Transforms (FFTs) and achieve a speedup of 3.03$\times$ over the cuFFT library.\footnote{\url{https://developer.nvidia.com/cufft}} Wan et al.~\cite{wan2022novel} used TCs to accelerate the Number Theoretic Transform (NTT) operation that is a bottleneck in the post-quantum cryptography algorithm, CRYSTALS-Kyber~\cite{bos2018crystals}. They demonstrate that their TC NTT algorithm yields a speedup of 6.47$\times$  over the CUDA core algorithm. 
+
+Cui~\cite{cui2024acceleration} proposes using TCs for finite element methods (FEM), which are computationally expensive and thus a good target for GPU TCs. Similarly to Cui~\cite{cui2024acceleration}, we use PTX instructions to eliminate bank conflicts when copying data between registers and shared memory. Unlike  Cui~\cite{cui2024acceleration}, we optimize copying data from global memory into shared memory in a bank-conflict-free manner. 
 
 
+%original
+% {\bf The most relevant paper in the literature regarding TC performance optimization --} Cui~\cite{cui2024acceleration} proposes using TCs for finite element methods (FEM), which are computationally expensive and thus a good target for GPU TCs. They show that data copies between shared memory and registers can be a bottleneck if there are bank conflicts. The WMMA API requires that data are accessed in row- or column-major order; therefore, solely employing the WMMA API is likely to produce unresolvable shared memory bank conflicts. Consequently, Cui~\cite{cui2024acceleration} proposes using PTX instructions that can be used to produce more sophisticated load/store patterns between shared memory and registers that eliminate bank conflicts. They achieve 45\% of the peak throughput of FP64 TCs on the Nvidia A100  GPU (roughly 8 TFLOPS). The paper leaves the problem of efficient data transfer from global to shared memory for future work.
 
-{\bf The most relevant paper in the literature regarding TC performance optimization --} Cui~\cite{cui2024acceleration} proposes using TCs for finite element methods (FEM), which are computationally expensive and thus a good target for GPU TCs. They show that data copies between shared memory and registers can be a bottleneck if there are bank conflicts. The WMMA API requires that data are accessed in row- or column-major order; therefore, solely employing the WMMA API is likely to produce unresolvable shared memory bank conflicts. Consequently, Cui~\cite{cui2024acceleration} proposes using PTX instructions that can be used to produce more sophisticated load/store patterns between shared memory and registers that eliminate bank conflicts. They achieve 45\% of the peak throughput of FP64 TCs on the Nvidia A100  GPU (roughly 8 TFLOPS). The paper leaves the problem of efficient data transfer from global to shared memory for future work.
-
-Similarly to Cui~\cite{cui2024acceleration}, we use PTX instructions to eliminate bank conflicts when copying data between registers and shared memory. Unlike  Cui~\cite{cui2024acceleration}, we optimize copying data from global memory into shared memory in a conflict-free manner. 
+% Similarly to Cui~\cite{cui2024acceleration}, we use PTX instructions to eliminate bank conflicts when copying data between registers and shared memory. Unlike  Cui~\cite{cui2024acceleration}, we optimize copying data from global memory into shared memory in a conflict-free manner. 
 
 
 
@@ -591,7 +592,7 @@ Figure~\ref{fig:single_mma} shows an illustrative example of calculating Euclide
 \item\qrf: 16 dimensions from 8 points in dataset $D$ in a transposed layout. We refer to these as the ``query points''. 
 \item\arf: A $16\times 8$ fragment initialized with zeros.
  \end{enumerate}
- We use TCs to multiply and accumulate these three fragments to obtain: $\arf = \prf \times \qrf + \arf$. As TCs can only compute inner products of $16$ dimensions per operation (see Table~\ref{tab:WMMA_vs_PTX}), we must iteratively load new point data into \prf\ and \qrf and accumulate into \arf\ $\frac{d}{16}$ times. 
+ We use TCs to multiply and accumulate these three fragments to obtain: $\arf = \prf \times \qrf + \arf$. As TCs can only compute inner products of $16$ dimensions per operation (see Table~\ref{tab:WMMA_vs_PTX}), we must iteratively load new point data into \prf\ and \qrf\ and accumulate into \arf\ $\frac{d}{16}$ times. 
 
 \noindent
 {\bf Step~3:} On CUDA cores, we combine the elements of \arf\ ($a_{i,j}$), along with $s_i$ and $s_j$ (step~1) to compute the square of the final distance (from Equation~\ref{eqn:euclidean_distance}) $dist_{i,j}^2 = -2 \times a_{i,j} + s_i + s_j$.
@@ -799,7 +800,7 @@ Alignment specifiers,\\ \texttt{\_\_align\_\_(128)}, were added to shared memory
 
 \subsection{Experimental Methodology}\label{sec:exp_method}
 \subsubsection{Platform}
-We conduct our experiments on a platform with 2$\times$ AMD EPYC~7542 CPUs (64 physical cores total) clocked at 2.9 GHz with 512 GiB of main memory containing an Nvidia A100 GPU with 40 GiB of global memory (PCIe model). The host code uses C/C++ and the \ouralg GPU code is parallelized using CUDA v.12.6.3. All host code is compiled with the O3 optimization flag. Reported response times are averaged over three trials. 
+We conduct our experiments on a platform with 2$\times$ AMD EPYC~7542 CPUs (64 physical cores total) clocked at 2.9 GHz with 512 GiB of main memory containing an Nvidia A100 GPU with 40 GiB of global memory (PCIe model). The host code uses C/C++ and the \ouralg GPU code is parallelized using CUDA v.12.6.3. All host code is compiled with the O3 optimization flag. Reported response times are averaged over three trials. In all experiments using \ouralg or the reference implementations, the variation between time trials is negligible, such that the error bars are smaller than the data points on the plots, so we omit plotting these statistics. However, for completeness, we include this information in the associated figures for \ouralg.
 
 We examine two main metrics when measuring performance as follows. \emph{Response time:} We measure the response time of the algorithms. \emph{Derived TFLOPS:} We report the TFLOPS yielded by the TCs by taking the total number of operations and dividing it by the measured response time. We refer to this when we discuss TFLOPS.
 
@@ -913,13 +914,13 @@ With all of our optimizations described in Section~\ref{sec:ouralg_optimizations
 
 Figure~\ref{fig:tflops} shows the results of this experiment. Our maximum throughput is roughly 150 TFLOPS, which can be achieved with a minimum dataset size of $|D|{=}46416$ and dimensionality of $d{=}2048$. In practice, this indicates that only a small to moderate dataset size is needed to reach peak performance, assuming that the dataset contains a sufficient number of dimensions.
 
-Recall that because \ouralg is brute force, its performance is not impacted by the data distribution, so these results apply to any real-world dataset of the same size and dimensionality.
+Recall that because \ouralg is brute force, its performance is not impacted by the data distribution, so these results apply to any real-world dataset of the same size and dimensionality. To estimate \ouralg's performance on a dataset with a dimensionality that is not a multiple of $64$, one must use the throughput measurements from the next multiple of $64$. In other words, for low dimensionality like $d{=}65$, $63$ dimensions of zeros are added, and the throughput is almost halved. This effect on performance is decreases as dimensionality increases.
 
 
 \begin{figure}
     \centering
     \includegraphics[scale=1.0]{figures/ExpoDataSpeedVsSize.pdf}
-    \caption{The number of TFLOPS achieved using \ouralg as a function of dataset size ($|D|$) and dimensionality ($d$) on the \synth class of datasets.}
+    \caption{The number of TFLOPS achieved using \ouralg as a function of dataset size ($|D|$) and dimensionality ($d$) on the \synth class of datasets. The maximum throughput was 154 TFLOPS with a standard deviation of 0.02.}
     \label{fig:tflops}
 \end{figure}
 
@@ -987,7 +988,7 @@ We compare the performance of the two brute force TC algorithms to observe how t
 \begin{figure}[!t]
     \centering
     \includegraphics[scale=1.0]{figures/synthetic_flops_comparison.pdf}
-    \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) vs. \ouralg (FP16-32) as a  function of data dimensionality using the \synth dataset of size $|D|{=}10^5$.  The peak throughput is shown for context. }
+    \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) vs. \ouralg (FP16-32) as a  function of data dimensionality using the \synth dataset of size $|D|{=}10^5$.  The standard deviation for all \ouralg measurements was $<0.7$ TFLOPS. The peak throughput is shown for context. }
     \label{fig:tflops_synthetic_comparison}
     
 \end{figure}
@@ -995,7 +996,7 @@ We compare the performance of the two brute force TC algorithms to observe how t
 To better understand why the performance of \ouralg scales well with increasing data dimensionality ($d$), while the performance of \tedjoinbrute degrades, we employ the Nvidia Nsight Compute profiler and present the results in Table~\ref{tab:profiler_results}. We observe that as $d$ increases, the tensor pipe utilization metric increases for \ouralg but does not for \tedjoinbrute. Examining the percentage of shared memory bank conflicts, we observe that \ouralg is conflict-free (0\%), whereas \tedjoinbrute yields $\geq$75\% shared memory bank conflicts. \tedjoin is constrained by the WMMA API which has rigid load/store memory access patterns which causes shared memory bank conflicts in both the \tedjoinbrute and \tedjoinindex variants.
 
 
-While analyzing our results from Table~\ref{tab:profiler_results}, we discovered a discrepancy between the TC Pipe Utilization metric and our derived TFLOPS. The profiler reported 64\% utilization while, by our calculations, we only achieved 49\%. The explanation for this discrepancy is that at $d{=}4096$, the 250~W power budget for our PCIe A100 is exceeded, and the clock is throttled to 1.12 Ghz. The implications of this finding are discussed in the conclusion.
+While analyzing our results from Table~\ref{tab:profiler_results}, we discovered a discrepancy between the TC Pipe Utilization metric and our derived TFLOPS. The profiler reported 64\% utilization while, by our calculations, we only achieved 49\%. The explanation for this discrepancy is that at $d{=}4096$, the 250~W power budget for our PCIe A100 is exceeded, and the clock is throttled to 1.12 GHz. The implications of this finding are discussed in the conclusion.
 
 
 \begin{table}[!t]
@@ -1012,7 +1013,7 @@ While analyzing our results from Table~\ref{tab:profiler_results}, we discovered
              L2 Hit Rate (\%) & 89.8 & 89.6 &  84.4 &  98.9 & 98.9& OOM\\ \hline
              TC Pipe Utilization FP16-32 (\%) &  10.1& 17.8 & 64.0&   N/A & N/A&OOM \\ \hline
              TC Pipe Utilization FP64 (\%) &  N/A & N/A & N/A & 5.75& 1.99 &OOM\\ \hline
-             Clock Speed (Ghz) &  1.37 & 1.40 & 1.12 & 1.40 & 1.41 &OOM\\ \hline
+             Clock Speed (GHz) &  1.37 & 1.40 & 1.12 & 1.40 & 1.41 &OOM\\ \hline
         \end{tabularx}
     \label{tab:profiler_results}
 \end{table}
@@ -1044,27 +1045,17 @@ Figure~\ref{fig:realworldcomparison} plots the response time on the four real-wo
 \begin{figure*}
     \centering
     \includegraphics[width=\textwidth]{figures/RealDataSetSpeedComparison.pdf}
-    \caption{Comparison of \ouralg to the SOTA GPU index-supported similarity search algorithms (\mistic, \gdsjoin, and \tedjoinindex) on four real-world datasets. The total end-to-end response time is plotted, which includes all associated overheads for each method (e.g., index construction and transferring data to/from the GPU). \tedjoinindex exceeds shared memory at $d{=}384$, so it is not shown in panels (c)--(d). The speedup of \ouralg over the reference implementations is reported inside each bar.}
+    \caption{Comparison of \ouralg to the SOTA GPU index-supported similarity search algorithms (\mistic, \gdsjoin, and \tedjoinindex) on four real-world datasets. The total end-to-end response time is plotted, which includes all associated overheads for each method (e.g., index construction and transferring data to/from the GPU). \tedjoinindex exceeds shared memory at $d{=}384$, so it is not shown in panels (c)--(d). The speedup of \ouralg over the reference implementations is reported inside each bar. The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=42$, (b) $\sigma=0.11$, (c) $\sigma=0.12$, and (d) $\sigma=0.054$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset. }
+%    \mike{I don't understand the relative standard deviation reported here, also it does not specify which algorithm. I would simply write: ``The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=XXX$, (b) $\sigma=XXX$, (c) $\sigma=XXX$, and (d) $\sigma=XXX$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset.''}
     \label{fig:realworldcomparison}
 \end{figure*}
 
 
 \subsection{\ouralg: Accuracy of FP16-32}
 
-% \begin{table}[!t]
-% \caption{The accuracy of \ouralg compared to the FP64 \gdsjoin algorithm using using Equation~\ref{eqn:accuracy}. A selectivity of $S_{XXX}=XXX$ is employed across all real-world datasets. }
-% \footnotesize
-%     \centering
-%         \begin{tabularx}{\columnwidth}{L|r|r|r|r} 
-%         \hline
-%              Dataset& \sift & \tinyds& \cifar & \gist  \\\hline
-%              Accuracy Score& 1.0 & 0.99998 &  0.99971 &  0.99999 \\ \hline
-%         \end{tabularx}
-%     \label{tab:accuracy}
-%               Raw Values & 1.0 & 0.99998006551403 &  0.9997090359241025 &  0.9999852266643082 \\ \hline
-% \end{table}
+\ouralg uses FP16-32 so there is greater machine rounding error compared to the FP32 or FP64 reference implementations. We examine the accuracy of \ouralg and configure \gdsjoin to use FP64 values (instead of FP32 used in Figure~\ref{fig:realworldcomparison}) and employ it as the ground truth. We examine two measures of accuracy, the first quantifies the overlap between the points found in the result set for each point in the dataset. The second method compares the difference in the distances computed by the algorithm.
 
-\ouralg uses FP16-32 so there is greater machine rounding error compared to the FP32 or FP64 reference implementations. We examine the accuracy of \ouralg. We configure \gdsjoin to use FP64 values (instead of FP32 used in Figure~\ref{fig:realworldcomparison}) and employ it as the baseline of reference. For each point in the dataset, $p_i\in D$, we compute its neighbors in \ouralg and \gdsjoin, denoted as $N_i^{\ouralg}$ and $N_i^{\gdsjoin}$, respectively. For each point, we assign an accuracy score in the range [0, 1]. If \ouralg and \gdsjoin compute the same neighbors for a given point, then we assign an accuracy score of 1 for that point. If \ouralg finds neighbors for a given point that do not exist in the result set of \gdsjoin, or vice versa, then the accuracy is penalized and a score $<$1 is assigned to that point.  The accuracy score for an entire dataset is given as follows where a score of 1.0 indicates perfect accuracy:
+\noindent\textbf{Overlap Between Result Sets:} For each point in the dataset, $p_i\in D$, we compute its neighbors in \ouralg and \gdsjoin, denoted as $N_i^{\ouralg}$ and $N_i^{\gdsjoin}$, respectively. We compare the neighbors for each point in the ground truth set to \ouralg and determine if the sets match. The intersection over the union of the sets for each point yields the overlap between the sets -- if the intersection and union of the sets are equal, then we assign an accuracy score of 1.0 for the point, otherwise the score is $<$1.0. Equation~\ref{eqn:accuracy} defines the accuracy score for an entire dataset where a score of 1.0 indicates perfect accuracy:
 
 {
 \addtolength{\belowdisplayskip}{-1.0ex}
@@ -1078,13 +1069,91 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
 }
 
 
-We examine the accuracy scores across all real-world datasets using a selectivity of $S_{s}{=}64$. On the \sift dataset, there is no accuracy loss. The maximum accuracy loss occurs on \cifar which achieves an accuracy score of 0.99971 (a 0.029\% loss of accuracy). Thus, \ouralg can be employed as a drop-in replacement for Euclidean distance calculation subroutines without concern for accuracy loss due to machine rounding error.
+\begin{table}[!t]
+\caption{ The accuracy of \ouralg compared to the FP64 \gdsjoin algorithm using the overlap accuracy metric (Equation 3) across the three selectivity levels for all real-world datasets.}
+%\mike{Need to update the caption because it says three selectivity levels and we only have one selectivity for the distance error metric.}
+
+%MG: I thought this was confusing because in a sense, we're examing error statistics.
+%BC: I see, if the reviewer complains that there aren't confidence intervals, we can rebut.
+%Error statistics are not included as accuracy calculations are deterministic for a given selectivity.
+\footnotesize
+    \centering
+        \begin{tabularx}{\columnwidth}{L|r|r|r|r} 
+        \hline
+             \rowcolor{blue!40!white} & \sift & \tinyds& \cifar & \gist  \\\hline
+             % Accuracy Score (Equation 3)& 1.0 & 0.99998 &  0.99971 &  0.99999 \\ 
+             %\multicolumn{5}{c}{Accuracy Score (Equation~\ref{eqn:accuracy})}\\\hline 
+             $S_{s}{=}64$& 1.0 & 0.99998 &  0.99971 &  0.99999 \\ 
+             $S_{m}{=}128$& 1.0 & 0.99997 &  0.99955 &  0.99998 \\ 
+             $S_{l}{=}256$& OOM & 0.99996 &  0.99946 &  0.99997 \\ \hline
+        \end{tabularx}
+    \label{tab:accuracy}
+              % Raw Values & 1.0 & 0.99998006551403 &  0.9997090359241025 &  0.9999852266643082 \\ \hline
+\end{table}
+
+\begin{table}[!t]
+\caption{The accuracy of \ouralg compared to the FP64 \gdsjoin algorithm using the distance metric with the smallest selectivity level, $S_{s}{=}64$, for all real-world datasets.}
+\footnotesize
+    \centering
+        \begin{tabularx}{\columnwidth}{L|r|r|r|r} 
+        \hline
+             \rowcolor{blue!40!white} & \sift & \tinyds& \cifar & \gist  \\\hline
+             %\multicolumn{5}{c}{Distance error statistics for $S_{s}{=}64$}\\\hline 
+             Mean & $2.6\times 10^{-6}$ & $-1.5\times 10^{-7}$ & $-5.2\times 10^{-7}$  & $-1.6\times 10^{-6}$  \\
+             %Minimum & $-5.0 \times 10^{-4}$ & $-1.4\times 10^{-3}$ & $-1.6\times 10^{-4}$ & $-9.3\times 10^{-4}$ \\
+             %Maximum & $5.0 \times 10^{-4}$ & $3.1\times 10^{-3}$ & $2.2\times 10^{-3}$ & $1.2\times 10^{-2}$ \\
+             Std. Dev. & $2.4\times 10^{-4}$ & $9.4\times 10^{-6} $ & $3.4\times 10^{-5}$ & $3.7\times 10^{-5}$\\
+             %$S_{m}{=}128$& XXX (YYY)& XXX (YYY)&  XXX (YYY)&  XXX (YYY)\\ 
+             %$S_{l}{=}256$& XXX (YYY)& XXX (YYY)&  XXX (YYY)&  XXX (YYY)\\ 
+             \hline
+        \end{tabularx}
+    \label{tab:distance_accuracy}
+              % Raw Values & 1.0 & 0.99998006551403 &  0.9997090359241025 &  0.9999852266643082 \\ \hline
+\end{table}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=1.0]{figures/Cifar_distance_error.pdf}
+    \caption{The distribution of the errors in the distance measurements for the \cifar dataset is shown.}
+    \label{fig:cifar_distances}
+    
+\end{figure}
+
+%\mike{Regarding the error vs. absolute error, we will need to update this text if we do the absolute error.}
+%\brian{Let me just add a row for minimum error, it will show the bias in the outliers. The outliers were all biased such that we were over-estimating the distances, interestingly.}
+%\brian{I am leaving it as error, and not absolute error. I think it is good to demonstrate that there is no bias and that the mean is 0. Removing the min/max seems like a good idea as it is just noise.}
+
+\noindent\textbf{Difference Between Computed Distances:} We further our accuracy analysis by examining the difference between the computed distances for each $p_i\in D$ of the points found in the result sets of both \ouralg and \gdsjoin using FP64 (the ground truth). %, which is $I_i=N_i^{\ouralg} \cap N_i^{\gdsjoin}$.
+The distance error for a single pair of points $p_i$ and $p_j$ is defined as $dist_{i,j}^{\ouralg} - dist_{i,j}^{\gdsjoin}$. We then compute the mean, and standard deviation of this error across all pairs of points that appear in both the \ouralg and \gdsjoin result sets. 
+
+% Note: These statistics are computed on a subset of the total distances computed by the algorithm. Only distances that are $<\epsilon$, and appear in both the \ouralg and \gdsjoin result set are considered.
 
 
+% We denote this set of intersecting points in the result set for each $p_i\in D$ as $I_a= N_i^{\ouralg} \cap N_i^{\gdsjoin}$, where $a=1,\ldots,\lvert N_i^{\ouralg} \cap N_i^{\gdsjoin}\lvert$. The distance computed between each $p_i\in D$  
+
+
+
+% \begin{equation}
+% XXX
+% \label{eqn:accuracy_distances}
+% \end{equation}
+
+
+Table~\ref{tab:accuracy} presents the Overlap Between Result Sets metric across all real-world datasets, where we find that there is a negligible accuracy loss. The maximum accuracy loss occurs on \cifar ($S_l=256$) which achieves a very high accuracy of 99.946\%.
+
+Table~\ref{tab:distance_accuracy} presents the Difference Between Computed Distances metric for all pairs of points within the $\epsilon$ corresponding to $S_{s}{=}64$. Figure~\ref{fig:cifar_distances} shows the distribution of the errors in the distance calculations for the \cifar dataset (the dataset with the highest error described above). The distribution in Figure~\ref{fig:cifar_distances} and summary statistics in Table~\ref{tab:distance_accuracy}, show that the distances \ouralg computes have no measurable bias, and have minimal error. Thus, for similarly distributed datasets that are commensurate with the dynamic range of FP16, \ouralg can compute Euclidean distances without concern for accuracy loss due to machine rounding error. We observed a slight decrease in accuracy with increasing search radius. This detail may be relevant to a reader interested in applications where large distances are of particular importance. In the case of distance similarity searches, and other algorithms that are interested in the local neighborhood of points (e.g., $k$ nearest neighbors), the error in the distance computed is not of consequence.
 
 
 \section{Discussion \& Conclusions}\label{sec:conclusion}
-To our knowledge, we have proposed the first algorithm in the literature that computes Euclidean distances using mixed precision TCs. We find that our method scales well with increasing data dimensionality and only requires a small to moderate dataset size to reach our maximum throughput of roughly 150 TFLOPS. We find that compared to the SOTA GPU distance similarity search algorithms that employ an index to prune the search, our approach is significantly faster, despite performing more distance calculations. \ouralg's performance can be primarily attributed to carefully designed optimizations that enable sufficient data reuse, hide memory access latency, and eliminate bank conflicts.  There are numerous algorithms that employ Euclidean distance calculations, so our algorithm will be of great utility to many application areas beyond similarity searches.
+
+To our knowledge, we have proposed the first algorithm in the literature that computes Euclidean distances using mixed precision TCs. Similarly, others have successfully used mixed precision arithmetic in other application domains. Cui~\cite{cui2024acceleration} used mixed precision TCs on GPUs for finite element methods, Genome-Wide Association Studies~\cite{ltaief2024toward} employed mixed precision arithmetic on GPU TCs, Geostatistics applications~\cite{cao2022reshaping} and plasma turbulence simulations~\cite{idomura2020acceleration} used mixed precision arithmetic on the A64FX CPU. Many of these papers demonstrate that the loss of accuracy can be recovered, and in some cases, they describe that using FP32 or FP64 may be excessive. Similarly to these other papers, we find that the accuracy loss of our mixed precision computation for distance similarity searches is negligible.
+
+We find that our method scales well with increasing data dimensionality and only requires a small to moderate dataset size to reach our maximum throughput of roughly 150 TFLOPS. We find that compared to the SOTA GPU distance similarity search algorithms that employ an index to prune the search, our approach is significantly faster, despite performing more distance calculations. \ouralg's performance can be primarily attributed to carefully designed optimizations that enable sufficient data reuse, hide memory access latency, and eliminate shared memory bank conflicts.  There are numerous algorithms that employ Euclidean distance calculations, so our algorithm will be of great utility to many application areas beyond similarity searches.
+
+
+
+
+ Despite the datasets that we used not being normalized to the full range of FP16 values, the lowest search accuracy is $99.946\%$, which is an impressive finding. It is likely that scaling the input data could further increase the accuracy of our results, and in the case where a dataset is adversely affected by conversion to FP16, it would mitigate this numerical sensitivity. Future work will investigate this research avenue.
 
 % These optimizations are able to meet the thigh demands of mixed precision tensor cores. 
 
@@ -1099,6 +1168,8 @@ Given that we have significantly utilized the capabilities of modern GPU hardwar
 While we have reached a performance ceiling for \ouralg, we found that the FP64 TC algorithm in the literature, \tedjoin, is only reaching 6.8\% of peak performance. We hope that the detailed rationales, description, and study of our optimizations will enable them to be applied to redesigning \tedjoin and other GPU-accelerated algorithms in the literature to realize significant performance improvements. 
 
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Future work, do not delete
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1107,9 +1178,11 @@ While we have reached a performance ceiling for \ouralg, we found that the FP64 
 %3) Model the response time of the algorithm on synthetic datasets so you know how long the algorithm will require on real-world datasets
 %4) Inverstigate higher dimensional real-world datasets
 %5) Investiagte lower dimensional datasets similar to those used in mistic, gds-join, etc.
-%5) Apply to other problems, such as KNN, clustering, etc. 
-%6) Determine if we can get 100% accuracy with FP16-32 compared to FP64 by reevaluating points that are within the margin of error of being within/outside epsilon 
-%7) Run on platform with greater power budget
+%6) Apply to other problems, such as KNN, clustering, etc. 
+%7) Determine if we can get 100% accuracy with FP16-32 compared to FP64 by reevaluating points that are within the margin of error of being within/outside epsilon 
+%8) Run on platform with greater power budget
+%9) Investigate the error in the distances computed with FP16+32 vs. FP64 and determine if we can improve the accuracy by rescaling the dataset
+%10) Batching so it doesn't exceed global memory
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %End Future work, do not delete
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1133,9 +1206,9 @@ While we have reached a performance ceiling for \ouralg, we found that the FP64 
 
 
 %Uncomment upon acceptance
-% \begin{acks}
-% This material is based upon work supported by the National Science Foundation under Grant No. 2042155. We thank Benoit Gallet for updating his repository so we could run experiments with \tedjoin and Brian Donnelly for kindly running experiments with \mistic.
-% \end{acks}
+\begin{acks}
+This material is based upon work supported by the National Science Foundation under Grant No. 2042155. We thank Benoit Gallet for updating his repository so we could execute experiments with \tedjoin and Brian Donnelly for kindly running experiments with \mistic.
+\end{acks}
 
 %%
 %% The next two lines define the bibliography style to be used, and

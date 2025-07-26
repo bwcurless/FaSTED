@@ -52,7 +52,7 @@
 		\foreach \i in {0, ..., \numSlicesIt} {
 			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
 				\pgfmathtruncatemacro\maxDim{64 * \numSlices - 64 * \i}
-				\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$p_{1,1}$}{$p_{128,\maxDim}$}{ASharedMemColor}{$P_{\blockf}$\\ (SMEM)}
+				\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$p_{1,1}$}{$p_{64,\maxDim}$}{ASharedMemColor}{$P_{\blockf}$\\ (SMEM)}
 			\end{scope}
 		}
 	\end{scope}
@@ -64,10 +64,10 @@
             \begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
             \pgfmathtruncatemacro\maxDim{64 * \numSlices - 64 * \i}
             \ifnum \i=\numSlicesIt
-            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{128,\maxDim}$}{BSharedMemColor}{$Q_{\blockf}$ (SMEM)}
+            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{64,\maxDim}$}{BSharedMemColor}{$Q_{\blockf}$ (SMEM)}
             \else
             % Don't draw center text on earlier stacks
-            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{128,\maxDim}$}{BSharedMemColor}{}
+            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{64,\maxDim}$}{BSharedMemColor}{}
             \fi
             \end{scope}
         }
