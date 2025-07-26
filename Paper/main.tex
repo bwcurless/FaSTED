@@ -120,11 +120,7 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 
-
-
 \usepackage{tikzscale}
-% \usepackage[disable]{todonotes} %disable
-\usepackage[]{todonotes} %enable
 \usepackage{listings}
 \lstset{
 language=C++,
@@ -148,15 +144,6 @@ showstringspaces=false,
 
 \usepackage{xspace}    
 \usepackage{tabularx}
-
-
-\newcommand*\circled[1]{\tikz[baseline=(char.base)]{
-            \node[shape=circle,fill,inner sep=1.3pt] (char) {\footnotesize\textcolor{white}{#1}};}}
-
-\newcommand{\mike}[1]{\todo[color=red, inline]{Mike: #1}}
-\newcommand{\brian}[1]{\todo[color=yellow,inline]{Brian: #1}}
-%\renewcommand\brian[1]{}
-%\renewcommand\mike[1]{}
 
 %centering tabularx
 \newcolumntype{Y}{>{\centering\arraybackslash}X}
@@ -246,28 +233,13 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 \definecolor{mPurple}{rgb}{0.58,0,0.82}
 \definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
 
-
-%enable/disable tikz figures
-\usepackage{comment}
-
-%Comment/uncomment below to turn on/off tikz because of long compile times
-% \excludecomment{tikz}
-\includecomment{tikz}
-
-%\excludecomment{todo}
-%\includecomment{todo}
-
-
-
 %end custom
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
-\begin{tikz}
 \input{figures/diagramResources.tex}
-\end{tikz}
 
 
 %Potential names for the algorithm
@@ -643,26 +615,21 @@ We create a ``warp tile'' (Figure~\ref{fig:warp_mma}) that contains multiple \pr
 There are four schedulers and four TCs per SM, so we elect to run four warp tiles simultaneously on each SM. These four warps form a ``block tile'' (Figure~\ref{fig:block_tile_mma}) that computes a $128{\times}128$ tile of distances $dist(p_i,p_j)^2$. A block tile transfers two different ``block fragments,'' which are \sixfourd \kslices of $128$ points ($P_{\blockf}$ and $Q_{\blockf}$), from global memory to shared memory that each warp tile reads from during its four iterations. This repeats until all dimensions of the points have been accumulated by the warp tiles and the final distances have been computed. When a block completes a tile, a work queue provides the next tile to compute and this process repeats (Figure~\ref{fig:entire_mma}). 
 
 
-\begin{tikz}
 \begin{figure}
     \centering
     \input{figures/Single_TC_MMA.tex}
     \caption{A single 16$\times$8$\times$16 TC computation used to accumulate the distances between two points $p_i$ and $p_j$ into $a_{i,j}$. Only the corner elements in each matrix are shown for illustrative purposes.}
     \label{fig:single_mma}
 \end{figure}
-\end{tikz}
 
-\begin{tikz}
 \begin{figure}
     \centering
     \input{figures/Warp_Tile.tex}
     \caption{Two iterations of a $32{\times} 32{\times }16$ warp tile are shown. It is made up of many register fragments from Figure~\ref{fig:single_mma}. Only the upper left and lower right coordinates of each fragment are specified for illustrative purposes.}
     \label{fig:warp_mma}
 \end{figure}
-\end{tikz}
 
 
-\begin{tikz}
 \begin{figure}
     \centering
     \input{figures/Block_Tile.tex}
@@ -670,7 +637,6 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
     
     \label{fig:block_tile_mma}
 \end{figure}
-\end{tikz}
 
 
 
@@ -685,14 +651,12 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
 %To mitigate high latency global memory accesses, 
 The L2 cache has a bandwidth of 6.4 TB/s which is $\sim$4$\times$ greater than global memory. Our algorithm is able to utilize most of this bandwidth by having blocks retrieve work from a queue such that concurrently executing block tiles read similar data elements (point coordinates) to maximize spatial locality across SMs (Figure \ref{fig:entire_mma}). 
 
-\begin{tikz}
 \begin{figure}
     \centering
     \input{figures/Grid_Rasterization.tex}
     \caption{An illustration of how a work queue orders block tile computations into small squares to improve the L2 cache hit rate when reading from global memory (DRAM). }
     \label{fig:entire_mma}
 \end{figure}
-\end{tikz}
 
 
 \subsubsection{Single Block Tile Shared Memory Buffering}\label{opt:blocktilesmembuffering}
@@ -752,26 +716,21 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
 
 
 
-\begin{tikz}
 \begin{figure}[!t]
     \centering
     \input{figures/Global_Memory_Layout.tex}
     \caption{The row-major global memory layout for the first 8 points is shown here. The threads that are responsible for reading each 8 dimension chunk of data from global memory and storing it in shared memory are labeled in the top left corner of each rectangle (T0--T63).}
     \label{fig:global_memory}
 \end{figure}
-\end{tikz}
 
-\begin{tikz}
 \begin{figure}[!t]
     \centering
     \input{figures/Shared_Memory_Layout.tex}
     \caption{The point data from Figure~\ref{fig:global_memory} is copied into the shared memory layout shown here one row at a time. The destination bank, $b$, of each 8 dimension chunk is swizzled by computing the XOR of the original bank $b$ with the row number (shown on the right). Each column in the table represents a group of 4 of the 32 shared memory banks. Reordering the data makes the \texttt{ldmatrix} instruction, shown in Figure~\ref{fig:ldmatrix}, access unique banks in each phase of its operation. }
     \label{fig:shared_memory}
 \end{figure}
-\end{tikz}
 
 
-\begin{tikz}
 \begin{figure}[!t]
     \centering
     \subfigure[]{
@@ -783,7 +742,6 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
     \caption{(a) Single fragment \prf\ shared memory access layout. (b) Single fragment \prf\ register layout. The result of a single $16{\times}16$  \texttt{ldmatrix} instruction reading from shared memory and storing into a fragment made up of registers is shown above. Each 8 dimension chunk is labeled with the thread responsible for reading it from shared memory. After each thread reads its 16~B chunk from shared memory, that data is shuffled into the registers of four different threads (b). For example, T0 reads $p_1$ dimensions $k{=}1{-}8$, but it is stored into four registers, owned by threads 0-3. }
     \label{fig:ldmatrix}
 \end{figure}
-\end{tikz}
 
 
 
