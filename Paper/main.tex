@@ -586,6 +586,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
     \includegraphics{tikz_build/Single_TC_MMA}
     \caption{A single 16$\times$8$\times$16 TC computation used to accumulate the distances between two points $p_i$ and $p_j$ into $a_{i,j}$. Only the corner elements in each matrix are shown for illustrative purposes.}
     \label{fig:single_mma}
+		\Description{Diagram showing how a 16 by 16 P fragment multiplied by a 16 by 8 Q fragment yields a single 16 by 8 A fragment.}
 \end{figure}
 
 \begin{figure}
@@ -593,6 +594,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
     \includegraphics{tikz_build/Warp_Tile}
     \caption{Two iterations of a $32{\times} 32{\times }16$ warp tile are shown. It is made up of many register fragments from Figure~\ref{fig:single_mma}. Only the upper left and lower right coordinates of each fragment are specified for illustrative purposes.}
     \label{fig:warp_mma}
+		\Description{Diagram showing how single MMA register fragments can be combined to compute an entire warp tile.}
 \end{figure}
 
 
@@ -602,6 +604,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
     \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, \pbf \ and \qbf, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments, and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
     
     \label{fig:block_tile_mma}
+		\Description{Diagram showing how four warp tiles can all share data in shared memory to compute a single block tile.}
 \end{figure}
 
 
@@ -622,6 +625,7 @@ The L2 cache has a bandwidth of 6.4 TB/s which is $\sim$4$\times$ greater than g
     \includegraphics{tikz_build/Grid_Rasterization}
     \caption{An illustration of how a work queue orders block tile computations into small squares to improve the L2 cache hit rate when reading from global memory (DRAM). }
     \label{fig:entire_mma}
+		\Description{Diagram showing how many block tiles can share the same data from global memory by computing subcomponents of the larger matrix in small square tiles.}
 \end{figure}
 
 
@@ -687,6 +691,7 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
     \includegraphics{tikz_build/Global_Memory_Layout}
     \caption{The row-major global memory layout for the first 8 points is shown here. The threads that are responsible for reading each 8 dimension chunk of data from global memory and storing it in shared memory are labeled in the top left corner of each rectangle (T0--T63).}
     \label{fig:global_memory}
+		\Description{Global memory layout showing how data is paged from global memory in row-major format, in groups of 64 dimensions.}
 \end{figure}
 
 \begin{figure}[!t]
@@ -694,6 +699,7 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
     \includegraphics{tikz_build/Shared_Memory_Layout}
     \caption{The point data from Figure~\ref{fig:global_memory} is copied into the shared memory layout shown here one row at a time. The destination bank, $b$, of each 8 dimension chunk is swizzled by computing the XOR of the original bank $b$ with the row number (shown on the right). Each column in the table represents a group of 4 of the 32 shared memory banks. Reordering the data makes the \texttt{ldmatrix} instruction, shown in Figure~\ref{fig:ldmatrix}, access unique banks in each phase of its operation. }
     \label{fig:shared_memory}
+		\Description{Shared memory layout showing how chunks of 8 dimensions from the global memory layout are swizzled into different banks of shared memory to create conflict free accesses.}
 \end{figure}
 
 
@@ -707,6 +713,7 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
     }
     \caption{(a) Single fragment \prf\ shared memory access layout. (b) Single fragment \prf\ register layout. The result of a single $16{\times}16$  \texttt{ldmatrix} instruction reading from shared memory and storing into a fragment made up of registers is shown above. Each 8 dimension chunk is labeled with the thread responsible for reading it from shared memory. After each thread reads its 16~B chunk from shared memory, that data is shuffled into the registers of four different threads (b). For example, T0 reads $p_1$ dimensions $k{=}1{-}8$, but it is stored into four registers, owned by threads 0-3. }
     \label{fig:ldmatrix}
+		\Description{Register layout showing how the 8 dimension chunks of data are ready from shared memory, and stored into registers that all threads in the warp share.}
 \end{figure}
 
 
@@ -844,6 +851,7 @@ Recall that because \ouralg is brute force, its performance is not impacted by t
     \includegraphics[scale=1.0]{figures/ExpoDataSpeedVsSize.pdf}
     \caption{The number of TFLOPS achieved using \ouralg as a function of dataset size ($|D|$) and dimensionality ($d$) on the \synth class of datasets. The maximum throughput was 154 TFLOPS with a standard deviation of 0.02.}
     \label{fig:tflops}
+		\Description{Plot showing how dataset dimensionality and size affect the computational throughput. Increasing dimensionality and size increase throughput.}
 \end{figure}
 
 
@@ -912,7 +920,7 @@ We compare the performance of the two brute force TC algorithms to observe how t
     \includegraphics[scale=1.0]{figures/synthetic_flops_comparison.pdf}
     \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) vs. \ouralg (FP16-32) as a  function of data dimensionality using the \synth dataset of size $|D|{=}10^5$.  The standard deviation for all \ouralg measurements was $<0.7$ TFLOPS. The peak throughput is shown for context. }
     \label{fig:tflops_synthetic_comparison}
-    
+		\Description{Plot comparing the performance of TED Join and FasTED relative to the theoretical maximum tensor core throughputs for FP64 and FP16-32. } 
 \end{figure}
 
 To better understand why the performance of \ouralg scales well with increasing data dimensionality ($d$), while the performance of \tedjoinbrute degrades, we employ the Nvidia Nsight Compute profiler and present the results in Table~\ref{tab:profiler_results}. We observe that as $d$ increases, the tensor pipe utilization metric increases for \ouralg but does not for \tedjoinbrute. Examining the percentage of shared memory bank conflicts, we observe that \ouralg is conflict-free (0\%), whereas \tedjoinbrute yields $\geq$75\% shared memory bank conflicts. \tedjoin is constrained by the WMMA API which has rigid load/store memory access patterns which causes shared memory bank conflicts in both the \tedjoinbrute and \tedjoinindex variants.
@@ -970,6 +978,7 @@ Figure~\ref{fig:realworldcomparison} plots the response time on the four real-wo
     \caption{Comparison of \ouralg to the SOTA GPU index-supported similarity search algorithms (\mistic, \gdsjoin, and \tedjoinindex) on four real-world datasets. The total end-to-end response time is plotted, which includes all associated overheads for each method (e.g., index construction and transferring data to/from the GPU). \tedjoinindex exceeds shared memory at $d{=}384$, so it is not shown in panels (c)--(d). The speedup of \ouralg over the reference implementations is reported inside each bar. The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=42$, (b) $\sigma=0.11$, (c) $\sigma=0.12$, and (d) $\sigma=0.054$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset. }
 %    \mike{I don't understand the relative standard deviation reported here, also it does not specify which algorithm. I would simply write: ``The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=XXX$, (b) $\sigma=XXX$, (c) $\sigma=XXX$, and (d) $\sigma=XXX$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset.''}
     \label{fig:realworldcomparison}
+		\Description{Four plots showing how FasTED performance compares to three other euclidean distance algorithms. Each plot depicts a different real-world dataset. Each dataset was tested with three different selectivity levels as well. }
 \end{figure*}
 
 
@@ -1038,7 +1047,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
     \includegraphics[scale=1.0]{figures/Cifar_distance_error.pdf}
     \caption{The distribution of the errors in the distance measurements for the \cifar dataset is shown.}
     \label{fig:cifar_distances}
-    
+		\Description{Histogram showing the distance error for the Cifar60K dataset. The distribution is centered on 0 error, and has a normal-looking distribution. } 
 \end{figure}
 
 %\mike{Regarding the error vs. absolute error, we will need to update this text if we do the absolute error.}
