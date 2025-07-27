@@ -193,11 +193,11 @@ columns=flexible,                       % Column format
 morekeywords={__global__, __device__},  % CUDA specific keywords
 }
 
-\usepackage[most]{tcolorbox}
-\definecolor{mGreen}{rgb}{0,0.6,0}
-\definecolor{mGray}{rgb}{0.5,0.5,0.5}
-\definecolor{mPurple}{rgb}{0.58,0,0.82}
-\definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
+\usepackage{framed}
+
+\definecolor{TFFrameColor}{rgb}{0.0,0.0,0.5} % darkish blue frame
+\definecolor{TFBackgroundColor}{rgb}{0.9,0.95,1} % light blue background
+\definecolor{TFTitleColor}{rgb}{1,1,1} % white text
 
 %end custom
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -551,7 +551,7 @@ Transferring data from global memory into registers for the MMA PTX instruction 
 
 
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black,title=Box \#1: Selecting Tile Sizes Based on Data Reuse, label=box:tilesizeestimates, fontupper=\normalsize]
+\begin{titled-frame}{Box \#1: Selecting Tile Sizes Based on Data Reuse}
 
 % On the A100 GPU, the peak throughput of TCs operating in FP16-32 mode is 312~TFLOPS. 
 In a matrix multiply-accumulate product, there are two floating-point operations for every two elements processed. Peak throughput (312~TFLOPS) requires reading the following number of elements per second:
@@ -569,7 +569,7 @@ In a matrix multiply-accumulate product, there are two floating-point operations
 \frac{\text{312}\times 10^{12}~\text{elements}}{\text{second}} \times \frac{\text{2 B}}{\text{1 element}} \times \frac{\text{second}}{\text{17.9 TB}} = \textbf{35 times}.
 \]
    % \textbf{Conditions (1) \& (2) must be satisfied to realize peak performance.}
-\end{tcolorbox}
+\end{titled-frame}
 
 
 % Warp Tile
@@ -656,7 +656,7 @@ We use multiple blocks that are executed in parallel on each SM to hide high lat
 
 \subsubsection{Single Warp Tile}
 \label{opt:warptile}
-We create a $64{\times }64{\times }16$ warp tile (Figure \ref{fig:warp_mma}) that reuses each \prf\ and \qrf\ fragment, $4$ and $8$ times respectively, to achieve the required reuse calculated in Box~1. To reduce register pressure, only a single \sixtd \kslice is stored in registers at a time. 
+We create a $64{\times }64{\times }16$ warp tile (Figure \ref{fig:warp_mma}) that reuses each \prf\ and \qrf\ fragment, $4$ and $8$ times respectively, to achieve the required reuse calculated in Box~\#1. To reduce register pressure, only a single \sixtd \kslice is stored in registers at a time. 
  
 
 \subsubsection{Memory Address XOR Swizzling}\label{opt:swizzling}
