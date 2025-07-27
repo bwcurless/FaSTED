@@ -12,6 +12,8 @@ Shared_Memory_Layout \
 Single_TC_MMA \
 Warp_Tile
 
+FIGPDFS=$(addprefix $(BUILDDIR)/,$(addsuffix .pdf, $(FIGS)))
+
 # Main document
 MAIN=main
 
@@ -26,12 +28,14 @@ $(BUILDDIR)/%.pdf: $(FIGDIR)/%.tex
 	$(LATEX) -output-directory=$(BUILDDIR) $<
 
 # Compile main.tex to build/main.pdf
-$(BUILDDIR)/$(MAIN).pdf: $(MAIN).tex $(patsubst %, $(BUILDDIR)/%.pdf, $(FIGS))
+$(BUILDDIR)/$(MAIN).pdf: $(MAIN).tex $(FIGPDFS)
 	mkdir -p $(BUILDDIR)
-	$(LATEXMK) -pdf -output-directory=$(BUILDDIR) $(MAIN).tex
+	$(LATEXMK) -pdf -f -output-directory=$(BUILDDIR) $(MAIN).tex
 
-# Default target: build everything
-all: $(BUILDDIR)/$(MAIN).pdf
+# Default target: build just tikz diagrams
+tikz: $(FIGPDFS)
+
+main: $(BUILDDIR)/$(MAIN).pdf
 
 # Clean build files
 clean:
