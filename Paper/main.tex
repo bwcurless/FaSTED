@@ -395,7 +395,7 @@ In this section, we discuss the operation of TCs and how they are programmed on 
 The WMMA API and PTX instructions both load data from shared memory into registers that are shared across an entire warp to compute small submatrices (called register fragments). However, the WMMA API is limited to larger matrix sizes (see Table~\ref{tab:WMMA_vs_PTX}), does not specify the register layout, and yields less control over memory addressing. In this paper, we use PTX instructions as they provide the most flexibility to achieve the highest throughput.
 
 
-\begin{table}[]
+\begin{table}[!t]
 
 \footnotesize
     \centering
@@ -863,7 +863,7 @@ Despite these three optimizations having an outsized performance impact, none of
 \footnotesize
     \centering
     {
-			\begin{tabular}{p{4.75cm}|l|r} 
+			\begin{tabular}{p{4.7cm}|l|r} 
         \hline
         \rowcolor{blue!40!white}Disabled Optimization & Section &Derived TFLOPS \\ \hline
         Block Tile Ordering &\ref{opt:l2cache} & \ltwocache \\
@@ -890,7 +890,7 @@ We compare the performance of the two brute force TC algorithms to observe how t
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[scale=1.0]{figures/synthetic_flops_comparison.pdf}
+    \includegraphics[scale=0.95]{figures/synthetic_flops_comparison.pdf}
     \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) vs. \ouralg (FP16-32) as a  function of data dimensionality using the \synth dataset of size $|D|{=}10^5$.  The standard deviation for all \ouralg measurements was $<0.7$ TFLOPS. The peak throughput is shown for context. }
     \label{fig:tflops_synthetic_comparison}
 		\Description{Plot comparing the performance of TED Join and FasTED relative to the theoretical maximum tensor core throughputs for FP64 and FP16-32. } 
@@ -999,7 +999,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
 \caption{The accuracy of \ouralg compared to the FP64 \gdsjoin algorithm using the distance metric with the smallest selectivity level, $S_{s}{=}64$, for all real-world datasets.}
 \footnotesize
     \centering
-		\begin{tabular}{p{1.8cm}|r|r|r|r} 
+		\begin{tabular}{p{1.6cm}|r|r|r|r} 
         \hline
              \rowcolor{blue!40!white} & \sift & \tinyds& \cifar & \gist  \\\hline
              %\multicolumn{5}{c}{Distance error statistics for $S_{s}{=}64$}\\\hline 

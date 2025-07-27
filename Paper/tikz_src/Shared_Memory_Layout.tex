@@ -31,7 +31,7 @@
 				\ifnum\col=0
 					\pgfmathsetmacro{\pointNum}{int(\row + 1)}
 					\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
-					\node[font=\small, xshift=\poffset cm] at (C) {$p_\pointNum$};
+					\node[font=\scriptsize, xshift=\poffset cm] at (C) {$p_\pointNum$};
 				\fi
 
 				\pgfmathsetmacro\headerOffset{\halfBlockHeight + 0.25}
@@ -42,7 +42,7 @@
 					\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
 
 					\pgfmathsetmacro{\bank}{int(\col+1)}
-					\node[font=\small, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
+					\node[font=\scriptsize, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
 				\fi
 
 				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
@@ -52,10 +52,10 @@
 				% Add header for XOR column...
 					\ifnum\row=0
 					    \pgfmathsetmacro\xorYOffset{\headerOffset - 0.05}
-						\node[anchor=west, font=\small, xshift=\xorOffset cm, yshift=\xorYOffset cm] at (C) {\underline{XOR}};
+						\node[anchor=west, font=\scriptsize, xshift=\xorOffset cm, yshift=\xorYOffset cm] at (C) {\underline{XOR}};
 					\fi
 					\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
-					\node[anchor=west, font=\small, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
+					\node[anchor=west, font=\scriptsize, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
 				\fi
 
 			% Add dimension range for each block
