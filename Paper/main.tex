@@ -103,36 +103,19 @@
 %% End of template, start of our custom Preamble here:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %custom commands
-\usepackage[utf8]{inputenc}
-\usepackage{colortbl}
-\usepackage{amsmath,amsfonts}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
-\usepackage{multirow}
-\usepackage{graphicx}
-\usepackage{textcomp}
-\usepackage[dvipsnames]{xcolor}
-\usepackage{enumitem}
-\usepackage{subfigure}
-\usepackage{subcaption}
-
-\usepackage{listings}
-\lstset{
-language=C++,
-basicstyle=\small,
-showstringspaces=false,
-}
 \usepackage{bm}
-
+\usepackage{colortbl}
 \usepackage{enumitem}
 \setlist{topsep=0pt, leftmargin=*}
-
-
-\usepackage{xcolor}
-\usepackage{xparse}
-
-\usepackage{xparse}
-
+\usepackage{framed}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{textcomp}
+\usepackage{subfigure}
+\usepackage{subcaption}
 \usepackage{xspace}    
 
 %placeholder
@@ -184,8 +167,7 @@ columns=flexible,                       % Column format
 morekeywords={__global__, __device__},  % CUDA specific keywords
 }
 
-\usepackage{framed}
-
+% Colorbox colors for titled-frame
 \definecolor{TFFrameColor}{rgb}{0.0,0.0,0.5} % darkish blue frame
 \definecolor{TFBackgroundColor}{rgb}{0.9,0.95,1} % light blue background
 \definecolor{TFTitleColor}{rgb}{1,1,1} % white text
