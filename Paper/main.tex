@@ -134,15 +134,6 @@ showstringspaces=false,
 \usepackage{xparse}
 
 \usepackage{xspace}    
-\usepackage{tabularx}
-
-%centering tabularx
-\newcolumntype{Y}{>{\centering\arraybackslash}X}
-%right align in tabularx
-\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
-
-%right align in tabularx
-\newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
 %placeholder
 % \def\ouralg{\textsc{MPTC-Join}\xspace}
@@ -426,8 +417,8 @@ The WMMA API and PTX instructions both load data from shared memory into registe
 
 \footnotesize
     \centering
-    \caption{Comparison of matrix sizes for FP16-32.}
-        \begin{tabularx}{\columnwidth}{l|L|L} 
+		\caption{Comparison of matrix sizes for FP16-32.}
+		\begin{tabular}{>{\raggedright\arraybackslash}p{3cm}|p{2.2cm}|p{2.2cm}} 
         \hline
         \rowcolor{blue!40!white}Size ($m$-$n$-$k$)&WMMA API&\ptxmma\\\hline
         16$\times$16$\times$16&\checkmark&\\
@@ -437,7 +428,7 @@ The WMMA API and PTX instructions both load data from shared memory into registe
         16$\times$8$\times$8&&\checkmark\\
         \textbf{16$\times$8$\times$16} (Used by \ouralg)  &&\checkmark\\
         \hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:WMMA_vs_PTX}
 \end{table}
 
@@ -746,7 +737,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
 \begin{table}[!t]
 \footnotesize
 \caption{Summary of optimized parameters. }
-        \begin{tabularx}{\columnwidth}{L|r} 
+\begin{tabular}{p{5.4cm}|r} 
         \hline
         \rowcolor{blue!40!white}Parameter & Optimized Value \\ \hline
         Block tile dispatch shape & $8{\times }8$ blocks \\ \hline
@@ -755,7 +746,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
         Warp tile iteration size & $64{\times }64{\times }16$ \\ \hline
         Warps per block & 4 \\ \hline
         Pipeline depth & 2 \\ \hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:optimized_parameters}
 \end{table}
 
@@ -784,7 +775,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
     {
         % Get Ted-Join-Brute to fit on one line
         % \setlength{\tabcolsep}{4pt} % default is 6pt
-        \begin{tabularx}{\columnwidth}{l|l|l|L|L} 
+		\begin{tabular}{l|l|l|>{\raggedright\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}} 
         \hline
         \rowcolor{blue!40!white}Implementation&GPU Core&Precision& Scenario~1: Brute Force  (Sec.~\ref{sec:scenario1_brute_with_epsilon})&Scenario~2: Index-Supported (Sec.~\ref{sec:scenario2_index})\\ \hline
         \ouralg&Tensor&FP16-32&\checkmark&\\
@@ -793,7 +784,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
         \gdsjoin&CUDA&FP32&&\checkmark\\
         \mistic & CUDA & FP32 & &\checkmark\\
         \hline
-        \end{tabularx}
+        \end{tabular}
     }
     \label{tab:implementations}
 \end{table}
@@ -819,7 +810,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
 \caption{\emph{Top:} Real-world datasets that we use in our evaluation. The dataset size, $|D|$, and data dimensionality, $d$, are shown, in addition to the $\epsilon$ values that correspond to three target selectivity values that we employ ($S_{s}$,  $S_{m}$, and $S_{l}$). \emph{Bottom:} Synthetic datasets that we use in our evaluation.}
 \footnotesize
     \centering
-        \begin{tabularx}{\columnwidth}{L|r|r|r|r|r} 
+        \begin{tabular}{l|r|r|r|r|r} 
         \hline
              
             \rowcolor{blue!40!white} \multicolumn{6}{c}{Real-World Datasets}\\\hline
@@ -831,7 +822,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
            \rowcolor{blue!40!white}  \multicolumn{6}{c}{Synthetic Datasets}\\\hline
           \rowcolor{blue!40!white}   Dataset& \multicolumn{2}{c|}{ $|D|$ }& \multicolumn{3}{c}{$d$}\\\hline
              \synth&\multicolumn{2}{c|}{$10^{3 + n/3} \text{ where } n\in [0, 1, \ldots, 9]$}&\multicolumn{3}{c}{$d\in 2^n \text{ where } n\in[6, 7, \ldots, 12]$}\\\hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:datasets}
 \end{table}
 
@@ -890,7 +881,7 @@ Despite these three optimizations having an outsized performance impact, none of
 \footnotesize
     \centering
     {
-        \begin{tabularx}{\columnwidth}{L|l|r} 
+			\begin{tabular}{p{4.75cm}|l|r} 
         \hline
         \rowcolor{blue!40!white}Disabled Optimization & Section &Derived TFLOPS \\ \hline
         Block Tile Ordering &\ref{opt:l2cache} & \ltwocache \\
@@ -903,7 +894,7 @@ Despite these three optimizations having an outsized performance impact, none of
         Shared Memory Alignment &\ref{opt:smemalignment} &\smemalignment \\\hline
         All Optimizations Enabled &\ref{sec:ouralg_optimizations}&\baselineTFlops\\
         \hline
-        \end{tabularx}
+        \end{tabular}
     }
     \label{tab:optimization_comparison}
 \end{table}
@@ -933,7 +924,7 @@ While analyzing our results from Table~\ref{tab:profiler_results}, we discovered
 \caption{Nvidia Nsight Compute profiler results on the \synth dataset with $|D|{=}10^5$. We examine $d\in\{128, 256, 4096\}$ to illustrate how key performance metrics of the brute force TC algorithms (\ouralg and \tedjoinbrute) vary as a function of dimensionality. OOM refers to out of shared memory.}
 \footnotesize
     \centering
-        \begin{tabularx}{\columnwidth}{L|r|r|r|r|r|r} 
+        \begin{tabular}{l|r|r|r|r|r|r} 
         \hline
            \rowcolor{blue!40!white} Metric &\multicolumn{3}{c|}{\ouralg}& \multicolumn{3}{c}{\tedjoinbrute}\\ \hline%\cline{2-6}
             \rowcolor{blue!40!white}  Dimensionality ($d$)& \cellcolor{blue!40!white}$128$ & \cellcolor{blue!40!white}$256$ &\cellcolor{blue!40!white}$4096$ & \cellcolor{blue!40!white}$128$ & \cellcolor{blue!40!white}$256$&\cellcolor{blue!40!white}$4096$ \\ \hline
@@ -944,7 +935,7 @@ While analyzing our results from Table~\ref{tab:profiler_results}, we discovered
              TC Pipe Utilization FP16-32 (\%) &  10.1& 17.8 & 64.0&   N/A & N/A&OOM \\ \hline
              TC Pipe Utilization FP64 (\%) &  N/A & N/A & N/A & 5.75& 1.99 &OOM\\ \hline
              Clock Speed (GHz) &  1.37 & 1.40 & 1.12 & 1.40 & 1.41 &OOM\\ \hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:profiler_results}
 \end{table}
 
@@ -1009,7 +1000,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
 %Error statistics are not included as accuracy calculations are deterministic for a given selectivity.
 \footnotesize
     \centering
-        \begin{tabularx}{\columnwidth}{L|r|r|r|r} 
+		\begin{tabular}{p{3.5cm}|r|r|r|r} 
         \hline
              \rowcolor{blue!40!white} & \sift & \tinyds& \cifar & \gist  \\\hline
              % Accuracy Score (Equation 3)& 1.0 & 0.99998 &  0.99971 &  0.99999 \\ 
@@ -1017,7 +1008,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
              $S_{s}{=}64$& 1.0 & 0.99998 &  0.99971 &  0.99999 \\ 
              $S_{m}{=}128$& 1.0 & 0.99997 &  0.99955 &  0.99998 \\ 
              $S_{l}{=}256$& OOM & 0.99996 &  0.99946 &  0.99997 \\ \hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:accuracy}
               % Raw Values & 1.0 & 0.99998006551403 &  0.9997090359241025 &  0.9999852266643082 \\ \hline
 \end{table}
@@ -1026,7 +1017,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
 \caption{The accuracy of \ouralg compared to the FP64 \gdsjoin algorithm using the distance metric with the smallest selectivity level, $S_{s}{=}64$, for all real-world datasets.}
 \footnotesize
     \centering
-        \begin{tabularx}{\columnwidth}{L|r|r|r|r} 
+		\begin{tabular}{p{1.8cm}|r|r|r|r} 
         \hline
              \rowcolor{blue!40!white} & \sift & \tinyds& \cifar & \gist  \\\hline
              %\multicolumn{5}{c}{Distance error statistics for $S_{s}{=}64$}\\\hline 
@@ -1037,7 +1028,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
              %$S_{m}{=}128$& XXX (YYY)& XXX (YYY)&  XXX (YYY)&  XXX (YYY)\\ 
              %$S_{l}{=}256$& XXX (YYY)& XXX (YYY)&  XXX (YYY)&  XXX (YYY)\\ 
              \hline
-        \end{tabularx}
+        \end{tabular}
     \label{tab:distance_accuracy}
               % Raw Values & 1.0 & 0.99998006551403 &  0.9997090359241025 &  0.9999852266643082 \\ \hline
 \end{table}
