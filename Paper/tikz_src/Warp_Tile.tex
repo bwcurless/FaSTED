@@ -1,4 +1,4 @@
-\documentclass[tikz,border=2mm]{standalone}
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
 
 \input{tikz_src/diagramResources.tex}
 
@@ -77,7 +77,7 @@
 					\pgfmathtruncatemacro\firstCandPoint{\col * \halfFragPoints + 1}
 					\pgfmathtruncatemacro\lastCandPoint{\firstCandPoint + \halfFragPoints - 1}
 
-					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$a_{\firstQueryPoint,\firstCandPoint}$}{$a_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}{\arf}
+					\drawStackableFragment{\halfFragWidth}{\fullFragHeight}{$a_{\firstQueryPoint,\firstCandPoint}$}{$a_{\lastQueryPoint,\lastCandPoint}$}{DFragmentColor}{$A_{\regf}$}
 				\end{scope}
 			}
 		}
@@ -87,7 +87,7 @@
 	\begin{scope}[xshift=0 cm, yshift=0 cm]
 		\foreach \fragment in {0, ..., \aFragmentsMaxIndex} {
 			\begin{scope}[yshift=-\fragYShift * \fragment cm]
-				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{p}{\prf}
+				\drawFragmentStack{AFragmentColor}{\fullFragWidth}{16}{\fragment}{p}{$P_{\regf}$}
 			\end{scope}
 		}
 	\end{scope}
@@ -96,7 +96,7 @@
 	\begin{scope}[xshift=1 cm, yshift=1.75 cm]
 		\foreach \fragment in {0, ..., \bFragmentsMaxIndex} {
 			\begin{scope}[xshift=\fragXShift * \fragment cm]
-				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{p}{\qrf}
+				\drawFragmentStack{BFragmentColor}{\halfFragWidth}{8}{\fragment}{p}{$Q_{\regf}$}
 			\end{scope}
 		}
 

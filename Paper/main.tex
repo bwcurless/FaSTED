@@ -578,7 +578,7 @@ We create a ``warp tile'' (Figure~\ref{fig:warp_mma}) that contains multiple \pr
 
 
 % Block Tile
-There are four schedulers and four TCs per SM, so we elect to run four warp tiles simultaneously on each SM. These four warps form a ``block tile'' (Figure~\ref{fig:block_tile_mma}) that computes a $128{\times}128$ tile of distances $dist(p_i,p_j)^2$. A block tile transfers two different ``block fragments,'' which are \sixfourd \kslices of $128$ points ($P_{\blockf}$ and $Q_{\blockf}$), from global memory to shared memory that each warp tile reads from during its four iterations. This repeats until all dimensions of the points have been accumulated by the warp tiles and the final distances have been computed. When a block completes a tile, a work queue provides the next tile to compute and this process repeats (Figure~\ref{fig:entire_mma}). 
+There are four schedulers and four TCs per SM, so we elect to run four warp tiles simultaneously on each SM. These four warps form a ``block tile'' (Figure~\ref{fig:block_tile_mma}) that computes a $128{\times}128$ tile of distances $dist(p_i,p_j)^2$. A block tile transfers two different ``block fragments,'' which are \sixfourd \kslices of $128$ points (\pbf \ and \qbf), from global memory to shared memory that each warp tile reads from during its four iterations. This repeats until all dimensions of the points have been accumulated by the warp tiles and the final distances have been computed. When a block completes a tile, a work queue provides the next tile to compute and this process repeats (Figure~\ref{fig:entire_mma}). 
 
 
 \begin{figure}
@@ -599,7 +599,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
 \begin{figure}
     \centering
     \includegraphics{tikz_build/Block_Tile}
-    \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, $P_{\blockf}$ and $Q_{\blockf}$, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments, and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
+    \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, \pbf \ and \qbf, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments, and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
     
     \label{fig:block_tile_mma}
 \end{figure}

@@ -1,4 +1,4 @@
-\documentclass[tikz,border=2mm]{standalone}
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
 
 \input{tikz_src/diagramResources.tex}
 
@@ -19,7 +19,7 @@
 		% Draw B
 	\pgfmathsetmacro\bdXShift{\fn / 2}
 	\pgfmathsetmacro\bdYShift{\fm / 2}
-	\fill[style=fragment,fill=BFragmentColor] (0, 0) rectangle +(\fn, -\fk) node[style=matrixLabelStyle] {\qrf};
+	\fill[style=fragment,fill=BFragmentColor] (0, 0) rectangle +(\fn, -\fk) node[style=matrixLabelStyle] {$Q_{\regf}$};
 	\matrix (m) [style=matrixTextStyle, xshift=\bdXShift cm, yshift=-\bdYShift cm, 
 	matrix of math nodes,
 	row sep=1.5 cm, column sep=0.0 cm,
@@ -34,7 +34,7 @@
 		% Draw D
 	\pgfmathsetmacro\dXShift{0}
 	\pgfmathsetmacro\dYShift{-\whiteSpace - \fk}
-	\fill[style=fragment,fill=DFragmentColor, xshift=0 cm, yshift=\dYShift cm] (0, 0) rectangle +(\fn, -\fm) node[style=matrixLabelStyle] {\arf};
+	\fill[style=fragment,fill=DFragmentColor, xshift=0 cm, yshift=\dYShift cm] (0, 0) rectangle +(\fn, -\fm) node[style=matrixLabelStyle] {$A_{\regf}$};
 	\pgfmathsetmacro\adYShift{\dYShift - 0.5 * \fm}
 	\matrix (m) [style=matrixTextStyle, xshift=\bdXShift cm, yshift=\adYShift cm, 
 	matrix of math nodes,
@@ -56,7 +56,7 @@
 	\pgfmathsetmacro\aYShift{-\whiteSpace - \fm}
 	\pgfmathsetmacro\matXShift{-\fk / 2 - \whiteSpace}
     
-	\fill[style=fragment,fill=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm] (0, 0) rectangle +(\fk, -\fm) node[style=matrixLabelStyle] {\prf};
+\fill[style=fragment,fill=AFragmentColor, xshift=\aXShift cm, yshift=\aYShift cm] (0, 0) rectangle +(\fk, -\fm) node[style=matrixLabelStyle] {$P_{\regf}$};
 	\matrix (m) [style=matrixTextStyle, xshift=\matXShift cm, yshift=\adYShift cm, 
 	matrix of math nodes,
 	row sep=1.5 cm, column sep=1.0 cm,
