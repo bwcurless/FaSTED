@@ -162,6 +162,7 @@ captionpos=t,                           % Caption-position = bottom
 breaklines=true,                        % Automatic line breaking?
 breakatwhitespace=false,                % Automatic breaks only at whitespace?
 showspaces=false,                       % Dont make spaces visible
+showstringspaces=false,                 % Dont make spaces visible inside of strings
 showtabs=false,                         % Dont make tabls visible
 columns=flexible,                       % Column format
 morekeywords={__global__, __device__},  % CUDA specific keywords
@@ -238,7 +239,7 @@ morekeywords={__global__, __device__},  % CUDA specific keywords
 
 
 \begin{abstract}
-Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matrix multiplication in artificial intelligence workloads. However, because they have high computational throughput, they can lead to significant performance gains in other algorithms if they can be successfully exploited. We examine using TCs to compute Euclidean distance calculations, which are used in many data analytics applications. Prior work has only investigated using 64~bit floating point (FP64) data for computation; however, TCs can operate on lower precision floating point data (i.e., 16 bit matrix multiplication and 32 bit accumulation), which we refer to as FP16-32. FP16-32 TC peak throughput is so high that TCs are easily starved of data.  We propose a Fast and Scalable Tensor core Euclidean Distance (FaSTED) algorithm. To achieve high computational throughput, we design  \ouralg for significant hierarchical reuse of data and maximize memory utilization at every level (global memory, shared memory, and registers).  We apply \ouralg to the application of similarity searches, which typically employ an indexing data structure to eliminate superfluous Euclidean distance calculations. We compare to the state-of-the-art (SOTA) TC Euclidean distance algorithm in the literature that employs FP64, as well as to two single precision (FP32) CUDA core algorithms that both employ an index. We find that across four real-world high-dimensional datasets spanning 128-960 dimensions, the mixed-precision brute force approach achieves a speedup over the SOTA algorithms of 2.5--51$\times$. We also quantify the accuracy loss of our mixed precision algorithm to be $<$0.06\% when compared to the FP64 baseline.
+Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matrix multiplication in artificial intelligence workloads. However, because they have high computational throughput, they can lead to significant performance gains in other algorithms if they can be successfully exploited. We examine using TCs to compute Euclidean distance calculations, which are used in many data analytics applications. Prior work has only investigated using 64~bit floating point (FP64) data for computation; however, TCs can operate on lower precision floating point data (i.e., 16 bit matrix multiplication and 32 bit accumulation), which we refer to as FP16-32. FP16-32 TC peak throughput is so high that TCs are easily starved of data.  We propose a Fast and Scalable Tensor core Euclidean Distance (\ouralg) algorithm. To achieve high computational throughput, we design  \ouralg for significant hierarchical reuse of data and maximize memory utilization at every level (global memory, shared memory, and registers).  We apply \ouralg to the application of similarity searches, which typically employ an indexing data structure to eliminate superfluous Euclidean distance calculations. We compare to the state-of-the-art (SOTA) TC Euclidean distance algorithm in the literature that employs FP64, as well as to two single precision (FP32) CUDA core algorithms that both employ an index. We find that across four real-world high-dimensional datasets spanning 128-960 dimensions, the mixed-precision brute force approach achieves a speedup over the SOTA algorithms of 2.5--51$\times$. We also quantify the accuracy loss of our mixed precision algorithm to be $<$0.06\% when compared to the FP64 baseline.
 
 \end{abstract}
 
@@ -308,7 +309,7 @@ Modern GPUs are equipped with tensor cores (TCs) that are commonly used for matr
 
 Euclidean distance calculations are fundamental to numerous application domains (e.g., in the area of data analytics, they are employed for distance similarity searches~\cite{gowanlock2023optimization}, outlier detection~\cite{zimek2012survey}, k-nearest neighbor searches~\cite{Samet2008}, and clustering~\cite{bottesch2016speeding}). Given the numerous algorithms that rely on Euclidean distance subroutines, improving the performance of this fundamental operation can have a significant impact on a wide range of algorithms and applications.
 
-In this paper, we present a Fast and Scalable Tensor core Euclidean Distance (\ouralg) algorithm, that is designed for moderate to high-dimensional datasets.\footnote{The source code is publicly available: \url{https://github.com/bwcurless/FaSTED}.} We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only return those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed in many of the data analytics applications described above. \ouralg can be employed as a subroutine in algorithms and workloads requiring the large scale computation of Euclidean distances.
+In this paper, we present a Fast and Scalable Tensor core Euclidean Distance (\ouralg) algorithm, that is designed for moderate to high-dimensional datasets.\footnote{The source code is publicly available: \url{https://github.com/bwcurless/fasted}.} We consider comparing all points in an input dataset to each other, which has a quadratic time complexity, and only returning those points that are within a search distance, $\epsilon$, of each other. This is a common application scenario, as it is assumed in many of the data analytics applications described above. \ouralg can be employed as a subroutine in algorithms and workloads requiring the large scale computation of Euclidean distances.
 
 We define peak throughput as the maximum number of Tera Floating Point Operations Per Second (TFLOPS), which is the maximum throughput achievable based on TC hardware constraints. The Nvidia A100 GPU that we use in our evaluation has a peak FP32 throughput on CUDA cores of 19.5 TFLOPS, whereas TCs can achieve a throughput of 312 TFLOPS using FP16-32~\cite{A100}.\footnote{We use CUDA terminology throughout this paper.} Given that the peak throughput of TCs outlined above is a factor of 16 greater than CUDA cores, it is clear that if they can be efficiently exploited to compute Euclidean distances, there is potential for significant performance improvements over methods that employ CUDA cores.
 
@@ -359,7 +360,10 @@ Let $p_i\in D$ and $p_j \in D$ be two points in the dataset, $D$, where $p_{i,k}
 % \label{eqn:euclidean_distance}
 % \end{equation}
 \begin{equation}
-dist(p_i, p_j) = \sqrt{\sum^{d}_{k=1}(p_{i,k} - p_{j,k})^2}= \sqrt{\sum^{d}_{k=1}p_{i,k}^2 - 2p_{i,k}p_{j,k} + p_{j,k}^2}.
+	\begin{aligned}
+		dist(p_i, p_j) &= \sqrt{\sum^{d}_{k=1}(p_{i,k} - p_{j,k})^2} \\
+									 &= \sqrt{\sum^{d}_{k=1}p_{i,k}^2 - 2p_{i,k}p_{j,k} + p_{j,k}^2}.
+	\end{aligned}
 \label{eqn:euclidean_distance}
 \end{equation}
 }
@@ -438,7 +442,7 @@ asm volatile(
 \end{lstlisting}
 
 There are two main PTX instructions for using TCs. The first is \texttt{ldmatrix}, shown in Listing~\ref{lst:ldmatrix}, which creates a fragment of a matrix that is stored in registers shared across a warp. The second is \texttt{mma.sync}, shown in Listing~\ref{lst:mma}, which computes $\bm{D}=\bm{A}\times \bm{B}+\bm{C}$, where $\bm{A}$, $\bm{B}$, $\bm{C}$, and $\bm{D}$ are each fragments that were created by prior \texttt{ldmatrix} instructions. %The fragment $\bm{D}$ can be substituted for $\bm{C}$ to accumulate the result of the multiplication in place. 
-When using FP16-32 instructions, the data stored in matrices $\bm{A}$ and $\bm{B}$ are represented in FP16 as 16$\times$16 and 16$\times$8 fragments while the accumulator matrices, $\bm{C}$ and $\bm{D}$, are represented in FP32 as 16$\times$8 fragments.
+When using FP16-32 instructions, the data stored in matrices $\bm{A}$ and $\bm{B}$ are represented in FP16 as 16$\times$16 and 16$\times$8 fragments, while the accumulator matrices, $\bm{C}$ and $\bm{D}$, are represented in FP32 as 16$\times$8 fragments.
 
 
 
@@ -495,7 +499,7 @@ Figure~\ref{fig:single_mma} shows an illustrative example of calculating Euclide
 {\bf Step~1:} On CUDA cores, we precompute the sum of the squared dimensions, $s_i$, for each point $p_i \in D$, $s_i = \sum\limits_k{p_{i,k}^2}$ and store them in global memory. All summations round towards zero to match TC rounding~\cite{tcRounding}.
 
 \noindent
-{\bf Step~2:} Tensor cores operate on small matrices that are stored in registers, we refer to these matrices as ``register fragments,'' or ``rf''. There are three register fragments required to compute distances:
+{\bf Step~2:} Tensor cores operate on small matrices that are stored in registers; we refer to these matrices as ``register fragments,'' or ``rf''. There are three register fragments required to compute distances:
 \begin{enumerate}[wide=0pt]
 \item\prf: 16 dimensions from 16 points in dataset $D$. We refer to these simply as the ``points''. 
 \item\qrf: 16 dimensions from 8 points in dataset $D$ in a transposed layout. We refer to these as the ``query points''. 
@@ -574,7 +578,7 @@ There are four schedulers and four TCs per SM, so we elect to run four warp tile
 \begin{figure}
     \centering
     \includegraphics{tikz_build/Block_Tile}
-    \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, \pbf \ and \qbf, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments, and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
+    \caption{Two iterations of a $64{\times }64{\times }64$ block tile are shown. Two \sixfourd block fragments, \pbf \ and \qbf, are paged from global memory to shared memory (SMEM). Four warp tiles (Figure~\ref{fig:warp_mma}) each page a portion of the block fragments into their own register fragments and accumulate the distances. As $d{=}128$, this sequence is repeated for two iterations.}
     
     \label{fig:block_tile_mma}
 		\Description{Diagram showing how four warp tiles can all share data in shared memory to compute a single block tile.}
@@ -608,7 +612,7 @@ The L2 cache has a bandwidth of 6.4 TB/s which is $\sim$4$\times$ greater than g
 
 
 \subsubsection{L1 Cache elimination}\label{sec:L1_elimination}
-Each SM has 192~KB of memory that can be used as an L1 cache, or directly manipulated as shared memory. In order to maximize throughput, most of the L1 cache has been configured as shared memory to allow us to use a pipelined execution that hides memory access latency, which will be described in the following sections.
+Each SM has 192~KB of memory that can be used as an L1 cache or directly manipulated as shared memory. In order to maximize throughput, most of the L1 cache has been configured as shared memory to allow us to use a pipelined execution that hides memory access latency, which will be described in the following sections.
 
 
 \subsubsection{Asynchronous Global to Shared Memory Transfers}\label{opt:async_global_shared_memory}
@@ -650,12 +654,12 @@ A_\text{dest} = 8\cdot(i-1) + s \oplus ((i-1)\bmod 8).
 \end{equation}
 }
 
-Figure~\ref{fig:shared_memory} shows how each \eightd slice in a group of 8 threads will be stored in a unique bank, and is thus free of bank conflicts.
+Figure~\ref{fig:shared_memory} shows how each \eightd slice in a group of 8 threads will be stored in a unique bank and is thus free of bank conflicts.
 
 
-While swizzling the data layout is not required to have coalesced and bank conflict-free shared memory stores, it is imperative for loading the point data from shared memory and storing it into registers. To load a single fragment \prf, there are four phases, or memory transactions, in a \texttt{ldmatrix} instruction (see Listing~\ref{lst:ldmatrix} and Figure~\ref{fig:ldmatrix}). Each phase generates a single 128~B memory transaction that must be bank conflict-free to achieve maximum throughput. 
+While swizzling the data layout is not required to have coalesced and bank-conflict-free shared memory stores, it is imperative for loading the point data from shared memory and storing it into registers. To load a single fragment \prf, there are four phases, or memory transactions, in a \texttt{ldmatrix} instruction (see Listing~\ref{lst:ldmatrix} and Figure~\ref{fig:ldmatrix}). Each phase generates a single 128~B memory transaction that must be bank-conflict-free to achieve maximum throughput. 
 
-To see that banks are accessed in a conflict-free manner, observe that each \eightd slice of data being accessed in a single phase in Figure~\ref{fig:ldmatrix} is located in a unique bank in Figure~\ref{fig:shared_memory}. In contrast, a simple row-major copy from global memory (Figure~\ref{fig:global_memory} into shared memory would create 8-way bank conflicts during each phase.
+To see that banks are accessed in a conflict-free manner, observe that each \eightd slice of data being accessed in a single phase in Figure~\ref{fig:ldmatrix} is located in a unique bank in Figure~\ref{fig:shared_memory}. In contrast, a simple row-major copy from global memory (Figure~\ref{fig:global_memory}) into shared memory would create 8-way bank conflicts during each phase.
 
 
 
@@ -704,17 +708,17 @@ Alignment specifiers,\\ \texttt{\_\_align\_\_(128)}, were added to shared memory
 \subsubsection{Platform}
 We conduct our experiments on a platform with 2$\times$ AMD EPYC~7542 CPUs (64 physical cores total) clocked at 2.9 GHz with 512 GiB of main memory containing an Nvidia A100 GPU with 40 GiB of global memory (PCIe model). The host code uses C/C++ and the \ouralg GPU code is parallelized using CUDA v.12.6.3. All host code is compiled with the O3 optimization flag. Reported response times are averaged over three trials. In all experiments using \ouralg or the reference implementations, the variation between time trials is negligible, such that the error bars are smaller than the data points on the plots, so we omit plotting these statistics. However, for completeness, we include this information in the associated figures for \ouralg.
 
-We examine two main metrics when measuring performance as follows. \emph{Response time:} We measure the response time of the algorithms. \emph{Derived TFLOPS:} We report the TFLOPS yielded by the TCs by taking the total number of operations and dividing it by the measured response time. We refer to this when we discuss TFLOPS.
+We examine two main metrics when measuring performance. \emph{Response time:} We measure the response time of the algorithms. \emph{Derived TFLOPS:} We report the TFLOPS yielded by the TCs by taking the total number of operations and dividing it by the measured response time. We refer to this when we discuss TFLOPS.
 
 % \emph{Tensor Core Pipe Utilization:} The percentage utilization of the TCs on the GPU, as reported by the Nvidia Nsight Compute profiler. 
 
-To make a fair comparison between all implementations, we include all overheads, such as allocating memory, transferring data to and from the GPU and storing the results in main memory. Regarding methods that employ indexing, we include all index construction overheads. 
+To make a fair comparison between all implementations, we include all overheads, such as allocating memory, transferring data to and from the GPU, and storing the results in main memory. Regarding methods that employ indexing, we include all index construction overheads. 
 
 
 \subsubsection{Implementations}\label{sec:implementation_configurations}
 We compare \ouralg to several GPU implementations. In what follows, we outline the reference implementations, their configurations, and the default configuration for \ouralg. We summarize the implementations in Table~\ref{tab:implementations}.
 
-\noindent\textbf{\ouralg --} We configure \ouralg using the parameters outlined in Table~\ref{tab:optimized_parameters}, which were motivated in Section~\ref{sec:our_algorithm}.
+\noindent\textbf{\ouralg \ --} We configure \ouralg using the parameters outlined in Table~\ref{tab:optimized_parameters}, which were motivated in Section~\ref{sec:our_algorithm}.
 
 \begin{table}[!t]
 \footnotesize
@@ -733,7 +737,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
 \end{table}
 
 
-\noindent\textbf{\tedjoin --} As described in Section~\ref{sec:background_tedjoin}, \tedjoin~\cite{gallet2022leveraging} is the only other algorithm in the literature that computes Euclidean distances on TCs, and it uses double precision floating point (FP64) values. 
+\noindent\textbf{\tedjoin \ --} As described in Section~\ref{sec:background_tedjoin}, \tedjoin~\cite{gallet2022leveraging} is the only other algorithm in the literature that computes Euclidean distances on TCs, and it uses double precision floating point (FP64) values. 
 
 
 \tedjoin exceeds the shared memory capacity and fails to compile when a dataset contains points with $d>128$. We elected to modify \tedjoin to allocate part of the L1 cache as shared memory to allow us to employ datasets with $d\leq 384$. \tedjoin can operate in two modes, the first using brute force searches, and the second using an index for index-supported range queries. We refer to these variants as {\bf \tedjoinbrute} and {\bf \tedjoinindex}, respectively. 
@@ -743,12 +747,12 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
 
 % Both \tedjoinbrute and \tedjoinindex are configured with 256 threads per block and 8 query points per warp. \tedjoinindex aborts the distance calculation when the running total distance exceeds the search distance, $\epsilon$.
 
-\noindent\textbf{\gdsjoin --} As described in Section~\ref{sec:related_work_gpu_similarity_searches} this algorithm performs index-supported range queries using CUDA cores. We use  the same optimizations and configuration as described in the \gdsjoin papers~\cite{gowanlock2019gpu,gowanlock2023optimization}, so we only outline the differences here. We configure \gdsjoin to use FP32 data, which provides a baseline of comparison to \ouralg that does not use FP64 like \tedjoin. Lastly, we use a batch size of $b_s=2\times10^9$ for batching the result set from the GPU to the host. We also employ \gdsjoin as executed using FP64 to compute the accuracy of \ouralg's mixed-precision results. The code is publicly available.\footnote{\url{https://github.com/mgowanlock/gpu_self_join}} 
+\noindent\textbf{\gdsjoin \ --} As described in Section~\ref{sec:related_work_gpu_similarity_searches} this algorithm performs index-supported range queries using CUDA cores. We use  the same optimizations and configuration as described in the \gdsjoin papers~\cite{gowanlock2019gpu,gowanlock2023optimization}, so we only outline the differences here. We configure \gdsjoin to use FP32 data, which provides a baseline of comparison to \ouralg that does not use FP64 like \tedjoin. Lastly, we use a batch size of $b_s=2\times10^9$ for batching the result set from the GPU to the host. We also employ \gdsjoin as executed using FP64 to compute the accuracy of \ouralg's mixed-precision results. The code is publicly available.\footnote{\url{https://github.com/mgowanlock/gpu_self_join}} 
 
-\noindent\textbf{\mistic --} This algorithm is similar to \gdsjoin above as it uses CUDA cores (Section~\ref{sec:related_work_gpu_similarity_searches}). We use the same configurations and optimizations as outlined in the \mistic paper~\cite{donnelly2024multi} and use a block size of 256 with 1024 blocks per kernel invocation (multiple invocations are used to batch the result set from device to host). The algorithm uses 6 levels and selects between 38 candidate layers at each level when incrementally constructing the index. \mistic is configured to use FP32 instead of FP64 (the latter was used in the evaluation in the \mistic paper~\cite{donnelly2024multi}). The code is publicly available.\footnote{\url{https://github.com/bwd29/self-join-MiSTIC}} 
+\noindent\textbf{\mistic \ --} This algorithm is similar to \gdsjoin above as it uses CUDA cores (Section~\ref{sec:related_work_gpu_similarity_searches}). We use the same configurations and optimizations as outlined in the \mistic paper~\cite{donnelly2024multi} and use a block size of 256 with 1024 blocks per kernel invocation (multiple invocations are used to batch the result set from device to host). The algorithm uses 6 levels and selects between 38 candidate layers at each level when incrementally constructing the index. \mistic is configured to use FP32 instead of FP64 (the latter was used in the evaluation in the \mistic paper~\cite{donnelly2024multi}). The code is publicly available.\footnote{\url{https://github.com/bwd29/self-join-MiSTIC}} 
 
 
-\noindent\textbf{Short circuiting of distance calculations -- }The CUDA core algorithms (\gdsjoin and \mistic) abort computing the distance between each pair of points when the running total distance exceeds $\epsilon$. When points in a dataset are very spread out this saves significant computation time. The TC algorithms (\tedjoin and \ouralg) are less flexible because they compute the distances between all permutations of two sets of points simultaneously. \ouralg compares an entire 128$\times$128 block of points at a time. As \ouralg is computing 16,384 distances at a time, and every single point would need to short circuit for the optimization to be viable, we forego this optimization. \tedjoin compares an 8$\times$8 matrix of points at a time in FP64 mode which is small enough that it does employ short circuiting. \tedjoinbrute does not abort early.
+\noindent\textbf{Short circuiting of distance calculations -- }The CUDA core algorithms (\gdsjoin and \mistic) abort computing the distance between each pair of points when the running total distance exceeds $\epsilon$. When points in a dataset are very spread out, this saves significant computation time. The TC algorithms (\tedjoin and \ouralg) are less flexible because they compute the distances between all permutations of two sets of points simultaneously. \ouralg compares an entire 128$\times$128 block of points at a time. As \ouralg is computing 16,384 distances at a time, and every single point would need to short circuit for the optimization to be viable, we forego this optimization. \tedjoin compares an 8$\times$8 matrix of points at a time in FP64 mode, which is small enough that it does employ short circuiting. \tedjoinbrute does not abort early.
 
 \begin{table}[!t]
 \caption{Comparison of implementation properties.}
@@ -784,7 +788,7 @@ We compare \ouralg to several GPU implementations. In what follows, we outline t
 \noindent\textbf{Synthetic Datasets --} Table~\ref{tab:datasets} outlines the dataset size and dimensionality of the synthetic dataset that we use in the evaluation. We use this class of datasets to compute the throughput of the brute force approaches, which require comparing all points to each other; therefore, the data distribution does not impact performance.
 
 
-\noindent\textbf{Selectivity of the Range Queries --} The search radius, $\epsilon$, used in a similarity search will impact the degree of pruning afforded by an indexing data structure. A large search radius that returns a large number of neighbors per point in a dataset will reduce the degree of index pruning, and a small value of $\epsilon$ will allow many points to be ignored when performing distance calculations. To standardize experiments across datasets, we employ the selectivity, which refers to the mean number of points found by each point searched in the dataset. The selectivity is defined as $S{=}(|R|{-}|D|)/|D|$, where $|R|$ is the total result set size (the number of pairs of points found within $\epsilon$ of each other). Selecting common selectivity values to use across datasets ensures that searches have a proportional amount of work to each other; otherwise, comparing performance between datasets is less meaningful. In our evaluation, we select values of $\epsilon$ for each dataset that yield three levels of selectivity (small, medium, and large), and these are defined as $S_s{=}64$, $S_m{=}128$, and $S_l{=}256$. The $\epsilon$ values corresponding to these selectivity values are given for the real-world datasets in Table~\ref{tab:datasets}. 
+\noindent\textbf{Selectivity of the Range Queries --} The search radius, $\epsilon$, used in a similarity search will impact the degree of pruning afforded by an indexing data structure. A large search radius that returns a large number of neighbors per point in a dataset will reduce the degree of index pruning, and a small value of $\epsilon$ will allow many points to be ignored when performing distance calculations. To standardize experiments across datasets, we employ the selectivity, which refers to the mean number of points found by each point searched in the dataset. The selectivity is defined as $S{=}(|R|{-}|D|)/|D|$, where $|R|$ is the total result set size (the number of pairs of points found within $\epsilon$ of each other). Common selectivity values are used to ensure that searches have a proportional amount of work to each other; otherwise, comparing performance between datasets is less meaningful. In our evaluation, we select values of $\epsilon$ for each dataset that yield three levels of selectivity (small, medium, and large), and these are defined as $S_s{=}64$, $S_m{=}128$, and $S_l{=}256$. The $\epsilon$ values corresponding to these selectivity values are given for the real-world datasets in Table~\ref{tab:datasets}. 
 
 
 
@@ -816,7 +820,7 @@ With all of our optimizations described in Section~\ref{sec:ouralg_optimizations
 
 Figure~\ref{fig:tflops} shows the results of this experiment. Our maximum throughput is roughly 150 TFLOPS, which can be achieved with a minimum dataset size of $|D|{=}46416$ and dimensionality of $d{=}2048$. In practice, this indicates that only a small to moderate dataset size is needed to reach peak performance, assuming that the dataset contains a sufficient number of dimensions.
 
-Recall that because \ouralg is brute force, its performance is not impacted by the data distribution, so these results apply to any real-world dataset of the same size and dimensionality. To estimate \ouralg's performance on a dataset with a dimensionality that is not a multiple of $64$, one must use the throughput measurements from the next multiple of $64$. In other words, for low dimensionality like $d{=}65$, $63$ dimensions of zeros are added, and the throughput is almost halved. This effect on performance is decreases as dimensionality increases.
+Recall that because \ouralg is brute force, its performance is not impacted by the data distribution, so these results apply to any real-world dataset of the same size and dimensionality. To estimate \ouralg's performance on a dataset with a dimensionality that is not a multiple of $64$, one must use the throughput measurements from the next multiple of $64$. In other words, for low dimensionality like $d{=}65$, $63$ dimensions of zeros are added, and the throughput is almost halved. This effect on performance decreases as dimensionality increases.
 
 
 \begin{figure}
@@ -885,25 +889,25 @@ Despite these three optimizations having an outsized performance impact, none of
 
 \subsection{Brute Force Tensor Core Throughput}\label{sec:eval_throughput}
 
-We compare the performance of the two brute force TC algorithms to observe how they scale with increasing data dimensionality. Recall from Section~\ref{sec:implementation_configurations} that \tedjoinbrute exceeds shared memory capacity and so we are unable to report its performance across a large range of data dimensionalities.  Figure~\ref{fig:tflops_synthetic_comparison} compares the performance of our algorithm, \ouralg (FP16-32), to \tedjoinbrute (FP64). Regarding \ouralg, we find that the TC throughput increases as a function of $d$, which indicates that it is highly scalable in terms of data dimensionality. In contrast, the performance of \tedjoinbrute degrades significantly as $d$ increases, which was also shown in the \tedjoin paper~\cite{gallet2022leveraging}. At $d{=}4096$, \ouralg achieves a sustained throughput of $49\%$ of the A100's peak throughput of 312 TFLOPS using FP16-32 TCs~\cite{A100}. In contrast, \tedjoin only achieves 6.8\% of FP64 peak throughput when $d{=}64$ and it declines at higher dimensionalities. 
+We compare the performance of the two brute force TC algorithms to observe how they scale with increasing data dimensionality. Recall from Section~\ref{sec:implementation_configurations} that \tedjoinbrute exceeds shared memory capacity and so we are unable to report its performance across a large range of data dimensionalities.  Figure~\ref{fig:tflops_synthetic_comparison} compares the performance of our algorithm, \ouralg (FP16-32), to \tedjoinbrute (FP64). Regarding \ouralg, we find that the TC throughput increases as a function of $d$, which indicates that it is highly scalable in terms of data dimensionality. In contrast, the performance of \tedjoinbrute degrades significantly as $d$ increases, which was also shown in the \tedjoin paper~\cite{gallet2022leveraging}. At $d{=}4096$, \ouralg achieves a sustained throughput of $49\%$ of the A100's peak throughput of 312 TFLOPS using FP16-32 TCs~\cite{A100}. In contrast, \tedjoin only achieves 6.8\% of FP64 peak throughput when $d{=}64$, and it declines at higher dimensionalities. 
 
 
 \begin{figure}[!t]
     \centering
     \includegraphics[scale=0.95]{figures/synthetic_flops_comparison.pdf}
-    \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) vs. \ouralg (FP16-32) as a  function of data dimensionality using the \synth dataset of size $|D|{=}10^5$.  The standard deviation for all \ouralg measurements was $<0.7$ TFLOPS. The peak throughput is shown for context. }
+    \caption{Comparison of derived TFLOPS (plotted on a log scale) achieved on the brute force TC algorithms, \tedjoinbrute (FP64) and \ouralg (FP16-32), as a  function of data dimensionality, using the \synth dataset of size $|D|{=}10^5$.  The standard deviation for all \ouralg measurements was $<0.7$ TFLOPS. The peak throughput is shown for context. }
     \label{fig:tflops_synthetic_comparison}
-		\Description{Plot comparing the performance of TED Join and FasTED relative to the theoretical maximum tensor core throughputs for FP64 and FP16-32. } 
+		\Description{Plot comparing the performance of TED Join and \ouralg relative to the theoretical maximum tensor core throughputs for FP64 and FP16-32. } 
 \end{figure}
 
-To better understand why the performance of \ouralg scales well with increasing data dimensionality ($d$), while the performance of \tedjoinbrute degrades, we employ the Nvidia Nsight Compute profiler and present the results in Table~\ref{tab:profiler_results}. We observe that as $d$ increases, the tensor pipe utilization metric increases for \ouralg but does not for \tedjoinbrute. Examining the percentage of shared memory bank conflicts, we observe that \ouralg is conflict-free (0\%), whereas \tedjoinbrute yields $\geq$75\% shared memory bank conflicts. \tedjoin is constrained by the WMMA API which has rigid load/store memory access patterns which causes shared memory bank conflicts in both the \tedjoinbrute and \tedjoinindex variants.
+To better understand why the performance of \ouralg scales well with increasing data dimensionality ($d$), while the performance of \tedjoinbrute degrades, we employ the Nvidia Nsight Compute profiler and present the results in Table~\ref{tab:profiler_results}. We observe that as $d$ increases, the tensor pipe utilization metric increases for \ouralg but does not for \tedjoinbrute. Examining the percentage of shared memory bank conflicts, we observe that \ouralg is conflict-free (0\%), whereas \tedjoinbrute yields $\geq$75\% shared memory bank conflicts. \tedjoin is constrained by the WMMA API, which has rigid load/store memory access patterns, which causes shared memory bank conflicts in both the \tedjoinbrute and \tedjoinindex variants.
 
 
 While analyzing our results from Table~\ref{tab:profiler_results}, we discovered a discrepancy between the TC Pipe Utilization metric and our derived TFLOPS. The profiler reported 64\% utilization while, by our calculations, we only achieved 49\%. The explanation for this discrepancy is that at $d{=}4096$, the 250~W power budget for our PCIe A100 is exceeded, and the clock is throttled to 1.12 GHz. The implications of this finding are discussed in the conclusion.
 
 
 \begin{table}[!t]
-\caption{Nvidia Nsight Compute profiler results on the \synth dataset with $|D|{=}10^5$. We examine $d\in\{128, 256, 4096\}$ to illustrate how key performance metrics of the brute force TC algorithms (\ouralg and \tedjoinbrute) vary as a function of dimensionality. OOM refers to out of shared memory.}
+\caption{Nvidia Nsight Compute profiler results on the \synth dataset with $|D|{=}10^5$. We examine $d\in\{128, 256, 4096\}$ to illustrate how key performance metrics of the brute force TC algorithms (\ouralg and \tedjoinbrute) vary as a function of dimensionality. OOM refers to ``out of shared memory''.}
 \footnotesize
     \centering
         \begin{tabular}{l|r|r|r|r|r|r} 
@@ -938,7 +942,7 @@ Figure~\ref{fig:realworldcomparison} plots the response time on the four real-wo
 
 
 \begin{enumerate}[wide=0pt]
-\item On a given dataset, the speedup of \ouralg over the reference implementations increases with increasing selectivity. This is because \ouralg is a  brute force method and so it computes the distance between all pairs of points, and so the response time of \ouralg is independent of increasing selectivity (or search radius, $\epsilon$). In contrast, the response time of the reference implementations (\mistic, \gdsjoin, and \tedjoinindex) increase with selectivity, because the number of distance calculations performed increases with search distance. 
+\item On a given dataset, the speedup of \ouralg over the reference implementations increases with increasing selectivity. This is because \ouralg is a  brute force method, and so it computes the distance between all pairs of points, and so the response time of \ouralg is independent of increasing selectivity (or search radius, $\epsilon$). In contrast, the response time of the reference implementations (\mistic, \gdsjoin, and \tedjoinindex) increase with selectivity because the number of distance calculations performed increases with search distance. 
 \item The maximum dimensionality on the real-world datasets is $d{=}960$. However, as shown in Section~\ref{sec:eval_dataset_size_dimensionality}, a minimum dimensionality of roughly $d{=}2048$ is needed for \ouralg to reach $\sim$150 TFLOPS. This demonstrates that even in cases where the dimensionality is insufficient to reach $\sim$150 TFLOPS, \ouralg still outperforms the SOTA with a minimum speedup of 2.5$\times$ (over \mistic and \gdsjoin) and a maximum of 51$\times$ over \tedjoinindex.
 \end{enumerate}
 
@@ -948,18 +952,18 @@ Figure~\ref{fig:realworldcomparison} plots the response time on the four real-wo
 \begin{figure*}
     \centering
     \includegraphics[width=\textwidth]{figures/RealDataSetSpeedComparison.pdf}
-    \caption{Comparison of \ouralg to the SOTA GPU index-supported similarity search algorithms (\mistic, \gdsjoin, and \tedjoinindex) on four real-world datasets. The total end-to-end response time is plotted, which includes all associated overheads for each method (e.g., index construction and transferring data to/from the GPU). \tedjoinindex exceeds shared memory at $d{=}384$, so it is not shown in panels (c)--(d). The speedup of \ouralg over the reference implementations is reported inside each bar. The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=42$, (b) $\sigma=0.11$, (c) $\sigma=0.12$, and (d) $\sigma=0.054$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset. }
+    \caption{Comparison of \ouralg to the SOTA GPU index-supported similarity search algorithms (\mistic, \gdsjoin, and \tedjoinindex) on four real-world datasets. The total end-to-end response time is plotted, which includes all associated overheads for each method (e.g., index construction and transferring data to/from the GPU). \tedjoinindex exceeds shared memory at $d{=}384$, so it is not shown in panels (c)--(d). The speedup of \ouralg over the reference implementations is reported inside each bar. The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=42$, (b) $\sigma=0.11$, (c) $\sigma=0.12$, and (d) $\sigma=0.054$. In other words, the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset. }
 %    \mike{I don't understand the relative standard deviation reported here, also it does not specify which algorithm. I would simply write: ``The standard deviation of the response times for \ouralg in each plot is (a) $\sigma=XXX$, (b) $\sigma=XXX$, (c) $\sigma=XXX$, and (d) $\sigma=XXX$, in other words the difference between time trial measurements is negligible on all datasets except for \cifar because the execution time was negligible on that dataset.''}
     \label{fig:realworldcomparison}
-		\Description{Four plots showing how FasTED performance compares to three other euclidean distance algorithms. Each plot depicts a different real-world dataset. Each dataset was tested with three different selectivity levels as well. }
+		\Description{Four plots showing how \ouralg performance compares to three other euclidean distance algorithms. Each plot depicts a different real-world dataset. Each dataset was tested with three different selectivity levels as well. }
 \end{figure*}
 
 
 \subsection{\ouralg: Accuracy of FP16-32}
 
-\ouralg uses FP16-32 so there is greater machine rounding error compared to the FP32 or FP64 reference implementations. We examine the accuracy of \ouralg and configure \gdsjoin to use FP64 values (instead of FP32 used in Figure~\ref{fig:realworldcomparison}) and employ it as the ground truth. We examine two measures of accuracy, the first quantifies the overlap between the points found in the result set for each point in the dataset. The second method compares the difference in the distances computed by the algorithm.
+\ouralg uses FP16-32, so there is greater machine rounding error compared to the FP32 or FP64 reference implementations. We examine the accuracy of \ouralg and configure \gdsjoin to use FP64 values (instead of FP32 used in Figure~\ref{fig:realworldcomparison}) and employ it as the ground truth. We examine two measures of accuracy; the first quantifies the overlap between the points found in the result set for each point in the dataset. The second method compares the difference in the distances computed by the algorithm.
 
-\noindent\textbf{Overlap Between Result Sets:} For each point in the dataset, $p_i\in D$, we compute its neighbors in \ouralg and \gdsjoin, denoted as $N_i^{\ouralg}$ and $N_i^{\gdsjoin}$, respectively. We compare the neighbors for each point in the ground truth set to \ouralg and determine if the sets match. The intersection over the union of the sets for each point yields the overlap between the sets -- if the intersection and union of the sets are equal, then we assign an accuracy score of 1.0 for the point, otherwise the score is $<$1.0. Equation~\ref{eqn:accuracy} defines the accuracy score for an entire dataset where a score of 1.0 indicates perfect accuracy:
+\noindent\textbf{Overlap Between Result Sets:} For each point in the dataset, $p_i\in D$, we compute its neighbors in \ouralg and \gdsjoin, denoted as $N_i^{\ouralg}$ and $N_i^{\gdsjoin}$, respectively. We compare the neighbors for each point in the ground truth set to \ouralg and determine if the sets match. The intersection over the union of the sets for each point yields the overlap between the sets; if the intersection and union of the sets are equal, then we assign an accuracy score of 1.0 for the point, otherwise the score is $<$1.0. Equation~\ref{eqn:accuracy} defines the accuracy score for an entire dataset where a score of 1.0 indicates perfect accuracy:
 
 {
 \addtolength{\belowdisplayskip}{-1.0ex}
@@ -1028,7 +1032,7 @@ Accuracy=\frac{1}{|D|}\cdot\sum_{i=1}^{|D|}\frac{\Bigm\lvert N_i^{\ouralg} \cap 
 %\brian{I am leaving it as error, and not absolute error. I think it is good to demonstrate that there is no bias and that the mean is 0. Removing the min/max seems like a good idea as it is just noise.}
 
 \noindent\textbf{Difference Between Computed Distances:} We further our accuracy analysis by examining the difference between the computed distances for each $p_i\in D$ of the points found in the result sets of both \ouralg and \gdsjoin using FP64 (the ground truth). %, which is $I_i=N_i^{\ouralg} \cap N_i^{\gdsjoin}$.
-The distance error for a single pair of points $p_i$ and $p_j$ is defined as $dist_{i,j}^{\ouralg} - dist_{i,j}^{\gdsjoin}$. We then compute the mean, and standard deviation of this error across all pairs of points that appear in both the \ouralg and \gdsjoin result sets. 
+The distance error for a single pair of points $p_i$ and $p_j$ is defined as $dist_{i,j}^{\ouralg} - dist_{i,j}^{\gdsjoin}$. We then compute the mean and standard deviation of this error across all pairs of points that appear in both the \ouralg and \gdsjoin result sets. 
 
 % Note: These statistics are computed on a subset of the total distances computed by the algorithm. Only distances that are $<\epsilon$, and appear in both the \ouralg and \gdsjoin result set are considered.
 
@@ -1043,9 +1047,9 @@ The distance error for a single pair of points $p_i$ and $p_j$ is defined as $di
 % \end{equation}
 
 
-Table~\ref{tab:accuracy} presents the Overlap Between Result Sets metric across all real-world datasets, where we find that there is a negligible accuracy loss. The maximum accuracy loss occurs on \cifar ($S_l=256$) which achieves a very high accuracy of 99.946\%.
+Table~\ref{tab:accuracy} presents the Overlap Between Result Sets metric across all real-world datasets, where we find that there is a negligible accuracy loss. The maximum accuracy loss occurs on \cifar ($S_l=256$), which still achieves a very high accuracy of 99.946\%.
 
-Table~\ref{tab:distance_accuracy} presents the Difference Between Computed Distances metric for all pairs of points within the $\epsilon$ corresponding to $S_{s}{=}64$. Figure~\ref{fig:cifar_distances} shows the distribution of the errors in the distance calculations for the \cifar dataset (the dataset with the highest error described above). The distribution in Figure~\ref{fig:cifar_distances} and summary statistics in Table~\ref{tab:distance_accuracy}, show that the distances \ouralg computes have no measurable bias, and have minimal error. Thus, for similarly distributed datasets that are commensurate with the dynamic range of FP16, \ouralg can compute Euclidean distances without concern for accuracy loss due to machine rounding error. We observed a slight decrease in accuracy with increasing search radius. This detail may be relevant to a reader interested in applications where large distances are of particular importance. In the case of distance similarity searches, and other algorithms that are interested in the local neighborhood of points (e.g., $k$ nearest neighbors), the error in the distance computed is not of consequence.
+Table~\ref{tab:distance_accuracy} presents the Difference Between Computed Distances metric for all pairs of points within the $\epsilon$ corresponding to $S_{s}{=}64$. Figure~\ref{fig:cifar_distances} shows the distribution of the errors in the distance calculations for the \cifar dataset (the dataset with the highest error, described above). The distribution in Figure~\ref{fig:cifar_distances} and summary statistics in Table~\ref{tab:distance_accuracy} show that the distances \ouralg computes have no measurable bias and have minimal error. Thus, for similarly distributed datasets that are commensurate with the dynamic range of FP16, \ouralg can compute Euclidean distances without concern for accuracy loss due to machine rounding error. We observed a slight decrease in accuracy with increasing search radius. This detail may be relevant to a reader interested in applications where large distances are of particular importance. In the case of distance similarity searches, and other algorithms that are interested in the local neighborhood of points (e.g., $k$ nearest neighbors), the error in the distance computed is not of consequence.
 
 
 \section{Discussion \& Conclusions}\label{sec:conclusion}
@@ -1063,7 +1067,7 @@ We find that our method scales well with increasing data dimensionality and only
 
 %There are numerous algorithms that employ Euclidean distance calculations, so our algorithm will be of great utility to many application areas outside of similarity searches.
 
-We believe that our maximum performance of $\sim$150 TFLOPS is an underestimate of \ouralg's potential. We observe that when our algorithm executes with sufficiently large dataset sizes and dimensionalities, the clock speed is dynamically reduced because we exceed the 250~W power budget of our PCIe A100. For example, if we were to use an SXM A100 that has a 400~W power budget, we believe that \ouralg will achieve even greater throughput. Thus, the 150~TFLOPS result reported in this paper should be considered the lower bound on the performance of \ouralg when using $|D|{\geq}46416$ and $d{\geq}2048$.
+We believe that our maximum performance of $\sim$150 TFLOPS is an underestimate of \ouralg's potential. We observe that when our algorithm executes with sufficiently large dataset sizes and dimensionalities, the clock speed is dynamically reduced because we exceed the 250~W power budget of our PCIe A100. For example, if we were to use an SXM A100 that has a 400~W power budget, we believe that \ouralg would achieve even greater throughput. Thus, the 150~TFLOPS result reported in this paper should be considered the lower bound on the performance of \ouralg when using $|D|{\geq}46416$ and $d{\geq}2048$.
 
 
 Given that we have significantly utilized the capabilities of modern GPU hardware, future work should focus on efficiency optimizations, such as incorporating an indexing data structure to prune the search, which would further improve performance. However, such an algorithm  will have to be carefully designed to ensure that TC performance is not severely diminished. 
