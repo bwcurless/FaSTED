@@ -317,9 +317,9 @@ We define peak throughput as the maximum number of Tera Floating Point Operation
 
 Based on our investigation, we find that there are two major challenges that limit the performance achievable on GPU TCs for Euclidean distance calculations that we describe as follows.
 \begin{enumerate}[wide=0pt]
-\item \bfseries{Memory Bottlenecks --} A major challenge is efficiently transferring data between each level of the GPU's memory hierarchy, from global memory to shared memory and then into registers. 
+\item \textbf{Memory Bottlenecks --} A major challenge is efficiently transferring data between each level of the GPU's memory hierarchy, from global memory to shared memory and then into registers. 
 
-\item \bfseries{Insufficient Data Reuse --} Given the enormous disparity between FP16-32 TC throughput and global memory bandwidth, exploiting data reuse is critical. 
+\item \textbf{Insufficient Data Reuse --} Given the enormous disparity between FP16-32 TC throughput and global memory bandwidth, exploiting data reuse is critical. 
 \end{enumerate}
 
 
@@ -698,7 +698,7 @@ To see that banks are accessed in a conflict-free manner, observe that each \eig
 \subsubsection{Shared Memory Alignment}\label{opt:smemalignment}
 Shared memory allocations do not have alignment guarantees. 
 %\footnote{\url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html\#device-memory-accesses}} 
-Alignment specifiers,\\ \texttt{\_\_align\_\_(128)}, were added to shared memory definitions to ensure 128~B alignment. This enables swizzling to place the data in the appropriate bank, thus mitigating bank conflicts.  
+Alignment specifiers, \texttt{\_\_align\_\_\-(128)}, were added to shared memory definitions to ensure 128~B alignment. This enables swizzling to place the data in the appropriate bank, thus mitigating bank conflicts.
 
 
 \section{Experimental Evaluation}~\label{sec:evaluation}
