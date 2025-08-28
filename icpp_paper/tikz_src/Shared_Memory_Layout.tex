@@ -1,0 +1,70 @@
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
+
+\input{tikz_src/diagramResources.tex}
+
+\begin{document}
+
+% Shared Memory layout
+\begin{tikzpicture}[scale=1]
+	%\node[font=\large] at (3.75, 0) {\underline{Shared Memory Banks}};
+	\begin{scope}[shift={(0,-1.25)}]
+
+		\foreach \col in {0,...,7} {
+			\foreach \row in {0,..., 7}{
+
+			% Base calculations
+				\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
+				\pgfmathsetmacro{\xPos}{\col * \blockWidth}
+				\coordinate (UL) at (\xPos, \yPos);
+				\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			% Center of rectangle
+				\coordinate (C) at ($ (UL)!.5!(BR) $);
+
+			% Compute swizzled column
+				\pgfmathsetmacro{\swizzledCol}{int(\bitwiseXor{\col}{\row})}
+
+			% Draw rect with appropriate column color
+				\def\cellColor{\getcolor{\swizzledCol}}
+				\fill[color=\cellColor, draw=black] (UL) rectangle (BR);
+
+			% Label rows with Point number
+				\ifnum\col=0
+					\pgfmathsetmacro{\pointNum}{int(\row + 1)}
+					\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+					\node[font=\scriptsize, xshift=\poffset cm] at (C) {$p_\pointNum$};
+				\fi
+
+				\pgfmathsetmacro\headerOffset{\halfBlockHeight + 0.25}
+			% Label columns with bank number
+				\ifnum\row=0
+			% Add column number in binary
+					\pgfmathsetmacro{\binaryColumn}{int(bin(\col)}
+					\newcommand\paddedBinaryAddress{\PrependZeros[3]{\binaryColumn}}
+
+					\pgfmathsetmacro{\bank}{int(\col+1)}
+					\node[font=\scriptsize, yshift=\headerOffset cm] at (C) {$ b_\mathtt{\paddedBinaryAddress} $};
+				\fi
+
+				\pgfmathsetmacro{\binaryRow}{int(bin(\row))}
+			% Add XOR values to right side of figure
+				\ifnum\col=7
+					\pgfmathsetmacro{\xorOffset}{(\halfBlockWidth + 0.1)}
+				% Add header for XOR column...
+					\ifnum\row=0
+					    \pgfmathsetmacro\xorYOffset{\headerOffset - 0.05}
+						\node[anchor=west, font=\scriptsize, xshift=\xorOffset cm, yshift=\xorYOffset cm] at (C) {\underline{XOR}};
+					\fi
+					\newcommand\paddedBinaryRow{\PrependZeros[3]{\binaryRow}}
+					\node[anchor=west, font=\scriptsize, xshift=\xorOffset cm] at (C) {\texttt{0b\paddedBinaryRow}};
+				\fi
+
+			% Add dimension range for each block
+				\pgfmathsetmacro{\baseDim}{int(8 * \swizzledCol + 1)}
+				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+				\node[font=\scriptsize] at (C)  {\baseDim -\maxDim};
+
+
+		}};
+	\end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,49 @@
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
+
+\input{tikz_src/diagramResources.tex}
+
+\begin{document}
+
+% Global Memory layout
+\begin{tikzpicture}[scale=1]
+	%\node[font=\large] at (3.75, 0.5) {\underline{Global Memory Layout}};
+	\foreach \color [count=\col from 0] in \dimColors {
+		\foreach \row in {0,..., 7}{
+
+			% Rectangle coordinates
+			\pgfmathsetmacro{\yPos}{-\row * \blockHeight}
+			\pgfmathsetmacro{\xPos}{\col * \blockWidth}
+			\coordinate (UL) at (\xPos, \yPos);
+			\coordinate (BR) at  (\xPos + \blockWidth, \yPos - \blockHeight);
+			% Center of rectangle
+			\coordinate (C) at ($ (UL)!.5!(BR) $);
+			\coordinate (BC) at ($ (C)+(0, -0.5 * \blockHeight) $);
+            
+
+			% Main rectangle
+			\fill[color=\color, draw=black] (UL) rectangle (BR);
+
+			% Label rows with Point number
+			\ifnum\col=0
+				\pgfmathsetmacro{\pointNum}{int(\row + 1)}
+				\pgfmathsetmacro{\poffset}{-(\halfBlockWidth + 0.5)}
+				\node[font=\scriptsize, xshift=\poffset cm] at (C) {$p_\pointNum$};
+			\fi
+
+
+			% Add dimension labels
+			\pgfmathsetmacro{\baseDim}{int((\col) * 8 + 1)}
+			% Handle last col differently since it goes to d
+			\ifnum\col=8
+				\node[anchor=south, font=\scriptsize] at (BC)  {\baseDim ...$d$};
+			\else
+				% Label with thread tileIndex
+				\pgfmathsetmacro{\cellIndex}{int((\row) * 8 + \col)}
+				\node[anchor=north west, font=\tiny, xshift=-0.075 cm, yshift=0.075 cm] at (UL) {T\cellIndex};
+				\pgfmathsetmacro{\maxDim}{int(\baseDim + 7)}
+				\node[anchor=south, font=\scriptsize] at (BC)  {\baseDim -\maxDim};
+			\fi
+
+	}};
+\end{tikzpicture}
+\end{document}

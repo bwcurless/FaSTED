@@ -1,0 +1,86 @@
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
+
+\input{tikz_src/diagramResources.tex}
+
+\begin{document}
+
+% Block Tile
+\begin{tikzpicture}[show background rectangle, 
+    background rectangle/.style={style=fragment, fill=BlockTileColor}]
+
+	\newcommand\drawBlockLevelFragment[6]{%
+		\def\width{#1}
+		\def\height{#2}
+		\def\upperLeftContent{#3}
+		\def\bottomRightContent{#4}
+		\def\color{#5}
+		\def\label{#6}
+
+            \def\labelShift{0.075}
+		\filldraw[style=fragment, fill= \color, draw=black] (0, 0) node[anchor=south east, font=\tiny, yshift=-\labelShift cm] {\bottomRightContent} rectangle (-\width, \height) node[anchor=north west, font=\tiny, yshift=\labelShift cm] {\upperLeftContent} node[midway, align=center, font=\scriptsize] {\label};
+	}
+
+
+	% Draw the 4 warp tiles in center
+	\newcommand\warpTileSize{1.25}
+	\newcommand\warpPadding{0.25}
+	\pgfmathsetmacro\paddedWarpTileSize{\warpTileSize + \warpPadding}
+
+
+	% Draw all Warp Tiles
+	\begin{scope}[xshift=0 cm, yshift=0 cm]
+		\foreach \row in {0, ..., 1} {
+			\foreach \col in {0, ..., 1} {
+				\begin{scope}[xshift=\paddedWarpTileSize * \col cm, yshift= -\paddedWarpTileSize * \row cm]
+					\pgfmathtruncatemacro\warpIndex{\row * 2 + \col + 1}
+					\pgfmathtruncatemacro\warpSize{32}
+
+					\pgfmathtruncatemacro\minQueryPoint{\row * \warpSize + 1}
+					\pgfmathtruncatemacro\maxQueryPoint{\minQueryPoint + \warpSize - 1}
+					\pgfmathtruncatemacro\minCandPoint{\col * \warpSize + 1}
+					\pgfmathtruncatemacro\maxCandPoint{\minCandPoint + \warpSize - 1}
+					\def\minDim{1}
+					\def\maxDim{64}
+
+					\drawBlockLevelFragment{\warpTileSize}{\warpTileSize}{$a_{\minQueryPoint,\minCandPoint}$}{$a_{\maxQueryPoint,\maxCandPoint}$}{WarpTileColor}{Warp Tile\\ \warpIndex}
+				\end{scope}
+			}
+		}
+	\end{scope}
+
+	\def\sliceYShift{0.3}
+	\def\sliceXShift{0.1}
+	\pgfmathtruncatemacro\numSlices{2 }
+	\pgfmathtruncatemacro\numSlicesIt{\numSlices - 1}
+	% Draw the 64D shared memory chunks that have been paged in
+	% A Data
+	\begin{scope}[xshift=-\paddedWarpTileSize cm, yshift=-\paddedWarpTileSize cm]
+		\foreach \i in {0, ..., \numSlicesIt} {
+			\begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+				\pgfmathtruncatemacro\maxDim{64 * \numSlices - 64 * \i}
+				\drawBlockLevelFragment{\warpTileSize * 0.75}{2 * \warpTileSize + \warpPadding}{$p_{1,1}$}{$p_{64,\maxDim}$}{ASharedMemColor}{$P_{\blockf}$\\ (SMEM)}
+			\end{scope}
+		}
+	\end{scope}
+
+	% B Data
+	\begin{scope}[xshift=\paddedWarpTileSize cm, yshift=\paddedWarpTileSize cm]
+		\pgfmathsetmacro\blockWidth{2 * \warpTileSize + \warpPadding}
+		\foreach \i in {0, ..., \numSlicesIt} {
+            \begin{scope}[xshift=-\sliceXShift * \i cm, yshift=\sliceYShift * \i cm]
+            \pgfmathtruncatemacro\maxDim{64 * \numSlices - 64 * \i}
+            \ifnum \i=\numSlicesIt
+            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{64,\maxDim}$}{BSharedMemColor}{$Q_{\blockf}$ (SMEM)}
+            \else
+            % Don't draw center text on earlier stacks
+            \drawBlockLevelFragment{\blockWidth}{\warpTileSize * 0.75}{$p_{1,1}$}{$p_{64,\maxDim}$}{BSharedMemColor}{}
+            \fi
+            \end{scope}
+        }
+	\end{scope}
+
+  % Draw the entire block tile
+	\drawLabeledBoundingBox{color=BlockTileColor}{Single Block Tile}{black}
+
+\end{tikzpicture}
+\end{document}

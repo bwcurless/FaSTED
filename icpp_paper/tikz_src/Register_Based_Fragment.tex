@@ -1,0 +1,37 @@
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
+
+\input{tikz_src/diagramResources.tex}
+
+\begin{document}
+
+% Register based fragment
+\begin{tikzpicture}
+
+	\newcommand\drawThreadPhase[1]{
+		\edef\phaseNum{#1}
+% Thread\register layout
+		\foreach \phaseRow in {0, ..., 7} {
+			\foreach \phaseCol in {0, ..., 3}{
+				\coordinate (C) at (\phaseCol * \registerWidth, -\phaseRow * \registerHeight);
+				\pgfmathsetmacro\threadIndex{int(\phaseRow * 4 + \phaseCol)}
+				\def\chunkColor{\getPhaseColor{\phaseNum}}
+				\filldraw[fill=\chunkColor, draw=black] (C) rectangle +(\registerWidth, -\registerHeight) node[midway, font=\tiny] {\texttt{T\threadIndex}};
+                % Draw node labels for how A[n] matches up to this layout.
+                \ifnum \threadIndex=0
+                \coordinate (LabelPos) at ($(C)+(0.05, 0.1)$);
+                \coordinate (ArrowEnd) at ($(C)+(\halfRegisterWidth + 0.1, 0)$);
+
+                \pgfmathtruncatemacro\indexNum{\phaseNum - 1}
+                % TODO would be nice to represent the registers somehow
+                \node[font=\tiny, inner sep=0, text=white] (label) at (LabelPos) {\texttt{A[\indexNum]}};
+                \draw[arrows= -{Classical TikZ Rightarrow[width=0.5mm, length=0.5mm]}, draw=white] (label.east) .. controls +(0.075, 0) .. (ArrowEnd);
+                \fi
+
+			}
+		}
+	}
+
+	\drawFragment{ \drawThreadPhase }
+
+\end{tikzpicture}
+\end{document}

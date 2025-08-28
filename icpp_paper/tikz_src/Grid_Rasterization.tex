@@ -1,0 +1,101 @@
+\documentclass[tikz, class=extarticle, 9pt]{standalone}
+
+\input{tikz_src/diagramResources.tex}
+
+\begin{document}
+
+
+% Block Tile Rasterization
+\begin{tikzpicture}
+	\newcommand\tileSpacing{0.25}
+	\newcommand\tileDim{0.6}
+    
+	% Draw global memory layouts
+	\newcommand\kHeight{1}
+	\pgfmathsetmacro\mHeight{4 * \tileDim + 3 * \tileSpacing}
+	\tikzstyle nodeStyle=[align=center, font=\footnotesize]
+        \pgfmathsetmacro\queryXOffset{-\kHeight - \tileSpacing}
+	\filldraw[xshift=\queryXOffset cm, yshift=0 cm, style=fragment, fill=GlobalPointsColor] (0, 0) rectangle +(\kHeight, -\mHeight) node[midway, style=nodeStyle] {Points\\ (DRAM)};
+	\filldraw[xshift=0 cm, yshift=0.25 cm, style=fragment, fill=GlobalQueriesColor] (0, \kHeight) rectangle +(\mHeight, -\kHeight) node[midway, style=nodeStyle] {Query Points\\ (DRAM)};
+
+
+	\pgfmathsetmacro\paddedTileDim{\tileDim + \tileSpacing}
+
+		% Remember the last node that we need to draw an arrow from
+	\def\innerTiles{2}
+	\def\outerChunks{2}
+
+		% Outer square rasterized chunks
+	\pgfmathsetmacro\outerRange{int(\outerChunks - 1)}
+
+	\foreach \outerRow in {0, ..., \outerRange} {
+		\foreach \outerCol in {0, ..., \outerRange} {
+			\pgfmathsetmacro\outerIndex{int(\outerRow * \outerChunks + \outerCol)}
+			\begin{scope}[xshift=\outerCol * \innerTiles * \paddedTileDim cm,
+				yshift=-\outerRow * \innerTiles * \paddedTileDim cm]
+
+				% inner square rasterized chunks
+				\pgfmathsetmacro\innerRange{int(\innerTiles - 1)}
+				\foreach \row in {0, ..., \innerRange} {
+					\foreach \col in {0, ..., \innerRange} {
+						\pgfmathsetmacro\innerIndex{int(\row * \innerTiles + \col + 1)}
+						\pgfmathsetmacro\tileIndex{int(\outerIndex * (\innerTiles * \innerTiles) + \innerIndex)}
+
+						\coordinate (TileUL) at (\col * \paddedTileDim, -\row * \paddedTileDim);
+						\filldraw[style=fragment, fill=BlockTileColor] (TileUL) rectangle ++(\tileDim, -\tileDim) node[midway, font=\tiny, align=center, color=black] {Block\\ Tile \tileIndex};
+
+																		% Compute left and right nodes for arrows
+						\coordinate (currentRightNode) at ($(TileUL) + (\tileDim, -\tileDim / 2)$);
+						\coordinate (currentLeftNode) at ($(TileUL) + (0, -\tileDim / 2)$);
+						\coordinate (currentBottomNode) at ($(TileUL) + (\tileDim / 2, -\tileDim)$);
+						\coordinate (currentTopNode) at ($(TileUL) + (\tileDim / 2, 0)$);
+						\tikzstyle arrow=[rounded corners=1pt, arrows=-{Latex[width=1.0mm, length=1.0mm]}]
+																% Draw connecting arrows
+						\newcommand\arrowOffset{\tileSpacing / 2}
+
+						\newcommand\drawOuterShortArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastRightNode) -- ++(\arrowOffset, 0) -- ++(0, \innerTiles * \paddedTileDim - \paddedTileDim) -- ++(\arrowOffset, 0);
+							\fi
+						}
+						\newcommand\drawOuterLongArrow{
+							\ifnum \innerIndex=1
+								\draw[style=arrow] (lastBottomNode) -- ++(0 , -\tileSpacing / 2) -- ++(-4 * \paddedTileDim + \paddedTileDim, 0) -- ++(0, -\arrowOffset);
+							\fi
+						}
+																		% Draw outer-raster-square connecting arrows
+						\ifnum \outerIndex=1
+							\drawOuterShortArrow{}
+						\fi
+						\ifnum \outerIndex=2
+							\drawOuterLongArrow{}
+						\fi
+						\ifnum \outerIndex=3
+							\drawOuterShortArrow{}
+						\fi
+																		% Draw normal inner connecting arrows
+						\ifnum \col>0
+							\draw[style=arrow] (lastRightNode) -- +(\tileSpacing, 0);
+						\fi
+																		% Draw last to first connecting arrows
+						\ifnum \col=0
+							\ifnum \row>0
+								\draw[style=arrow] (lastBottomNode) -- ++(0, -\tileSpacing / 2) -- ++(-\innerTiles * \paddedTileDim + \paddedTileDim, 0) -- ++(0 , -\tileSpacing / 2);
+							\fi
+						\fi
+
+																		% Save the last right node for the next iteration to connect
+																		% arrows to it
+						\coordinate (lastLeftNode) at (currentLeftNode);
+						\coordinate (lastRightNode) at (currentRightNode);
+						\coordinate (lastTopNode) at (currentTopNode);
+						\coordinate (lastBottomNode) at (currentBottomNode);
+
+					}
+				}
+			\end{scope}
+		}
+	}
+
+\end{tikzpicture}
+\end{document}
