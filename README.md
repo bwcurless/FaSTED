@@ -4,7 +4,7 @@
 This is a FP16-FP32 mixed precision vector similarity search that is written for the A100 GPU. It operates in mixed precision with FP16 input data, and computes FP32 distances. Given two sets of vectors of N-dimensions and a distance epsilon $$\epsilon$$,
 this routine computes the euclidean distance between every point. If two points are within $$\epsilon$$ of each other, their coordinates are output back to global memory and classified as a "Pair". The algorithm computes the distance between two vectors by performing a giant matrix multiplication of the candidate points times the query points. The summation of the squared dimensions of each point are added to the matrix product to compute the euclidean distance. 
 
-## ICPP2025 Submission
+## ICPP 2025 Submission
 This algorithm was submitted to ICPP 2025 (International Conference on Parallel Processing). The experiments in the paper were run on the tag "128x128x64_Baseline". The changes made to the code in the "leave one out" TFLOPS study are all in the branches prefixed with "opt_".
 
 ## Optimizations
